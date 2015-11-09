@@ -1,13 +1,15 @@
 from __future__ import division, absolute_import
 
 import collections
+import time
 
 from RO.Comm.TwistedTimer import Timer
 from RO.StringUtil import strFromException, degFromDMSStr
 
 from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd, LinkCommands
 
-from tcc.base import tai
+def tai():
+    return time.time() - 36.
 
 __all__ = ["TCSDevice"]
 
