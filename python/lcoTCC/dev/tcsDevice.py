@@ -1,11 +1,4 @@
-"""3/100 of a degree for rotator move
-M2 30 unit backlash
-DCIR = offset rotator, UNCLAMP, DCIR wait for move, CLAMP,
-
-"""
 from __future__ import division, absolute_import
-
-import time
 
 import collections
 
@@ -14,8 +7,7 @@ from RO.StringUtil import strFromException, degFromDMSStr
 
 from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd, LinkCommands
 
-def tai():
-    return time.time() - 36.
+from tcc.base import tai
 
 __all__ = ["TCSDevice"]
 
@@ -100,6 +92,7 @@ class Status(object):
             "axePos": self.axePos(),
             "objNetPos": self.objNetPos(),
             "utc_tai": self.utc_tai(),
+            "secFocus": self.secFocus(),
             # "currArcOff": self.currArcOff(), 0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # "objArcOff": self.objArcOff(), bjArcOff=0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # TCCPos=68.361673,63.141087,nan; AxePos=68.393020,63.138022
@@ -154,6 +147,11 @@ class Status(object):
 
     def utc_tai(self):
         return "UTC_TAI=%0.0f"%(-36.0,) # this value is usually gotten from coordConv/earthpred, I think, which we don't have implemented...
+
+    def secFocus(self):
+        secFocus = self.statusFieldDict["focus"].value
+        secFocus = "NaN" if secFocus is None else "%.4f"%secFocus
+        return "SecFocus=%s"%secFocus
 
     @property
     def arcOff(self):
@@ -372,7 +370,7 @@ class TCSDevice(TCPDevice):
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
         if not self.waitSlewCmd.isDone:
-            self.waitSlewCmd.setState(self.waitSlewCmd.Cancelled, "Superseded by new slew")
+            self.waitSlewCmd(self.waitSlewCmd.Cancelled, "Superseded by new slew")
         self.waitSlewCmd = UserCmd()
         enterRa = "RAD %.8f"%ra
         enterDec = "DECD %.8f"%dec
