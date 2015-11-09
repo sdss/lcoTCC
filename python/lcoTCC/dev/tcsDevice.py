@@ -5,6 +5,8 @@ DCIR = offset rotator, UNCLAMP, DCIR wait for move, CLAMP,
 """
 from __future__ import division, absolute_import
 
+import time
+
 import collections
 
 from RO.Comm.TwistedTimer import Timer
@@ -12,7 +14,8 @@ from RO.StringUtil import strFromException, degFromDMSStr
 
 from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd, LinkCommands
 
-from tcc.base import tai
+def tai():
+    return time.time() - 36.
 
 __all__ = ["TCSDevice"]
 

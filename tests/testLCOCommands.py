@@ -9,8 +9,8 @@ from twisted.trial.unittest import TestCase
 from twisted.internet.defer import gatherResults
 from twisted.internet import reactor
 
-from tcc.actor import TCCLCODispatcherWrapper
-from tcc.base import testUtils
+from lcoTCC.actor import TCCLCODispatcherWrapper
+from twistedActor import testUtils
 testUtils.init(__file__)
 
 

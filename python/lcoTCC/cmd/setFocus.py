@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import
 
-from .showFocusLCO import showFocus
+from .showFocus import showFocus
 
 __all__ = ["setFocus"]
 

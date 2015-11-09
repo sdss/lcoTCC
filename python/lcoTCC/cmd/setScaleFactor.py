@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import
 
-from .showScaleFactorLCO import showScaleFactor
+from .showScaleFactor import showScaleFactor
 
 __all__ = ["setScaleFactor"]
 

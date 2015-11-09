@@ -3,9 +3,10 @@ from __future__ import division, absolute_import
 
 from twisted.trial.unittest import TestCase
 
-from tcc.actor import TCCLCOActorWrapper
-import tcc.base.testUtils
-tcc.base.testUtils.init(__file__)
+from lcoTCC.actor import TCCLCOActorWrapper
+
+from twistedActor import testUtils
+testUtils.init(__file__)
 
 class TestTCCLCOActorCtrlWrapper(TestCase):
     """Test basics of TCCLCOActorCtrlWrapper

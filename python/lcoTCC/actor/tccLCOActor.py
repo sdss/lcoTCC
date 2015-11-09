@@ -1,9 +1,13 @@
 from __future__ import division, absolute_import
-"""The TCC (telescope control code) for the Apache Point Observatory 2.5m telescope
+"""The TCC (telescope control code) interface shim for the Las Campanas Observatory du Pont telescope
 """
+import sys
 import syslog
+import traceback
 
-from twistedActor import Actor
+from RO.StringUtil import strFromException
+
+from twistedActor import Actor, CommandError
 
 from .tccLCOCmdParser import TCCLCOCmdParser
 from ..version import __version__
@@ -35,3 +39,36 @@ class TCCLCOActor(Actor):
         self.scaleDev = scaleDev
         self.cmdParser = TCCLCOCmdParser()
         Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)
+
+    def parseAndDispatchCmd(self, cmd):
+        """Dispatch the user command
+
+        @param[in] cmd  user command (a twistedActor.UserCmd)
+        """
+        if not cmd.cmdBody:
+            # echo to show alive
+            self.writeToOneUser(":", "", cmd=cmd)
+            return
+        try:
+            cmd.parsedCmd = self.cmdParser.parseLine(cmd.cmdBody)
+        except Exception as e:
+            cmd.setState(cmd.Failed, "Could not parse %r: %s" % (cmd.cmdBody, strFromException(e)))
+            return
+
+        #cmd.parsedCmd.printData()
+        if cmd.parsedCmd.callFunc:
+            cmd.setState(cmd.Running)
+            try:
+                cmd.parsedCmd.callFunc(self, cmd)
+            except CommandError as e:
+                cmd.setState("failed", textMsg=strFromException(e))
+                return
+            except Exception as e:
+                sys.stderr.write("command %r failed\n" % (cmd.cmdStr,))
+                sys.stderr.write("function %s raised %s\n" % (cmd.parsedCmd.callFunc, strFromException(e)))
+                traceback.print_exc(file=sys.stderr)
+                textMsg = strFromException(e)
+                hubMsg = "Exception=%s" % (e.__class__.__name__,)
+                cmd.setState("failed", textMsg=textMsg, hubMsg=hubMsg)
+        else:
+            raise RuntimeError("Command %r not yet implemented" % (cmd.parsedCmd.cmdVerb,))

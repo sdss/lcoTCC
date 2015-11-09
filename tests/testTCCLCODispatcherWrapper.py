@@ -5,10 +5,10 @@ import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from twisted.trial.unittest import TestCase
 
-from tcc.actor import TCCLCODispatcherWrapper
+from lcoTCC.actor import TCCLCODispatcherWrapper
 
-import tcc.base.testUtils
-tcc.base.testUtils.init(__file__)
+from twistedActor import testUtils
+testUtils.init(__file__)
 
 class TestMirrorDispatcherWrapper(TestCase):
     """Test basics of MirrorDispatcherWrapper
