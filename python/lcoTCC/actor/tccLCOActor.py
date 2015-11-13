@@ -7,7 +7,7 @@ import traceback
 
 from RO.StringUtil import strFromException
 
-from twistedActor import Actor, CommandError
+from twistedActor import Actor, CommandError, BaseActor
 
 from .tccLCOCmdParser import TCCLCOCmdParser
 from ..version import __version__
@@ -18,7 +18,7 @@ scaleHost = "localhost"
 scalePort = 1
 
 
-class TCCLCOActor(Actor):
+class TCCLCOActor(BaseActor):
     """!TCC actor for the LCO telescope
     """
     Facility = syslog.LOG_LOCAL1
@@ -36,9 +36,12 @@ class TCCLCOActor(Actor):
         @param[in] name  actor name; used for logging
         """
         self.tcsDev = tcsDev
+        self.tcsDev.writeToUsers = self.writeToUsers
         self.scaleDev = scaleDev
+        self.scaleDev.writeToUsers = self.writeToUsers
         self.cmdParser = TCCLCOCmdParser()
-        Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)
+        BaseActor.__init__(self, userPort=userPort, maxUsers=1, name=name, version=__version__)
+        # Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)
 
     def parseAndDispatchCmd(self, cmd):
         """Dispatch the user command

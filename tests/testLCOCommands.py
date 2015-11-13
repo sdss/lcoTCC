@@ -1,22 +1,16 @@
 #!/usr/bin/env python2
 from __future__ import division, absolute_import
 
-import os
 import functools
 import itertools
 
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import gatherResults
+from twisted.internet.defer import gatherResults, Deferred
 from twisted.internet import reactor
 
 from lcoTCC.actor import TCCLCODispatcherWrapper
 from twistedActor import testUtils
 testUtils.init(__file__)
-
-
-runAllTests = True
-
-DataDir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "data")
 
 class TestLCOCommands(TestCase):
 
@@ -66,6 +60,23 @@ class TestLCOCommands(TestCase):
         )
         return d1
 
+    def queueTrackCmd(self, cmdStr):
+        """TCS device sets track commands done instantly (eg before state=Tracking)
+        return a deferred here that will only fire when state==Tracking
+        """
+        d = Deferred()
+        def fireWhenTracking(keyVar):
+            if keyVar.valueList[0] == "Tracking" and keyVar.valueList[1] == "Tracking":
+                # telescope is tracking
+                print("SAW TRACKING STATE!")
+                d.callback(None)
+        def removeCB(foo=None):
+            self.model.axisCmdState.removeCallback(fireWhenTracking)
+        d.addCallback(removeCB)
+        self.model.axisCmdState.addCallback(fireWhenTracking)
+        self.dw.queueCmd(cmdStr)
+        return d
+
     def checkFocus(self, cmdVar, focusVal):
         """Check the actor, and the model, verify that the correct focus
         is present
@@ -86,10 +97,9 @@ class TestLCOCommands(TestCase):
         @param[in] scaleVal, the expected scale value
         """
         if cmdVar.isDone:
-            self.assertFalse(cmdVar.didFail)
-            self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.currentScaleFactor), msg="actor-current")
-            self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor), msg="actor-target")
-            self.assertAlmostEqual(float(scaleVal), float(self.model.scaleFac.valueList[0]), msg="model")
+            self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.currentScaleFactor), msg="actor-current: %.6f, %.6f"%(float(scaleVal), float(self.actor.scaleDev.currentScaleFactor)))
+            self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor), msg="actor-target: %.6f, %.6f"%(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor)))
+            self.assertAlmostEqual(float(scaleVal), float(self.model.scaleFac.valueList[0]), msg="model: %.6f, %.6f"%(float(scaleVal), float(self.model.scaleFac.valueList[0])))
 
     def checkAxesState(self, axisState):
         assert axisState in ["Tracking", "Slewing", "Halted"]
@@ -133,7 +143,9 @@ class TestLCOCommands(TestCase):
         # self.checkAxesState("Idle")
         raVal, decVal = 5,5
         trackCmd = "track %i,%i icrs"%(raVal, decVal)
-        d = self.queueCmd(trackCmd, functools.partial(self.checkTrackDone, raVal=raVal, decVal=decVal))
+        print("model pre state: %s"%(str(self.model.axisCmdState.valueList)))
+        # d = self.queueCmd(trackCmd, functools.partial(self.checkTrackDone, raVal=raVal, decVal=decVal))
+        d = self.queueTrackCmd(trackCmd)
         reactor.callLater(2, self.checkIsSlewing)
         return d
 

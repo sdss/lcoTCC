@@ -184,6 +184,7 @@ class FakeTCS(FakeDev):
         self.targDec = 0.
         self.offDec = 0.
         self.offRA = 0.
+        self.epoch = 2000
         self.telState = self.Idle
         self.focusTimer = Timer()
         self.slewTimer = Timer()
@@ -255,6 +256,13 @@ class FakeTCS(FakeDev):
                 # slew to target
                 self.doSlew()
                 self.userSock.writeLine("0")
+            elif tokens[0] == "MP":
+                # slew to target
+                # LCO: HACK, set slewing after MP is seen (this is not true TCS behavior but convenient for testing because)
+                # we are not allowed to send the actual SLEW command (the operator must do that)
+                self.MP = float(tokens[1])
+                self.doSlew()
+                self.userSock.writeLine("0")
             elif tokens[0] == "FOCUS":
                 if len(tokens) == 1:
                    self.userSock.writeLine(str(self.focus))
@@ -284,8 +292,10 @@ class FakeTCS(FakeDev):
             self.userSock.writeLine("-1") # error!
             print "Error: ", e
 
-    def doSlew(self):
-        self.telState = self.Slewing
+    def doSlew(self, offset=False):
+        if not offset:
+            # offset doesn't trigger slewing state
+            self.telState = self.Slewing
         self.dec = self.incrementPosition(self.targDec, self.dec, AxisStepSize)
         self.ra = self.incrementPosition(self.targRA, self.ra, AxisStepSize)
         if self.onTarget:
