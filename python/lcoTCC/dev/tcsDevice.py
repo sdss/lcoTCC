@@ -12,8 +12,7 @@ def tai():
     return time.time() - 36.
 
 __all__ = ["TCSDevice"]
-
-SlewTriggered = "SlewTriggered"
+Offset = "Offset"
 
 PollTimeSlew = 2 #seconds, LCO says status is updated no more frequently that 5 times a second
 PollTimeTrack = 5
@@ -119,10 +118,11 @@ class Status(object):
         # check if we are really slewing instead of tracking (offsets don't trigger slew state)
         # so check manually
         axisCmdStateList = [axisCmdState, axisCmdState, "NotAvailable"]
-        axisSlewingCheck = self.axisSlewing()
+        axisSlewingCheck = self.axesSlewing()
         for ii, manualCheck in enumerate(axisSlewingCheck):
             if manualCheck:
                 # axis is moving, force it to report slewing
+                # offsets do not trigger a slewing state in TCS, but we want them to.
                 axisCmdStateList[ii] = Slewing
         return "AxisCmdState=%s"%(", ".join(axisCmdStateList))
 
@@ -170,6 +170,17 @@ class Status(object):
         # return "%.6f, 0.0, 0.0, %.6f, 0.0, 0.0"%(raOff, decOff)
         return "%.6f, %.6f"%(raOff, decOff)
 
+    def axesSlewing(self):
+        if self.previousDec == Offset:
+            decSlewing = True
+        else:
+            decSlewing = abs(self.previousDec - self.statusFieldDict["dec"].value) > self.decOnTarg if self.previousDec is not None else False
+        if self.previousRA == Offset:
+            raSlewing = True
+        else:
+            raSlewing = abs(self.previousRA - self.statusFieldDict["ra"].value) > self.raOnTarg if self.previousRA is not None else False
+        return [raSlewing, decSlewing, False]
+
     def currArcOff(self):
         return "currArcOff=%s"%self.arcOff
 
@@ -183,27 +194,11 @@ class Status(object):
         for kw in self.tccKWDict.iterkeys():
             oldOutput = self.tccKWDict[kw]
             newOutput = getattr(self, kw)()
-            if kw == "axisCmdState":
-                print ("old: %s,  new: %s"%(oldOutput, newOutput))
             if oldOutput != newOutput:
                 self.tccKWDict[kw] = newOutput
                 kwOutputList.append(newOutput)
         return "; ".join(kwOutputList)
 
-    def axisSlewing(self):
-        """Return a boolean for each axis
-        """
-        # if no target ra or dec entered axis is not slewing (eg startup)
-        if self.previousDec == SlewTriggered:
-            decMoving = True
-        else:
-            decMoving = abs(self.previousDec - self.statusFieldDict["dec"].value) > self.decOnTarg if self.previousDec is not None else False
-        if self.previousRA == SlewTriggered:
-            raMoving = True
-        else:
-            raMoving = abs(self.previousRA - self.statusFieldDict["ra"].value) > self.raOnTarg if self.previousRA is not None else False
-        # note: figure out how to add rotator here
-        return [raMoving, decMoving, False]
 
 class TCSDevice(TCPDevice):
     """!A Device for communicating with the LCO TCS."""
@@ -253,15 +248,18 @@ class TCSDevice(TCPDevice):
 
     @property
     def isTracking(self):
-        if not self.waitOffsetCmd.isDone:# or not self.waitSlewCmd.isDone:
-            # slews finish immediately, don't need self.waitSlewCmd?
+        if not self.waitOffsetCmd.isDone:
             # offsets do not trigger tcs tracking state, so we fake it here
             return False
         return self.status.statusFieldDict["state"].value == Tracking
 
     @property
     def isSlewing(self):
-        return True in self.status.axisSlewing()
+
+        if not self.waitOffsetCmd.isDone or not self.waitSlewCmd.isDone:
+            return True
+        else:
+            return False
 
     def init(self, userCmd=None, timeLim=None, getStatus=True):
         """Called automatically on startup after the connection is established.
@@ -322,7 +320,7 @@ class TCSDevice(TCPDevice):
                 self.waitSlewCmd.setState(self.waitSlewCmd.Done)
             if not self.waitFocusCmd.isDone and self.atFocus:
                 self.waitFocusCmd.setState(self.waitFocusCmd.Done)
-            if not self.waitOffsetCmd.isDone and not self.isSlewing:
+            if not self.waitOffsetCmd.isDone and not True in self.status.axesSlewing():
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
     def focus(self, focusValue, userCmd=None):
@@ -378,9 +376,6 @@ class TCSDevice(TCPDevice):
         """
         log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
         userCmd = expandUserCmd(userCmd)
-        # zero the delta computation so the offset isn't marked done immediately
-        self.status.previousDec = SlewTriggered
-        self.status.previousRA = SlewTriggered
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
@@ -416,8 +411,8 @@ class TCSDevice(TCPDevice):
         log.info("%s.slewOffset(userCmd=%s, ra=%.6f, dec=%.6f)" % (self, userCmd, ra, dec))
         userCmd = expandUserCmd(userCmd)
         # zero the delta computation so the offset isn't marked done immediately
-        self.status.previousDec = SlewTriggered
-        self.status.previousRA = SlewTriggered
+        self.status.previousDec = Offset
+        self.status.previousRA = Offset
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd

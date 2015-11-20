@@ -60,7 +60,7 @@ class TestLCOCommands(TestCase):
         )
         return d1
 
-    def queueTrackCmd(self, cmdStr):
+    def queueTrackCmd(self, cmdStr, raVal, decVal):
         """TCS device sets track commands done instantly (eg before state=Tracking)
         return a deferred here that will only fire when state==Tracking
         """
@@ -68,7 +68,7 @@ class TestLCOCommands(TestCase):
         def fireWhenTracking(keyVar):
             if keyVar.valueList[0] == "Tracking" and keyVar.valueList[1] == "Tracking":
                 # telescope is tracking
-                print("SAW TRACKING STATE!")
+                self.checkTrackDone(raVal, decVal)
                 d.callback(None)
         def removeCB(foo=None):
             self.model.axisCmdState.removeCallback(fireWhenTracking)
@@ -111,6 +111,8 @@ class TestLCOCommands(TestCase):
         raActorPos = self.actor.tcsDev.status.statusFieldDict["ra"].value
         decActorPos = self.actor.tcsDev.status.statusFieldDict["dec"].value
         raModelPos, decModelPos, rotModelPos = self.model.axePos.valueList
+        if raModelPos is None or decModelPos is None:
+            self.assertTrue(False, "No value on model!")
         self.assertAlmostEqual(float(raVal), float(raActorPos))
         self.assertAlmostEqual(float(decVal), float(decActorPos))
         self.assertAlmostEqual(float(raVal), float(raModelPos))
@@ -119,11 +121,10 @@ class TestLCOCommands(TestCase):
     def checkIsSlewing(self):
             self.checkAxesState("Slewing")
 
-    def checkTrackDone(self, cmdVar, raVal, decVal):
-        if cmdVar.isDone:
-            # how to verify position is correct?
-            self.checkAxesState("Tracking")
-            self.checkAxesPosition(raVal, decVal)
+    def checkTrackDone(self, raVal, decVal):
+        # how to verify position is correct?
+        self.checkAxesState("Tracking")
+        self.checkAxesPosition(raVal, decVal)
 
     def testFocus(self):
         focusVal = 10
@@ -143,9 +144,7 @@ class TestLCOCommands(TestCase):
         # self.checkAxesState("Idle")
         raVal, decVal = 5,5
         trackCmd = "track %i,%i icrs"%(raVal, decVal)
-        print("model pre state: %s"%(str(self.model.axisCmdState.valueList)))
-        # d = self.queueCmd(trackCmd, functools.partial(self.checkTrackDone, raVal=raVal, decVal=decVal))
-        d = self.queueTrackCmd(trackCmd)
+        d = self.queueTrackCmd(trackCmd, raVal, decVal)
         reactor.callLater(2, self.checkIsSlewing)
         return d
 
@@ -153,7 +152,7 @@ class TestLCOCommands(TestCase):
         # self.checkAxesState("Idle")
         raVal, decVal = 10.8,-5.2
         trackCmd = "track %.2f,%.2f icrs"%(raVal, decVal)
-        d = self.queueCmd(trackCmd, functools.partial(self.checkTrackDone, raVal=raVal, decVal=decVal))
+        d = self.queueTrackCmc(trackCmd)
         reactor.callLater(2, self.checkIsSlewing)
         return d
 
