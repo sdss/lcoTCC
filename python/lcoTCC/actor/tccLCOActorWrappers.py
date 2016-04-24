@@ -1,13 +1,11 @@
 from __future__ import division, absolute_import
 
-from twistedActor import ActorWrapper
+from twistedActor import ActorWrapper, DispatcherWrapper
 
-from tcc.actor import TCCLCOActor
-from tcc.lco import TCSDeviceWrapper, ScaleDeviceWrapper
-# from tcc.axis import AxisDeviceWrapper
-# from tcc.mir import MirrorDeviceWrapper
+from lcoTCC.actor import TCCLCOActor
+from lcoTCC.dev import TCSDeviceWrapper, ScaleDeviceWrapper
 
-__all__ = ["TCCLCOActorWrapper"]
+__all__ = ["TCCLCOActorWrapper", "TCCLCODispatcherWrapper"]
 
 class TCCLCOActorWrapper(ActorWrapper):
     """!Unit test wrapper for a mock LCO TCC actor
@@ -42,4 +40,26 @@ class TCCLCOActorWrapper(ActorWrapper):
             tcsDev = self.tcsWrapper.device,
             scaleDev = self.scaleWrapper.device,
             userPort = self._userPort,
+        )
+
+class TCCLCODispatcherWrapper(DispatcherWrapper):
+    """!Wrapper for an ActorDispatcher talking to a mock LCO TCC talking to mock controllers
+
+    The wrapper manages everything: starting up fake TCS and scale controllers
+    on automatically chosen ports, constructing devices that talk to them, constructing
+    a TCC actor the specified port, and constructing and connecting the dispatcher.
+    """
+    def __init__(self, userPort=0):
+        """!Construct a TCCLCODispatcherWrapper
+
+        @param[in] userPort  port for mock LCO controller; 0 to chose a free port
+        """
+        actorWrapper = TCCLCOActorWrapper(
+            name = "mockTCCLCO",
+            userPort = userPort,
+        )
+        DispatcherWrapper.__init__(self,
+            name = "tccLCOClient",
+            actorWrapper = actorWrapper,
+            dictName = "tcc",
         )

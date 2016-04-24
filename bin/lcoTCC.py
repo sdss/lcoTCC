@@ -10,8 +10,8 @@ from twisted.internet import reactor
 # from twistedActor import startSystemLogging
 from twistedActor import startFileLogging
 
-from tcc.actor.tccLCOActor import TCCLCOActor
-from tcc.lco import TCSDevice, ScaleDevice, FakeScaleCtrl, FakeTCS
+from lcoTCC.actor.tccLCOActor import TCCLCOActor
+from lcoTCC.dev import TCSDevice, ScaleDevice, FakeScaleCtrl, FakeTCS
 
 # log to directory $HOME/tcclogs/
 homeDir = os.path.expanduser("~")
@@ -42,7 +42,7 @@ def startTCCLCO(*args):
             scaleDev = ScaleDevice("mockScale", "localhost", ScaleDevicePort),
             )
     except Exception:
-        print >>sys.stderr, "Error starting fake TCC"
+        print >>sys.stderr, "Error lcoTCC"
         traceback.print_exc(file=sys.stderr)
 
 def checkFakesRunning(ignored):

@@ -1,9 +1,9 @@
 from __future__ import division, absolute_import
 """!TCC command parser subclassed for LCO TCS
 """
-from ..parse.cmdParse import CmdParser
-from ..parse import parseDefs
-from ..cmd import track, setFocus, setScaleFactor, offset, device, ping
+from lcoTCC.parse.cmdParse import CmdParser
+from lcoTCC.parse import parseDefs
+from lcoTCC.cmd import track, setFocus, setScaleFactor, offset, device, ping
 
 __all__ = ["TCCLCOCmdParser"]
 

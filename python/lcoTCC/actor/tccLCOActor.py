@@ -16,6 +16,7 @@ tcsPort = 0
 scaleHost = "localhost"
 scalePort = 1
 
+__all__ = ["TCCLCOActor"]
 
 class TCCLCOActor(BaseActor):
     """!TCC actor for the LCO telescope
