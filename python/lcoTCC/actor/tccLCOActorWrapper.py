@@ -2,8 +2,8 @@ from __future__ import division, absolute_import
 
 from twistedActor import ActorWrapper
 
-from . import TCCLCOActor
-from ..dev import TCSDeviceWrapper, ScaleDeviceWrapper
+from tcc.actor import TCCLCOActor
+from tcc.lco import TCSDeviceWrapper, ScaleDeviceWrapper
 # from tcc.axis import AxisDeviceWrapper
 # from tcc.mir import MirrorDeviceWrapper
 
