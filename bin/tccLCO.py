@@ -26,14 +26,11 @@ UserPort = 25000
 UDPPort = 25010
 
 ScaleDevicePort = 26000
-TCSDevicePort = 27000
-# TCSDevicePort = 4242
-# TCSDevicePort = 50016
-
+TCSDevicePort = 4242
 
 print "Start fake LCO controllers"
 fakeScaleController  = FakeScaleCtrl("fakeScale",  ScaleDevicePort)
-fakeTCS = FakeTCS("mockTCSDevice", TCSDevicePort)
+# fakeTCS = FakeTCS("mockTCSDevice", TCSDevicePort)
 
 def startTCCLCO(*args):
     try:
@@ -41,7 +38,7 @@ def startTCCLCO(*args):
             name = "tccLCOActor",
             userPort = UserPort,
             udpPort = UDPPort,
-            tcsDev = TCSDevice("tcsDev", "localhost", TCSDevicePort),
+            tcsDev = TCSDevice("tcsDev", "c100tcs.lco.cl", TCSDevicePort),
             scaleDev = ScaleDevice("mockScale", "localhost", ScaleDevicePort),
             )
     except Exception:
@@ -49,11 +46,11 @@ def startTCCLCO(*args):
         traceback.print_exc(file=sys.stderr)
 
 def checkFakesRunning(ignored):
-    if fakeScaleController.isReady and fakeTCS.isReady:
+    if fakeScaleController.isReady:# and fakeTCS.isReady:
         startTCCLCO()
 
 fakeScaleController.addStateCallback(checkFakesRunning)
-fakeTCS.addStateCallback(checkFakesRunning)
+# fakeTCS.addStateCallback(checkFakesRunning)
 
 
 reactor.run()
