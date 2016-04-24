@@ -1,8 +1,6 @@
 #!/usr/bin/env python2
 from __future__ import division, absolute_import
-"""Start up 2.5m Secondary and Primary MirrorCtrl/GalilDevice pairs,
-each talks to a seperate FakeGalil. Connect a Secondary and Primary ActorDevice
-to each MirrorCtrl.
+"""Start a faked LCO TCC actor
 
 """
 import sys
@@ -71,9 +69,6 @@ class MockTCCLCOActor(TCCLCOActor):
             self.actorClientWdg.pack(fill="both", expand=True)
 
 print "Start fake LCO controllers"
-# perterb the acutator locations (from true) to emulate the effect of a non-perfect mirror model
-# mir35mSecPert = getActRandMove(mir35mSec)
-# mir35mTertPert = getActEqEncMir(mir35mTert)
 fakeScaleController  = FakeScaleCtrl("fakeScale",  ScaleDevicePort)
 fakeTCS = FakeTCS("mockTCSDevice", TCSDevicePort)
 
