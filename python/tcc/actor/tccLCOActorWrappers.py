@@ -2,8 +2,8 @@ from __future__ import division, absolute_import
 
 from twistedActor import ActorWrapper, DispatcherWrapper
 
-from lcoTCC.actor import TCCLCOActor
-from lcoTCC.dev import TCSDeviceWrapper, ScaleDeviceWrapper
+from .tccLCOActor import TCCLCOActor
+from ..dev import TCSDeviceWrapper, ScaleDeviceWrapper
 
 __all__ = ["TCCLCOActorWrapper", "TCCLCODispatcherWrapper"]
 

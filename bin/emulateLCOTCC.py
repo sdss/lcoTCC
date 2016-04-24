@@ -20,8 +20,8 @@ except KeyError:
    # don't start logging
    pass
 
-from lcoTCC.actor import TCCLCOActor
-from lcoTCC.dev import TCSDevice, ScaleDevice, FakeScaleCtrl, FakeTCS
+from tcc.actor import TCCLCOActor
+from tcc.dev import TCSDevice, ScaleDevice, FakeScaleCtrl, FakeTCS
 
 UserPort = 25000
 

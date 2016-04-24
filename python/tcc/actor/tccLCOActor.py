@@ -38,6 +38,9 @@ class TCCLCOActor(BaseActor):
         self.tcsDev.writeToUsers = self.writeToUsers
         self.scaleDev = scaleDev
         self.scaleDev.writeToUsers = self.writeToUsers
+        # connect devices
+        self.tcsDev.connect()
+        self.scaleDev.connect()
         self.cmdParser = TCCLCOCmdParser()
         BaseActor.__init__(self, userPort=userPort, maxUsers=1, name=name, version=__version__)
         # Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)

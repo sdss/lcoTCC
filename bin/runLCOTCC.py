@@ -10,8 +10,8 @@ from twisted.internet import reactor
 # from twistedActor import startSystemLogging
 from twistedActor import startFileLogging
 
-from lcoTCC.actor.tccLCOActor import TCCLCOActor
-from lcoTCC.dev import TCSDevice, ScaleDevice, FakeScaleCtrl, FakeTCS
+from tcc.actor.tccLCOActor import TCCLCOActor
+from tcc.dev import TCSDevice, ScaleDevice, FakeScaleCtrl, FakeTCS
 
 # log to directory $HOME/tcclogs/
 homeDir = os.path.expanduser("~")
