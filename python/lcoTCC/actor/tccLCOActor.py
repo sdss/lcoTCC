@@ -2,12 +2,11 @@ from __future__ import division, absolute_import
 """The TCC (telescope control code) interface shim for the Las Campanas Observatory du Pont telescope
 """
 import sys
-import syslog
 import traceback
 
 from RO.StringUtil import strFromException
 
-from twistedActor import Actor, CommandError, BaseActor
+from twistedActor import CommandError, BaseActor
 
 from .tccLCOCmdParser import TCCLCOCmdParser
 from ..version import __version__
@@ -21,7 +20,6 @@ scalePort = 1
 class TCCLCOActor(BaseActor):
     """!TCC actor for the LCO telescope
     """
-    Facility = syslog.LOG_LOCAL1
     def __init__(self,
         userPort,
         tcsDev,
@@ -31,7 +29,7 @@ class TCCLCOActor(BaseActor):
         """Construct a TCCActor
 
         @param[in] userPort  port on which to listen for users
-        @param[in] tcsDev a LCODevice instance
+        @param[in] tcsDev a TCSDevice instance
         @param[in] scaleDev  a ScaleDevice instance
         @param[in] name  actor name; used for logging
         """
