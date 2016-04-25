@@ -3,7 +3,7 @@ from __future__ import division, absolute_import
 
 from twisted.trial.unittest import TestCase
 
-from lcoTCC.actor import TCCLCOActorWrapper
+from tcc.actor import TCCLCOActorWrapper
 
 from twistedActor import testUtils
 testUtils.init(__file__)

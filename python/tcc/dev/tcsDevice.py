@@ -12,7 +12,7 @@ def tai():
     return time.time() - 36.
 
 __all__ = ["TCSDevice"]
-Offset = "Offset"
+ForceSlew = "ForceSlew"
 
 PollTimeSlew = 2 #seconds, LCO says status is updated no more frequently that 5 times a second
 PollTimeTrack = 5
@@ -110,10 +110,7 @@ class Status(object):
             # TCCPos=68.361673,63.141087,nan; AxePos=68.393020,63.138022
         }
 
-
-    def axisCmdState(self):
-        """Format the AxisCmdState keyword
-        """
+    def axisCmdStateList(self):
         axisCmdState = self.statusFieldDict["state"].value or "?"
         # check if we are really slewing instead of tracking (offsets don't trigger slew state)
         # so check manually
@@ -124,7 +121,12 @@ class Status(object):
                 # axis is moving, force it to report slewing
                 # offsets do not trigger a slewing state in TCS, but we want them to.
                 axisCmdStateList[ii] = Slewing
-        return "AxisCmdState=%s"%(", ".join(axisCmdStateList))
+        return axisCmdStateList
+
+    def axisCmdState(self):
+        """Format the AxisCmdState keyword
+        """
+        return "AxisCmdState=%s"%(", ".join(self.axisCmdStateList()))
 
 
     def objNetPos(self):
@@ -147,7 +149,8 @@ class Status(object):
         azStr = "%.4f"%azPos if azPos else "NaN"
         altStr = "%.4f"%altPos if altPos else "NaN"
         rotStr = "%.4f"%rotPos if altPos else "NaN"
-        return "AxePos=%s"%(", ".join([azStr, altStr, rotStr]))
+        axePosStr = "AxePos=%s"%(", ".join([azStr, altStr, rotStr]))
+        return axePosStr
 
     def utc_tai(self):
         return "UTC_TAI=%0.0f"%(-36.0,) # this value is usually gotten from coordConv/earthpred, I think, which we don't have implemented...
@@ -171,11 +174,11 @@ class Status(object):
         return "%.6f, %.6f"%(raOff, decOff)
 
     def axesSlewing(self):
-        if self.previousDec == Offset:
+        if self.previousDec == ForceSlew:
             decSlewing = True
         else:
             decSlewing = abs(self.previousDec - self.statusFieldDict["dec"].value) > self.decOnTarg if self.previousDec is not None else False
-        if self.previousRA == Offset:
+        if self.previousRA == ForceSlew:
             raSlewing = True
         else:
             raSlewing = abs(self.previousRA - self.statusFieldDict["ra"].value) > self.raOnTarg if self.previousRA is not None else False
@@ -376,6 +379,9 @@ class TCSDevice(TCPDevice):
         """
         log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
         userCmd = expandUserCmd(userCmd)
+        # force slew to show up in axes command state keyword
+        self.status.previousDec = ForceSlew
+        self.status.previousRA = ForceSlew
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
@@ -394,6 +400,7 @@ class TCSDevice(TCPDevice):
         LinkCommands(userCmd, devCmdList) #LCO: HACK don't wait for a slew to finish + [self.waitSlewCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
+
         statusStr = self.status.getStatusStr()
         if statusStr:
             self.writeToUsers("i", statusStr, userCmd)
@@ -411,8 +418,8 @@ class TCSDevice(TCPDevice):
         log.info("%s.slewOffset(userCmd=%s, ra=%.6f, dec=%.6f)" % (self, userCmd, ra, dec))
         userCmd = expandUserCmd(userCmd)
         # zero the delta computation so the offset isn't marked done immediately
-        self.status.previousDec = Offset
-        self.status.previousRA = Offset
+        self.status.previousDec = ForceSlew
+        self.status.previousRA = ForceSlew
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd

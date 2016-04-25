@@ -35,7 +35,7 @@ fakeTCS = FakeTCS("mockTCSDevice", TCSDevicePort)
 def startTCCLCO(*args):
     try:
         tccActor = TCCLCOActor(
-            name = "tccLCOActor",
+            name = "tcc",
             userPort = UserPort,
             tcsDev = TCSDevice("tcsDev", "localhost", TCSDevicePort),
             scaleDev = ScaleDevice("mockScale", "localhost", ScaleDevicePort),

@@ -35,7 +35,7 @@ fakeScaleController  = FakeScaleCtrl("fakeScale",  ScaleDevicePort)
 def startTCCLCO(*args):
     try:
         tccActor = TCCLCOActor(
-            name = "tccLCOActor",
+            name = "tcc",
             userPort = UserPort,
             udpPort = UDPPort,
             tcsDev = TCSDevice("tcsDev", "c100tcs.lco.cl", TCSDevicePort),

@@ -6,7 +6,7 @@ import traceback
 
 from RO.StringUtil import strFromException
 
-from twistedActor import CommandError, BaseActor
+from twistedActor import CommandError, BaseActor, DeviceCollection
 
 from .tccLCOCmdParser import TCCLCOCmdParser
 from ..version import __version__
@@ -25,7 +25,7 @@ class TCCLCOActor(BaseActor):
         userPort,
         tcsDev,
         scaleDev,
-        name = "TCCLCOActor",
+        name = "tcc",
     ):
         """Construct a TCCActor
 
@@ -38,6 +38,7 @@ class TCCLCOActor(BaseActor):
         self.tcsDev.writeToUsers = self.writeToUsers
         self.scaleDev = scaleDev
         self.scaleDev.writeToUsers = self.writeToUsers
+        self.dev = DeviceCollection([self.tcsDev, self.scaleDev]) # auto connection looks for self.dev
         # connect devices
         self.tcsDev.connect()
         self.scaleDev.connect()

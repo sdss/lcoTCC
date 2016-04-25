@@ -5,7 +5,7 @@ import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from twisted.trial.unittest import TestCase
 
-from lcoTCC.actor import TCCLCODispatcherWrapper
+from tcc.actor import TCCLCODispatcherWrapper
 
 from twistedActor import testUtils
 testUtils.init(__file__)
