@@ -24,7 +24,8 @@ def device(tccActor, userCmd):
     devNameList = [devCmd.keyword.lower() for devCmd in userCmd.parsedCmd.paramDict['device'].valueList]
     devDict = {
         "tcs": tccActor.tcsDev,
-        "scale": tccActor.scaleDev
+        "scale": tccActor.scaleDev,
+        "m2": tccActor.m2Dev,
     }
     if "all" in devNameList:
         devNameList = devDict.keys()

@@ -30,15 +30,18 @@ class Status(object):
         self.lamps = None
         self.galil = None
 
+    @property
     def secFocus(self):
-        secFocus = self.orientation[0]
-        secFocus = "NaN" if secFocus is None else "%.2f"%secFocus
+        return self.orientation[0]
+
+    def secFocusStr(self):
+        secFocus = "NaN" if self.secFocus is None else "%.2f"%self.secFocus
         return "SecFocus=%s"%secFocus
 
     def getStatusStr(self):
         """Grab and format tcc keywords, only output those which have changed
         """
-        kwOutputList = [self.secFocus()]
+        kwOutputList = [self.secFocusStr()]
         # add mirror moving times, and actuator positions?
         # eg colimation
         return "; ".join(kwOutputList)
@@ -46,7 +49,7 @@ class Status(object):
     def parseStatus(self, replyStr):
         """Parse replyString (as returned from the M2 tcp/ip server) and set values
 
-        this is the status string State=DONE Ori=12500.0,-0.0,-0.0,-0.0,0.0 Lamps=off Galil=off
+        this is the status string State=DONE Ori=12500.0, -0.0, -0.0, -0.0, 0.0 Lamps=off Galil=off
         """
         # lowerify everything
         replyStr = replyStr.lower()
@@ -96,7 +99,7 @@ class M2Device(TCPDevice):
 
     @property
     def isDone(self):
-        return self.status.state is Done
+        return self.status.state == Done
 
     @property
     def currExeDevCmd(self):
@@ -197,7 +200,7 @@ class M2Device(TCPDevice):
         @param[in] offset, if true this is offset, else absolute
         @param[in] userCmd: a twistedActor BaseCommand
         """
-        log.info("%s.move(userCmd=%s, valueList=%.2f, offset=%s)" % (self, userCmd, valueList, str(bool(offset))))
+        log.info("%s.move(userCmd=%s, valueList=%s, offset=%s)" % (self, userCmd, str(valueList), str(bool(offset))))
         userCmd = expandUserCmd(userCmd)
         if not self.waitMoveCmd.isDone:
             userCmd.setState(userCmd.Failed, "Mirror currently moving")
@@ -209,10 +212,18 @@ class M2Device(TCPDevice):
         cmdType = "offset" if offset else "move"
         strValList = ", ".join(["%.2f"%val for val in valueList])
         cmdStr = "%s %s"%(cmdType, strValList)
-        devCmdList = [DevCmd(cmdStr=cmdStr)]
+        moveCmd = DevCmd(cmdStr=cmdStr)
+        statusCmd = DevCmd(cmdStr="status")
+        # status immediately to see moving state
+        devCmdList = [moveCmd, statusCmd]
         LinkCommands(userCmd, devCmdList + [self.waitMoveCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
+        # begin polling status
+        def startStatusLoop(*arg):
+            self.getStatus()
+        statusCmd.addCallback(startStatusLoop)
+        # self.getStatus() # begin polling
         return userCmd
 
     def handleReply(self, replyStr):
@@ -226,6 +237,7 @@ class M2Device(TCPDevice):
         - Parse status to update the model parameters
         """
         log.info("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
+        print("replyStr", replyStr, self.currDevCmdStr)
         replyStr = replyStr.strip()
         if not replyStr:
             return
@@ -236,9 +248,9 @@ class M2Device(TCPDevice):
             # error
             self.writeToUsers("w", "Error in M2 reply: %s, current cmd: %s"%(replyStr, self.currExeDevCmd.cmdStr))
         # if this was a speed command, set it
-        if self.currExeDevCmdStr.lower() == "speed":
+        if self.currDevCmdStr.lower() == "speed":
             self.status.speed = float(replyStr)
-        elif self.currExeDevCmdStr.lower() == "status":
+        elif self.currDevCmdStr.lower() == "status":
             self.status.parseStatus(replyStr)
         # only one line is ever returned after a request
         # so if we got one, then the request is done

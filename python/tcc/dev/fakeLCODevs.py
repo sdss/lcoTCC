@@ -13,7 +13,7 @@ FocusStepSize = FocusVelocity * TimerDelay # microns
 AxisStepSize = AxisVelocity * TimerDelay # deg
 ScaleStepSize = ScaleVelocity * TimerDelay # deg
 
-__all__ = ["FakeScaleCtrl", "FakeTCS"]
+__all__ = ["FakeScaleCtrl", "FakeTCS", "FakeM2Ctrl"]
 
 class FakeDev(TCPServer):
     """!A server that emulates an echoing device for testing
@@ -325,6 +325,7 @@ class FakeTCS(FakeDev):
             print(errMsg)
             # self.readyDeferred.errback(failure.Failure(RuntimeError(errMsg)))
 
+
 class FakeM2Ctrl(FakeDev):
     """!A server that emulates the LCO M2 Controller
     """
@@ -343,7 +344,7 @@ class FakeM2Ctrl(FakeDev):
         """
         self.orientation = [12500.0,70.0,-12.0,-600.1,925.0]
         self.targOrientation = [12500.0,70.0,-12.0,-600.1,925.0]
-        self.state = self.Done
+        self.moveState = self.Done
         self.lamps = self.Off
         self.galil = self.Off
         self.speed = 25.0
@@ -357,8 +358,8 @@ class FakeM2Ctrl(FakeDev):
 
     def statusStr(self):
         return "State=%s Ori=%s Lamps=%s Galil=%s"%(
-                self.state,
-                ", ".join(["%.2f"%val for val in self.orientation]),
+                self.moveState,
+                ",".join(["%.2f"%val for val in self.orientation]),
                 self.lamps,
                 self.galil
             )
@@ -378,21 +379,23 @@ class FakeM2Ctrl(FakeDev):
                self.userSock.writeLine(self.statusStr())
             elif tokens[0].lower() == "speed":
                 self.userSock.writeLine("%.1f"%self.speed)
-            elif tokens[0].lower() in ["move", "offset"]:
+            elif tokens[0].lower() in ["move", "offset"] and len(tokens)==1:
                 self.userSock.writeLine(" ".join(["%.2f"%val for val in self.orientation]))
-            elif tokens[0].lower() in ["focus", "dfocus"]:
+            elif tokens[0].lower() in ["focus", "dfocus"] and len(tokens)==1:
                 self.userSock.writeLine("%.1f"%self.orientation[0])
 
             # commands
             elif tokens[0].lower() == "stop":
                 self.doMove(stop=True)
-            elif tokens[0].lower() == ["move", "focus", "offset", "dfocus"]:
+            elif tokens[0].lower() in ["move", "focus", "offset", "dfocus"]:
                 isOffset = tokens[0].lower() in ["offset", "dfocus"]
+                print("isOffset", isOffset)
                 for ind, value in enumerate(tokens[1:]):
+                    print("value", float(value))
                     if isOffset:
-                        self.orientation += float(value)
+                        self.targOrientation[ind] += float(value)
                     else:
-                        self.orientation = float(value)
+                        self.targOrientation[ind] = float(value)
                 self.doMove()
                 self.userSock.writeLine("OK")
             elif tokens[0].lower() == "galil":
@@ -414,11 +417,12 @@ class FakeM2Ctrl(FakeDev):
         self.galil = self.Off
 
     def powerup(self, doMove=False):
-        self.state = self.Moving
-        self.galilTimer(2., self.setDone, doMove)
+        self.moveState = self.Moving
+        self.galilTimer.start(2., self.setDone, doMove)
 
     def setDone(self, doMove=False):
-        self.state = self.Done
+        if not doMove:
+            self.moveState = self.Done
         self.galil = self.On
         if doMove:
             self.doMove()
@@ -428,7 +432,7 @@ class FakeM2Ctrl(FakeDev):
         """
         if stop:
             self.moveTimer.cancel()
-            self.state = self.Done
+            self.moveState = self.Done
             self.galil = self.Off
             return
         if not self.galil == self.On:
@@ -442,8 +446,8 @@ class FakeM2Ctrl(FakeDev):
             # continue moving
             self.moveTimer.start(TimerDelay, self.doMove)
         else:
-            self.orientation = self.targOrientation
-            self.state = self.Done
+            self.orientation = self.targOrientation[:] # copy is necessary!!!
+            self.moveState = self.Done
 
     def stateCallback(self, server=None):
         if self.isReady:

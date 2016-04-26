@@ -21,16 +21,18 @@ except KeyError:
    pass
 
 from tcc.actor import TCCLCOActor
-from tcc.dev import TCSDevice, ScaleDevice, FakeScaleCtrl, FakeTCS
+from tcc.dev import TCSDevice, ScaleDevice, M2Device, FakeScaleCtrl, FakeTCS, FakeM2Ctrl
 
 UserPort = 25000
 
 ScaleDevicePort = 26000
 TCSDevicePort = 27000
+M2DevicePort = 28000
 
 print "Start fake LCO controllers"
 fakeScaleController  = FakeScaleCtrl("fakeScale",  ScaleDevicePort)
 fakeTCS = FakeTCS("mockTCSDevice", TCSDevicePort)
+fakeM2Ctrl = FakeM2Ctrl("fakeM2", M2DevicePort)
 
 def startTCCLCO(*args):
     try:
@@ -39,6 +41,7 @@ def startTCCLCO(*args):
             userPort = UserPort,
             tcsDev = TCSDevice("tcsDev", "localhost", TCSDevicePort),
             scaleDev = ScaleDevice("mockScale", "localhost", ScaleDevicePort),
+            m2Dev = M2Device("mockM2", "localhost", M2DevicePort)
             )
     except Exception:
         print >>sys.stderr, "Error starting fake lcoTCC"
@@ -46,11 +49,12 @@ def startTCCLCO(*args):
 
 
 def checkFakesRunning(ignored):
-    if fakeScaleController.isReady and fakeTCS.isReady:
+    if fakeScaleController.isReady and fakeTCS.isReady and fakeM2Ctrl.isReady:
         startTCCLCO()
 
 fakeScaleController.addStateCallback(checkFakesRunning)
 fakeTCS.addStateCallback(checkFakesRunning)
+fakeM2Ctrl.addStateCallback(checkFakesRunning)
 
 reactor.run()
 

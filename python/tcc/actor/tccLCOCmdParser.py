@@ -182,9 +182,9 @@ TCCLCOCmdList = (
             parseDefs.KeywordParam(
                 name = 'device',
                 keywordDefList = [parseDefs.Keyword(name = item) for item in [
-                    "tcs", "scale"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
+                    "tcs", "scale", "m2"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
                 numParamRange = [0, None],
-                help = "Which controller? If omitted then both tcs and scale.",
+                help = "Which controller? If omitted then all devices.",
             ),
         ],
         qualifierList = [TimeLimit],

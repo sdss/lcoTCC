@@ -25,10 +25,8 @@ def setFocus(tccActor, userCmd):
     valueList = userCmd.parsedCmd.paramDict["focus"].valueList[0].valueList
     if valueList is not None:
         value = valueList[0]
-        if userCmd.parsedCmd.qualDict['incremental'].boolValue:
-            focusCmd = tccActor.tcsDev.focusOffset(value)
-        else:
-            focusCmd = tccActor.tcsDev.focus(value)
+        offset = userCmd.parsedCmd.qualDict['incremental'].boolValue
+        focusCmd = tccActor.m2Dev.focus(value, offset=offset)
         focusCmd.addCallback(showFocusWhenDone)
     else:
         # no focus value was received, just show current value
