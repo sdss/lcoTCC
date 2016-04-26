@@ -325,8 +325,131 @@ class FakeTCS(FakeDev):
             print(errMsg)
             # self.readyDeferred.errback(failure.Failure(RuntimeError(errMsg)))
 
-if __name__ == "__main__":
-    # run a fake server
-    from twisted.internet import reactor
-    fakeTCS = FakeTCS("sc", 8008)
-    reactor.run()
+class FakeM2Ctrl(FakeDev):
+    """!A server that emulates the LCO M2 Controller
+    """
+    Done = "DONE"
+    Error = "ERROR"
+    Moving = "MOVING"
+    On = "on"
+    Off = "off"
+    def __init__(self, name, port):
+        """!Construct a fake LCO M2
+
+        @param[in] name  name of M2 controller
+        @param[in] port  port on which to command M2
+
+        State=DONE Ori=12500.0,70.0,-12.0,-600.1,925.0 Lamps=off Galil=off
+        """
+        self.orientation = [12500.0,70.0,-12.0,-600.1,925.0]
+        self.targOrientation = [12500.0,70.0,-12.0,-600.1,925.0]
+        self.state = self.Done
+        self.lamps = self.Off
+        self.galil = self.Off
+        self.speed = 25.0
+        self.moveTimer = Timer()
+        self.galilTimer = Timer()
+
+        FakeDev.__init__(self,
+            name = name,
+            port = port,
+        )
+
+    def statusStr(self):
+        return "State=%s Ori=%s Lamps=%s Galil=%s"%(
+                self.state,
+                ", ".join(["%.2f"%val for val in self.orientation]),
+                self.lamps,
+                self.galil
+            )
+
+    def parseCmdStr(self, cmdStr):
+        """Parse an incoming command, make it somewhat
+        like the way c100.cpp does things.
+
+        how to offsets behave, are they sticky, not here
+        """
+        try:
+            tokens = cmdStr.strip().split(" ")
+
+            # status requests
+            if tokens[0].lower() == "status":
+                # status
+               self.userSock.writeLine(self.statusStr())
+            elif tokens[0].lower() == "speed":
+                self.userSock.writeLine("%.1f"%self.speed)
+            elif tokens[0].lower() in ["move", "offset"]:
+                self.userSock.writeLine(" ".join(["%.2f"%val for val in self.orientation]))
+            elif tokens[0].lower() in ["focus", "dfocus"]:
+                self.userSock.writeLine("%.1f"%self.orientation[0])
+
+            # commands
+            elif tokens[0].lower() == "stop":
+                self.doMove(stop=True)
+            elif tokens[0].lower() == ["move", "focus", "offset", "dfocus"]:
+                isOffset = tokens[0].lower() in ["offset", "dfocus"]
+                for ind, value in enumerate(tokens[1:]):
+                    if isOffset:
+                        self.orientation += float(value)
+                    else:
+                        self.orientation = float(value)
+                self.doMove()
+                self.userSock.writeLine("OK")
+            elif tokens[0].lower() == "galil":
+                if tokens[1].lower() == "on":
+                    self.powerup()
+                else:
+                    self.powerdown()
+                self.userSock.writeLine("OK")
+
+
+            else:
+                # unknown command?
+                raise RuntimeError("Unknown Command: %s"%cmdStr)
+        except Exception as e:
+            self.userSock.writeLine("-1") # error!
+            print "Error: ", e
+
+    def powerdown(self):
+        self.galil = self.Off
+
+    def powerup(self, doMove=False):
+        self.state = self.Moving
+        self.galilTimer(2., self.setDone, doMove)
+
+    def setDone(self, doMove=False):
+        self.state = self.Done
+        self.galil = self.On
+        if doMove:
+            self.doMove()
+
+    def doMove(self, stop=False):
+        """stop: halt focus at it's current location
+        """
+        if stop:
+            self.moveTimer.cancel()
+            self.state = self.Done
+            self.galil = self.Off
+            return
+        if not self.galil == self.On:
+            # simulate power up time
+            self.powerup(doMove=True)
+            # move will start after powerup
+            return
+        focus = self.incrementPosition(self.targOrientation[0], self.orientation[0], FocusStepSize)
+        self.orientation[0] = focus
+        if focus != self.targOrientation[0]:
+            # continue moving
+            self.moveTimer.start(TimerDelay, self.doMove)
+        else:
+            self.orientation = self.targOrientation
+            self.state = self.Done
+
+    def stateCallback(self, server=None):
+        if self.isReady:
+            # self.readyDeferred.callback(None)
+            print("Fake M2 controller %s running on port %s" % (self.name, self.port))
+        elif self.didFail and not self.readyDeferred.called:
+            errMsg = "Fake M2 controller %s failed to start on port %s" % (self.name, self.port)
+            print(errMsg)
+            # self.readyDeferred.errback(failure.Failure(RuntimeError(errMsg)))

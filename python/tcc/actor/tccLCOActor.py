@@ -25,6 +25,7 @@ class TCCLCOActor(BaseActor):
         userPort,
         tcsDev,
         scaleDev,
+        m2Dev,
         name = "tcc",
     ):
         """Construct a TCCActor
@@ -32,16 +33,20 @@ class TCCLCOActor(BaseActor):
         @param[in] userPort  port on which to listen for users
         @param[in] tcsDev a TCSDevice instance
         @param[in] scaleDev  a ScaleDevice instance
+        @param[in] m2Dev a M2Device instance
         @param[in] name  actor name; used for logging
         """
         self.tcsDev = tcsDev
         self.tcsDev.writeToUsers = self.writeToUsers
         self.scaleDev = scaleDev
         self.scaleDev.writeToUsers = self.writeToUsers
-        self.dev = DeviceCollection([self.tcsDev, self.scaleDev]) # auto connection looks for self.dev
+        self.m2Dev = m2Dev
+        self.m2Dev.writeToUsers = self.writeToUsers
+        self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.m2Dev]) # auto connection looks for self.dev
         # connect devices
         self.tcsDev.connect()
         self.scaleDev.connect()
+        self.m2Dev.connect()
         self.cmdParser = TCCLCOCmdParser()
         BaseActor.__init__(self, userPort=userPort, maxUsers=1, name=name, version=__version__)
         # Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)

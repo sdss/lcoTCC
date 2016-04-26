@@ -11,7 +11,7 @@ from twisted.internet import reactor
 from twistedActor import startFileLogging
 
 from tcc.actor.tccLCOActor import TCCLCOActor
-from tcc.dev import TCSDevice, ScaleDevice, FakeScaleCtrl, FakeTCS
+from tcc.dev import TCSDevice, ScaleDevice, M2Device, FakeScaleCtrl, FakeTCS, FakeM2Ctrl
 
 # log to directory $HOME/tcclogs/
 homeDir = os.path.expanduser("~")
@@ -25,8 +25,12 @@ startFileLogging(os.path.join(logPath, "tcc"))
 UserPort = 25000
 UDPPort = 25010
 
+ScaleDeviceHost = "localhost"
 ScaleDevicePort = 26000
+TCSHost = "c100tcs"#.lco.cl
 TCSDevicePort = 4242
+M2DeviceHost = "vinchuca"
+M2DevicePort = 52001
 
 print "Start fake LCO controllers"
 fakeScaleController  = FakeScaleCtrl("fakeScale",  ScaleDevicePort)
@@ -37,9 +41,9 @@ def startTCCLCO(*args):
         tccActor = TCCLCOActor(
             name = "tcc",
             userPort = UserPort,
-            udpPort = UDPPort,
-            tcsDev = TCSDevice("tcsDev", "c100tcs.lco.cl", TCSDevicePort),
-            scaleDev = ScaleDevice("mockScale", "localhost", ScaleDevicePort),
+            tcsDev = TCSDevice("tcsDev", TCSHost, TCSDevicePort),
+            scaleDev = ScaleDevice("mockScale", ScaleDeviceHost, ScaleDevicePort),
+            m2Dev = M2Device("mockScale", ScaleDeviceHost, ScaleDevicePort),
             )
     except Exception:
         print >>sys.stderr, "Error lcoTCC"
