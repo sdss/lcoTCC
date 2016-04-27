@@ -13,19 +13,18 @@ class TCCLCOActorWrapper(ActorWrapper):
     def __init__(self,
         name = "mockTCCLCO",
         userPort = 0,
-        udpPort = 0,
         debug = False,
     ):
         """!Construct a TCCLCOActorWrapper
 
         @param[in] name  a name to use for messages
         @param[in] userPort  port for actor server
-        @param[in] udpPort  port for udp broadcasts, if 0 twisted will automatically select an open one
         @param[in] debug  print debug messages?
         """
         self.tcsWrapper = TCSDeviceWrapper(name="tcsWrapper", debug=debug)
         self.scaleWrapper = ScaleDeviceWrapper(name="scaleWrapper", debug=debug)
-        deviceWrapperList = [self.tcsWrapper, self.scaleWrapper]
+        self.m2Wrapper = ScaleDeviceWrapper(name="m2Wrapper", debug=debug)
+        deviceWrapperList = [self.tcsWrapper, self.scaleWrapper, self.m2Wrapper]
         ActorWrapper.__init__(self,
             deviceWrapperList = deviceWrapperList,
             name = name,
@@ -39,6 +38,7 @@ class TCCLCOActorWrapper(ActorWrapper):
             name = self.name,
             tcsDev = self.tcsWrapper.device,
             scaleDev = self.scaleWrapper.device,
+            m2Dev = self.m2Wrapper.device,
             userPort = self._userPort,
         )
 

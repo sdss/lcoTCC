@@ -41,7 +41,8 @@ def startTCCLCO(*args):
             userPort = UserPort,
             tcsDev = TCSDevice("tcsDev", "localhost", TCSDevicePort),
             scaleDev = ScaleDevice("mockScale", "localhost", ScaleDevicePort),
-            m2Dev = M2Device("mockM2", "localhost", M2DevicePort)
+            m2Dev = M2Device("m2Dev", "localhost", M2DevicePort)
+            # m2Dev = M2Device("m2Dev", "vinchuca", 52001)
             )
     except Exception:
         print >>sys.stderr, "Error starting fake lcoTCC"

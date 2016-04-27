@@ -43,7 +43,7 @@ def startTCCLCO(*args):
             userPort = UserPort,
             tcsDev = TCSDevice("tcsDev", TCSHost, TCSDevicePort),
             scaleDev = ScaleDevice("mockScale", ScaleDeviceHost, ScaleDevicePort),
-            m2Dev = M2Device("mockScale", ScaleDeviceHost, ScaleDevicePort),
+            m2Dev = M2Device("m2Dev", M2DeviceHost, M2DevicePort),
             )
     except Exception:
         print >>sys.stderr, "Error lcoTCC"

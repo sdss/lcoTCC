@@ -53,6 +53,7 @@ class Status(object):
         """
         # lowerify everything
         replyStr = replyStr.lower()
+        print("replyStr parseStatus", replyStr)
         for statusBit in replyStr.split():
             key, val = statusBit.split("=")
             if key == "state":
@@ -122,13 +123,13 @@ class M2Device(TCPDevice):
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
         userCmd = expandUserCmd(userCmd)
-        # if not self.isConnected:
-        #     # time lim handled by lco.deviceCmd
-        #     return self.connect(userCmd=userCmd)
+        if not self.isConnected:
+            return self.connect(userCmd=userCmd)
         # get the speed on startup
         # ignore getStatus flag, just do it always
         self.queueDevCmd(DevCmd(cmdStr="speed"))
         return self.getStatus(userCmd=userCmd)
+        # return userCmd
 
     def getStatus(self, userCmd=None):
         """Return current telescope status. Continuously poll.
@@ -222,8 +223,7 @@ class M2Device(TCPDevice):
         # begin polling status
         def startStatusLoop(*arg):
             self.getStatus()
-        statusCmd.addCallback(startStatusLoop)
-        # self.getStatus() # begin polling
+        statusCmd.addCallback(startStatusLoop) # begin polling
         return userCmd
 
     def handleReply(self, replyStr):
@@ -275,7 +275,7 @@ class M2Device(TCPDevice):
         """
         @param[in] devCmdStr a line of text to send to the device
         """
-        devCmdStr = devCmdStr.upper() # lco uses all upper case
+        devCmdStr = devCmdStr.lower() # m2 uses all lower case
         log.info("%s.startDevCmd(%r)" % (self, devCmdStr))
         try:
             if self.conn.isConnected:
