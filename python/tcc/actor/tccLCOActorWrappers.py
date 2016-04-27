@@ -3,7 +3,7 @@ from __future__ import division, absolute_import
 from twistedActor import ActorWrapper, DispatcherWrapper
 
 from .tccLCOActor import TCCLCOActor
-from ..dev import TCSDeviceWrapper, ScaleDeviceWrapper
+from ..dev import TCSDeviceWrapper, ScaleDeviceWrapper, M2DeviceWrapper
 
 __all__ = ["TCCLCOActorWrapper", "TCCLCODispatcherWrapper"]
 
@@ -23,7 +23,7 @@ class TCCLCOActorWrapper(ActorWrapper):
         """
         self.tcsWrapper = TCSDeviceWrapper(name="tcsWrapper", debug=debug)
         self.scaleWrapper = ScaleDeviceWrapper(name="scaleWrapper", debug=debug)
-        self.m2Wrapper = ScaleDeviceWrapper(name="m2Wrapper", debug=debug)
+        self.m2Wrapper = M2DeviceWrapper(name="m2Wrapper", debug=debug)
         deviceWrapperList = [self.tcsWrapper, self.scaleWrapper, self.m2Wrapper]
         ActorWrapper.__init__(self,
             deviceWrapperList = deviceWrapperList,

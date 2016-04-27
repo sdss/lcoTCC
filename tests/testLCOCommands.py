@@ -89,7 +89,9 @@ class TestLCOCommands(TestCase):
         """
         if cmdVar.isDone:
             self.assertFalse(cmdVar.didFail)
-            self.assertAlmostEqual(float(focusVal), float(self.actor.tcsDev.status.statusFieldDict["focus"].value))
+            self.assertAlmostEqual(float(focusVal), float(self.actor.m2Dev.status.secFocus))
+            # tcs isn't used for focus
+            # self.assertAlmostEqual(float(focusVal), float(self.actor.tcsDev.status.statusFieldDict["focus"].value))
             self.assertAlmostEqual(float(focusVal), float(self.model.secFocus.valueList[0]))
 
     def checkScale(self, cmdVar, scaleVal):

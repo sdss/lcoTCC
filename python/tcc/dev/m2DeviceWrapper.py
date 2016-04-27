@@ -46,7 +46,6 @@ class M2DeviceWrapper(DeviceWrapper):
         """Explicitly kill all timers, to keep twisted dirty reactor
         errors showing up during tests.
         """
-        self.controller.focusTimer.cancel()
-        self.controller.slewTimer.cancel()
+        self.controller.moveTimer.cancel()
         self.device._statusTimer.cancel()
         return DeviceWrapper._basicClose(self)

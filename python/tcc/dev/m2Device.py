@@ -123,12 +123,13 @@ class M2Device(TCPDevice):
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
         userCmd = expandUserCmd(userCmd)
-        if not self.isConnected:
-            return self.connect(userCmd=userCmd)
+        # if not self.isConnected:
+        #     return self.connect(userCmd=userCmd)
         # get the speed on startup
         # ignore getStatus flag, just do it always
         self.queueDevCmd(DevCmd(cmdStr="speed"))
         return self.getStatus(userCmd=userCmd)
+        # userCmd.setState(userCmd.Done)
         # return userCmd
 
     def getStatus(self, userCmd=None):

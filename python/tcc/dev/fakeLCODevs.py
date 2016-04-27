@@ -342,8 +342,8 @@ class FakeM2Ctrl(FakeDev):
 
         State=DONE Ori=12500.0,70.0,-12.0,-600.1,925.0 Lamps=off Galil=off
         """
-        self.orientation = [12500.0,70.0,-12.0,-600.1,925.0]
-        self.targOrientation = [12500.0,70.0,-12.0,-600.1,925.0]
+        self.orientation = [15,70.0,-12.0,-600.1,925.0]
+        self.targOrientation = [15,70.0,-12.0,-600.1,925.0]
         self.moveState = self.Done
         self.lamps = self.Off
         self.galil = self.Off
