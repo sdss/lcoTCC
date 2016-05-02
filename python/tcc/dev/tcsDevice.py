@@ -27,6 +27,8 @@ Halted = "Halted"
 Tracking = "Tracking"
 Slewing = "Slewing"
 
+CMDOFF = "OFFP"
+
 TelStateEnumNameDict = collections.OrderedDict((
     (1, Halted),
     (2, Tracking),
@@ -218,10 +220,12 @@ class TCSDevice(TCPDevice):
         """
         self.status = Status()
         self._statusTimer = Timer()
-        self.waitSlewCmd = UserCmd()
-        self.waitSlewCmd.setState(self.waitSlewCmd.Done)
-        self.waitFocusCmd = UserCmd()
-        self.waitFocusCmd.setState(self.waitFocusCmd.Done)
+
+        # self.waitSlewCmd = UserCmd()
+        # self.waitSlewCmd.setState(self.waitSlewCmd.Done)
+        # self.waitFocusCmd = UserCmd()
+        # self.waitFocusCmd.setState(self.waitFocusCmd.Done)
+
         self.waitOffsetCmd = UserCmd()
         self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
         self.devCmdQueue = CommandQueue({}) # all commands of equal priority
@@ -319,92 +323,94 @@ class TCSDevice(TCPDevice):
                 self.writeToUsers("i", statusStr, cmd)
             # update delta ra and decs
 
-            if not self.waitSlewCmd.isDone and self.isTracking:
-                self.waitSlewCmd.setState(self.waitSlewCmd.Done)
-            if not self.waitFocusCmd.isDone and self.atFocus:
-                self.waitFocusCmd.setState(self.waitFocusCmd.Done)
-            if not self.waitOffsetCmd.isDone and not True in self.status.axesSlewing():
+            # if self.waitSlewCmd.isActive and self.isTracking:
+            #     self.waitSlewCmd.setState(self.waitSlewCmd.Done)
+
+            # if self.waitFocusCmd.isActive and self.atFocus:
+            #     self.waitFocusCmd.setState(self.waitFocusCmd.Done)
+
+            if self.waitOffsetCmd.isActive and not True in self.status.axesSlewing():
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
-    def focus(self, focusValue, userCmd=None):
-        """Command a new focus move
+    # def focus(self, focusValue, userCmd=None):
+    #     """Command a new focus move
 
-        @param[in] focusValue: int, focus value in microns
-        @param[in] userCmd: a twistedActor BaseCommand
-        """
-        log.info("%s.focus(userCmd=%s, focusValue=%.2f)" % (self, userCmd, focusValue))
-        userCmd = expandUserCmd(userCmd)
-        if not self.conn.isConnected:
-            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
-            return userCmd
-        if not self.waitFocusCmd.isDone:
-            self.waitFocusCmd.setState(self.waitFocusCmd.Cancelled, "Superseded by focus")
-        self.targFocus = focusValue
-        self.waitFocusCmd = UserCmd()
-        # command stop first, always
-        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in ["focus stop", "focus %.4f"%focusValue]]
-        LinkCommands(userCmd, devCmdList + [self.waitFocusCmd])
-        for devCmd in devCmdList:
-            self.queueDevCmd(devCmd)
-        return userCmd
+    #     @param[in] focusValue: int, focus value in microns
+    #     @param[in] userCmd: a twistedActor BaseCommand
+    #     """
+    #     log.info("%s.focus(userCmd=%s, focusValue=%.2f)" % (self, userCmd, focusValue))
+    #     userCmd = expandUserCmd(userCmd)
+    #     if not self.conn.isConnected:
+    #         userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+    #         return userCmd
+    #     if not self.waitFocusCmd.isDone:
+    #         self.waitFocusCmd.setState(self.waitFocusCmd.Cancelled, "Superseded by focus")
+    #     self.targFocus = focusValue
+    #     self.waitFocusCmd = UserCmd()
+    #     # command stop first, always
+    #     devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in ["focus stop", "focus %.4f"%focusValue]]
+    #     LinkCommands(userCmd, devCmdList + [self.waitFocusCmd])
+    #     for devCmd in devCmdList:
+    #         self.queueDevCmd(devCmd)
+    #     return userCmd
 
-    def focusOffset(self, focusValue, userCmd=None):
-        """Command an offset to the current focus value
+    # def focusOffset(self, focusValue, userCmd=None):
+    #     """Command an offset to the current focus value
 
-        @param[in] focusValue: int, focus value in microns
-        @param[in] userCmd: a twistedActor BaseCommand
-        """
-        log.info("%s.focusOffset(userCmd=%s, focusValue=%.2f)" % (self, userCmd, focusValue))
-        userCmd = expandUserCmd(userCmd)
-        if not self.conn.isConnected:
-            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
-            return userCmd
-        if not self.waitFocusCmd.isDone:
-            self.waitFocusCmd.setState(self.waitFocusCmd.Cancelled, "Superseded by focus offset")
-        self.targFocus += focusValue
-        self.waitFocusCmd = UserCmd()
-        # command stop first, always
-        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in ["focus stop", "dfocus %.6f"%focusValue]]
-        LinkCommands(userCmd, devCmdList + [self.waitFocusCmd])
-        for devCmd in devCmdList:
-            self.queueDevCmd(devCmd)
-        return userCmd
+    #     @param[in] focusValue: int, focus value in microns
+    #     @param[in] userCmd: a twistedActor BaseCommand
+    #     """
+    #     log.info("%s.focusOffset(userCmd=%s, focusValue=%.2f)" % (self, userCmd, focusValue))
+    #     userCmd = expandUserCmd(userCmd)
+    #     if not self.conn.isConnected:
+    #         userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+    #         return userCmd
+    #     if not self.waitFocusCmd.isDone:
+    #         self.waitFocusCmd.setState(self.waitFocusCmd.Cancelled, "Superseded by focus offset")
+    #     self.targFocus += focusValue
+    #     self.waitFocusCmd = UserCmd()
+    #     # command stop first, always
+    #     devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in ["focus stop", "dfocus %.6f"%focusValue]]
+    #     LinkCommands(userCmd, devCmdList + [self.waitFocusCmd])
+    #     for devCmd in devCmdList:
+    #         self.queueDevCmd(devCmd)
+    #     return userCmd
 
-    def slew(self, ra, dec, userCmd=None):
-        """Slew telescope. If a slew is presently underway, cancel it.
+    # def slew(self, ra, dec, userCmd=None):
+    #     """Slew telescope. If a slew is presently underway, cancel it.
 
-        @param[in] ra: right ascension decimal degrees
-        @param[in] dec: declination decimal degrees
-        @param[in] userCmd: a twistedActor BaseCommand.
-        """
-        log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
-        userCmd = expandUserCmd(userCmd)
-        # force slew to show up in axes command state keyword
-        self.status.previousDec = ForceSlew
-        self.status.previousRA = ForceSlew
-        if not self.conn.isConnected:
-            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
-            return userCmd
-        if not self.waitSlewCmd.isDone:
-            self.waitSlewCmd(self.waitSlewCmd.Cancelled, "Superseded by new slew")
-        self.waitSlewCmd = UserCmd()
-        enterRa = "RAD %.8f"%ra
-        enterDec = "DECD %.8f"%dec
-        enterEpoch = "MP %.2f"%2000 # LCO: HACK
-        # cmdSlew = "SLEW" # LCO: HACK operator commands slew don't send it!
-        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]#, cmdSlew]]
-        # set userCmd done only when each device command finishes
-        # AND the pending slew is also done.
-        # when the last dev cmd is done (the slew), set axis cmd statue to slewing
+    #     @param[in] ra: right ascension decimal degrees
+    #     @param[in] dec: declination decimal degrees
+    #     @param[in] userCmd: a twistedActor BaseCommand.
+    #     """
+    #     log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
+    #     userCmd = expandUserCmd(userCmd)
+    #     # force slew to show up in axes command state keyword
+    #     self.status.previousDec = ForceSlew
+    #     self.status.previousRA = ForceSlew
+    #     if not self.conn.isConnected:
+    #         userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+    #         return userCmd
+    #     if not self.waitSlewCmd.isDone:
+    #         self.waitSlewCmd(self.waitSlewCmd.Cancelled, "Superseded by new slew")
+    #     self.waitSlewCmd = UserCmd()
+    #     enterRa = "RAD %.8f"%ra
+    #     enterDec = "DECD %.8f"%dec
+    #     enterEpoch = "MP %.2f"%2000 # LCO: HACK
+    #     # cmdSlew = "SLEW" # LCO: HACK operator commands slew don't send it!
+    #     devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]#, cmdSlew]]
+    #     # set userCmd done only when each device command finishes
+    #     # AND the pending slew is also done.
+    #     # when the last dev cmd is done (the slew), set axis cmd statue to slewing
 
-        LinkCommands(userCmd, devCmdList) #LCO: HACK don't wait for a slew to finish + [self.waitSlewCmd])
-        for devCmd in devCmdList:
-            self.queueDevCmd(devCmd)
+    #     LinkCommands(userCmd, devCmdList) #LCO: HACK don't wait for a slew to finish + [self.waitSlewCmd])
+    #     for devCmd in devCmdList:
+    #         self.queueDevCmd(devCmd)
 
-        statusStr = self.status.getStatusStr()
-        if statusStr:
-            self.writeToUsers("i", statusStr, userCmd)
-        return userCmd
+    #     statusStr = self.status.getStatusStr()
+    #     if statusStr:
+    #         self.writeToUsers("i", statusStr, userCmd)
+    #     return userCmd
 
     def slewOffset(self, ra, dec, userCmd=None):
         """Offset telescope in right ascension and declination.
@@ -428,8 +434,7 @@ class TCSDevice(TCPDevice):
         self.waitOffsetCmd = UserCmd()
         enterRa = "OFRA %.8f"%(-1.0*ra*ArcSecPerDeg) #LCO: HACK
         enterDec = "OFDC %.8f"%(-1.0*dec*ArcSecPerDeg)
-        cmdSlew = "OFFP"
-        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, cmdSlew]]
+        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
         LinkCommands(userCmd, devCmdList + [self.waitOffsetCmd])
@@ -496,6 +501,8 @@ class TCSDevice(TCPDevice):
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmdStr))
+                if CMDOFF.upper() == devCmdStr:
+                    self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
                 self.conn.writeLine(devCmdStr)
             else:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected")

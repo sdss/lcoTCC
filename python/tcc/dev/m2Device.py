@@ -164,11 +164,11 @@ class M2Device(TCPDevice):
                 self.writeToUsers("i", statusStr, cmd)
             # update delta ra and decs
 
-            if not self.waitMoveCmd.isDone and self.isDone:
+            if self.waitMoveCmd.isActive and self.isDone:
                 # move is done, power off galil
                 self.queueDevCmd(DevCmd(cmdStr="galil off"))
                 self.waitMoveCmd.setState(self.waitMoveCmd.Done)
-            if not self.waitGalilCmd.isDone and not self.isDone:
+            if self.waitGalilCmd.isActive and not self.isDone:
                 self.waitGalilCmd.setState(self.waitGalilCmd.Done)
 
     def stop(self, userCmd=None):
@@ -280,6 +280,12 @@ class M2Device(TCPDevice):
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmdStr))
+                # set move command to running now. Bug if set earlier race condition
+                # with status
+                if "move" in devCmdStr.lower():
+                    self.waitMoveCmd.setState(self.waitMoveCmd.Running)
+                if "galil" in devCmdStr.lower():
+                    self.waitGalilCmd.setState(self.waitGalilCmd.Running)
                 self.conn.writeLine(devCmdStr)
             else:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected")
