@@ -3,7 +3,7 @@ from __future__ import division, absolute_import
 """
 from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
-from ..cmd import track, setFocus, setScaleFactor, offset, device, ping
+from ..cmd import setFocus, setScaleFactor, offset, device, ping #,track
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -101,25 +101,25 @@ TCCLCOCmdList = (
             ),
         ],
     ),
-    parseDefs.Command(
-        name = "track",
-        help = "Make the telescope to slew to and track an object.",
-        callFunc = track,
-        paramList = [
-            CoordPair(
-                name = 'coordPair',
-                extraHelp =  "Nonzero velocity specifies dEquatAng/dt, dPolarAng/dt; " \
-                    "to track along a great circle specify /ScanVelocity or, " \
-                    "equivalently, specify an arc offset with nonzero velocity.",
-                ),
-            CoordSys(
-                name = 'coordSys',
-                help = "Coordinate system and date",
-                omit = ("Instrument", "GProbe", "GImage", "PtCorr", "Rotator"),
-            ),
-        ],
-        minParAmt = 0,
-    ),
+    # parseDefs.Command(
+    #     name = "track",
+    #     help = "Make the telescope to slew to and track an object.",
+    #     callFunc = track,
+    #     paramList = [
+    #         CoordPair(
+    #             name = 'coordPair',
+    #             extraHelp =  "Nonzero velocity specifies dEquatAng/dt, dPolarAng/dt; " \
+    #                 "to track along a great circle specify /ScanVelocity or, " \
+    #                 "equivalently, specify an arc offset with nonzero velocity.",
+    #             ),
+    #         CoordSys(
+    #             name = 'coordSys',
+    #             help = "Coordinate system and date",
+    #             omit = ("Instrument", "GProbe", "GImage", "PtCorr", "Rotator"),
+    #         ),
+    #     ],
+    #     minParAmt = 0,
+    # ),
     parseDefs.CommandWrapper(
         name = "set",
         subCmdList = [
@@ -201,7 +201,6 @@ class TCCLCOCmdParser(CmdParser):
         ONLY SUPPORTED COMMANDS ARE:
         set focus=focusVal
         set scaleFactor=scaleVale
-        track ra, dec fk5=equinox
         offset arc ra, dec
 
         """
