@@ -282,7 +282,7 @@ class M2Device(TCPDevice):
                 log.info("%s writing %r" % (self, devCmdStr))
                 # set move command to running now. Bug if set earlier race condition
                 # with status
-                if "move" in devCmdStr.lower():
+                if "move" in devCmdStr.lower() or "offset" in devCmdStr.lower():
                     self.waitMoveCmd.setState(self.waitMoveCmd.Running)
                 if "galil" in devCmdStr.lower():
                     self.waitGalilCmd.setState(self.waitGalilCmd.Running)
