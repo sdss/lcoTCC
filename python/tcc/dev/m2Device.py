@@ -86,8 +86,8 @@ class M2Device(TCPDevice):
         self._statusTimer = Timer()
         self.waitMoveCmd = UserCmd()
         self.waitMoveCmd.setState(self.waitMoveCmd.Done)
-        self.waitGalilCmd = UserCmd()
-        self.waitGalilCmd.setState(self.waitGalilCmd.Done)
+        # self.waitGalilCmd = UserCmd()
+        # self.waitGalilCmd.setState(self.waitGalilCmd.Done)
         self.devCmdQueue = CommandQueue({}) # all commands of equal priority
 
         TCPDevice.__init__(self,
@@ -99,8 +99,17 @@ class M2Device(TCPDevice):
         )
 
     @property
+    def isBusy(self):
+        return self.status.state == Moving
+
+    @property
+    def isOff(self):
+        return self.status.galil == Off
+
+    @property
     def isDone(self):
-        return self.status.state == Done
+        # only done when state=done and galil=off
+        return not self.isBusy and self.isOff
 
     @property
     def currExeDevCmd(self):
@@ -167,14 +176,29 @@ class M2Device(TCPDevice):
                 self.writeToUsers("i", statusStr, cmd)
             # update delta ra and decs
 
-            if self.waitMoveCmd.isActive and self.isDone:
-                # move is done, power off galil
-                self.queueDevCmd(DevCmd(cmdStr="galil off"))
-                self.waitMoveCmd.setState(self.waitMoveCmd.Done)
-            elif self.waitGalilCmd.isActive and self.isDone:
-                self.waitGalilCmd.setState(self.waitGalilCmd.Done)
-            elif not self.isDone:
+            # if self.waitMoveCmd.isActive and not self.isBusy:
+            #     print("active, moving", self.waitMoveCmd.isActive, self.isBusy, self.isOff)
+            #     # move is done, and galil is on, power it off
+            #     if not self.isOff:
+            #         self.queueDevCmd(DevCmd(cmdStr="galil off"))
+            #     else:
+            #         # move is done and power is off, move command is now done
+            #         self.waitMoveCmd.setState(self.waitMoveCmd.Done)
+            # elif self.waitGalilCmd.isActive and self.isDone:
+            #     self.waitGalilCmd.setState(self.waitGalilCmd.Done)
+
+            if not self.isDone:
+                # keep polling until done
                 self._statusTimer.start(PollTime, self.getStatus)
+            elif self.waitMoveCmd.isActive:
+                if not self.isBusy:
+                    # move is done
+                    if not self.isOff:
+                        # galil is not off, turn it off
+                        self.queueDevCmd(DevCmd(cmdStr="galil off"))
+                    else:
+                        # move is done and galil is off, set wait move command as done
+                        self.waitMoveCmd.setState(self.waitMoveCmd.Done)
 
     def stop(self, userCmd=None):
         userCmd = expandUserCmd(userCmd)
@@ -243,7 +267,7 @@ class M2Device(TCPDevice):
         - Parse status to update the model parameters
         """
         log.info("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
-        # print("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
+        print("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
         replyStr = replyStr.strip()
         if not replyStr:
             return
@@ -291,8 +315,8 @@ class M2Device(TCPDevice):
                 # with status
                 if "move" in devCmdStr.lower() or "offset" in devCmdStr.lower():
                     self.waitMoveCmd.setState(self.waitMoveCmd.Running)
-                if "galil" in devCmdStr.lower():
-                    self.waitGalilCmd.setState(self.waitGalilCmd.Running)
+                # if "galil" in devCmdStr.lower():
+                #     self.waitGalilCmd.setState(self.waitGalilCmd.Running)
                 self.conn.writeLine(devCmdStr)
             else:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected")

@@ -419,11 +419,11 @@ class FakeM2Ctrl(FakeDev):
         self.galilTimer.start(2., self.setDone, doMove)
 
     def setDone(self, doMove=False):
-        if not doMove:
-            self.moveState = self.Done
         self.galil = self.On
         if doMove:
             self.doMove()
+        else:
+            self.moveState = self.Done
 
     def doMove(self, stop=False):
         """stop: halt focus at it's current location
@@ -438,6 +438,7 @@ class FakeM2Ctrl(FakeDev):
             self.powerup(doMove=True)
             # move will start after powerup
             return
+        self.moveState = self.Moving
         focus = self.incrementPosition(self.targOrientation[0], self.orientation[0], FocusStepSize)
         self.orientation[0] = focus
         if focus != self.targOrientation[0]:
