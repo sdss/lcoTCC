@@ -161,7 +161,7 @@ class M2Device(TCPDevice):
         return userCmd
 
     def processStatus(self, replyStr):
-        print("procesStatus", replyStr)
+        # print("procesStatus", replyStr)
 
         self.status.parseStatus(replyStr)
         # do we want status output so frequently? probabaly not.
@@ -246,7 +246,7 @@ class M2Device(TCPDevice):
         - Parse status to update the model parameters
         """
         log.info("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
-        print("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
+        # print("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
         replyStr = replyStr.strip()
         if not replyStr:
             return
@@ -272,7 +272,7 @@ class M2Device(TCPDevice):
         @param[in] devCmd: a twistedActor DevCmd.
         """
         log.info("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
-        print("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
+        # print("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (other wise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd.cmdVerb = devCmd.cmdStr
@@ -287,7 +287,7 @@ class M2Device(TCPDevice):
         """
         devCmdStr = devCmdStr.lower() # m2 uses all lower case
         log.info("%s.startDevCmd(%r)" % (self, devCmdStr))
-        print("%s.startDevCmd(%r)" % (self, devCmdStr))
+        # print("%s.startDevCmd(%r)" % (self, devCmdStr))
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmdStr))
