@@ -153,52 +153,35 @@ class M2Device(TCPDevice):
             return userCmd
         self._statusTimer.cancel() # incase a status is pending
         userCmd = expandUserCmd(userCmd)
-        userCmd.addCallback(self._statusCallback)
+        # userCmd.addCallback(self._statusCallback)
         # gather list of status elements to get
         statusCmd = DevCmd(cmdStr="status")
         LinkCommands(userCmd, [statusCmd])
         self.queueDevCmd(statusCmd)
-        if not self.isDone:
-            # only poll if moving
-            self._statusTimer.start(PollTime, self.getStatus)
         return userCmd
 
-    def _statusCallback(self, cmd):
-        """! When status command is complete, send info to users, and check if any
-        wait commands need to be set done
-        """
-        # print("m2 status callback", cmd)
-        if cmd.isDone:
-            # do we want status output so frequently? probabaly not.
-            # perhaps only write status if it has changed...
-            statusStr = self.status.getStatusStr()
-            if statusStr:
-                self.writeToUsers("i", statusStr, cmd)
-            # update delta ra and decs
+    def processStatus(self, replyStr):
+        print("procesStatus", replyStr)
 
-            # if self.waitMoveCmd.isActive and not self.isBusy:
-            #     print("active, moving", self.waitMoveCmd.isActive, self.isBusy, self.isOff)
-            #     # move is done, and galil is on, power it off
-            #     if not self.isOff:
-            #         self.queueDevCmd(DevCmd(cmdStr="galil off"))
-            #     else:
-            #         # move is done and power is off, move command is now done
-            #         self.waitMoveCmd.setState(self.waitMoveCmd.Done)
-            # elif self.waitGalilCmd.isActive and self.isDone:
-            #     self.waitGalilCmd.setState(self.waitGalilCmd.Done)
+        self.status.parseStatus(replyStr)
+        # do we want status output so frequently? probabaly not.
+        # perhaps only write status if it has changed...
+        statusStr = self.status.getStatusStr()
+        if statusStr:
+            self.writeToUsers("i", statusStr)
 
-            if not self.isDone:
-                # keep polling until done
-                self._statusTimer.start(PollTime, self.getStatus)
-            elif self.waitMoveCmd.isActive:
-                if not self.isBusy:
-                    # move is done
-                    if not self.isOff:
-                        # galil is not off, turn it off
-                        self.queueDevCmd(DevCmd(cmdStr="galil off"))
-                    else:
-                        # move is done and galil is off, set wait move command as done
-                        self.waitMoveCmd.setState(self.waitMoveCmd.Done)
+        if self.waitMoveCmd.isActive:
+            if not self.isBusy:
+                # move is done
+                if not self.isOff:
+                    # galil is not off, turn it off
+                    self.queueDevCmd(DevCmd(cmdStr="galil off"))
+                else:
+                    # move is done and galil is off, set wait move command as done
+                    self.waitMoveCmd.setState(self.waitMoveCmd.Done)
+        if not self.isDone:
+            # keep polling until done
+            self._statusTimer.start(PollTime, self.getStatus)
 
     def stop(self, userCmd=None):
         userCmd = expandUserCmd(userCmd)
@@ -250,10 +233,6 @@ class M2Device(TCPDevice):
         LinkCommands(userCmd, devCmdList + [self.waitMoveCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
-        # begin polling status
-        # def startStatusLoop(*arg):
-        #     self.getStatus()
-        # statusCmd.addCallback(startStatusLoop) # begin polling
         return userCmd
 
     def handleReply(self, replyStr):
@@ -281,7 +260,7 @@ class M2Device(TCPDevice):
         if self.currDevCmdStr.lower() == "speed":
             self.status.speed = float(replyStr)
         elif self.currDevCmdStr.lower() == "status":
-            self.status.parseStatus(replyStr)
+            self.processStatus(replyStr)
         # only one line is ever returned after a request
         # so if we got one, then the request is done
         self.currExeDevCmd.setState(self.currExeDevCmd.Done)
@@ -293,7 +272,7 @@ class M2Device(TCPDevice):
         @param[in] devCmd: a twistedActor DevCmd.
         """
         log.info("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
-        # print("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
+        print("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (other wise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd.cmdVerb = devCmd.cmdStr
@@ -308,6 +287,7 @@ class M2Device(TCPDevice):
         """
         devCmdStr = devCmdStr.lower() # m2 uses all lower case
         log.info("%s.startDevCmd(%r)" % (self, devCmdStr))
+        print("%s.startDevCmd(%r)" % (self, devCmdStr))
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmdStr))
