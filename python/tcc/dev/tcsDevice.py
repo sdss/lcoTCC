@@ -17,7 +17,7 @@ ForceSlew = "ForceSlew"
 PollTimeSlew = 2 #seconds, LCO says status is updated no more frequently that 5 times a second
 PollTimeTrack = 5
 PollTimeIdle = 10
-FocusPosTol = 0.001 # microns?
+# FocusPosTol = 0.001 # microns?
 ArcSecPerDeg = 3600 # arcseconds per degree
 
 # DuPontLat = -1*(29 + 52.56 / float(ArcSecPerDeg))
@@ -68,7 +68,7 @@ class StatusField(object):
         self.value = self.castFunc(lcoReply)
 
 StatusFieldList = [
-                StatusField("focus", float),
+                # StatusField("focus", float),
                 StatusField("ra", castHoursToDeg),
                 StatusField("dec", degFromDMSStr),
                 StatusField("inpra", castHoursToDeg),
@@ -92,8 +92,8 @@ class Status(object):
         self.raOnTarg = castHoursToDeg("0:0:0.2")
         self.decOnTarg = degFromDMSStr("0:0:01")
         self.statusFieldDict = collections.OrderedDict(( (x.cmdVerb, x) for x in StatusFieldList ))
-        self.focus = None
-        self.targFocus = None
+        # self.focus = None
+        # self.targFocus = None
         self.ra = None
         self.dec = None
         self.targRA = None
@@ -106,7 +106,7 @@ class Status(object):
             "axePos": self.axePos(),
             "objNetPos": self.objNetPos(),
             "utc_tai": self.utc_tai(),
-            "secFocus": self.secFocus(),
+            # "secFocus": self.secFocus(),
             # "currArcOff": self.currArcOff(), 0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # "objArcOff": self.objArcOff(), bjArcOff=0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # TCCPos=68.361673,63.141087,nan; AxePos=68.393020,63.138022
@@ -157,10 +157,10 @@ class Status(object):
     def utc_tai(self):
         return "UTC_TAI=%0.0f"%(-36.0,) # this value is usually gotten from coordConv/earthpred, I think, which we don't have implemented...
 
-    def secFocus(self):
-        secFocus = self.statusFieldDict["focus"].value
-        secFocus = "NaN" if secFocus is None else "%.4f"%secFocus
-        return "SecFocus=%s"%secFocus
+    # def secFocus(self):
+    #     secFocus = self.statusFieldDict["focus"].value
+    #     secFocus = "NaN" if secFocus is None else "%.4f"%secFocus
+    #     return "SecFocus=%s"%secFocus
 
     @property
     def arcOff(self):
@@ -246,12 +246,12 @@ class TCSDevice(TCPDevice):
     def currDevCmdStr(self):
         return self.currExeDevCmd.cmdStr
 
-    @property
-    def atFocus(self):
-        if self.status.statusFieldDict["focus"].value and abs(self.targFocus - self.status.statusFieldDict["focus"].value) < FocusPosTol:
-            return True
-        else:
-            return False
+    # @property
+    # def atFocus(self):
+    #     if self.status.statusFieldDict["focus"].value and abs(self.targFocus - self.status.statusFieldDict["focus"].value) < FocusPosTol:
+    #         return True
+    #     else:
+    #         return False
 
     @property
     def isTracking(self):

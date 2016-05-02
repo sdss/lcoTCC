@@ -146,10 +146,10 @@ class M2Device(TCPDevice):
         # gather list of status elements to get
         statusCmd = DevCmd(cmdStr="status")
         LinkCommands(userCmd, [statusCmd])
-        self.queueDevCmd(statusCmd)
-        if not self.isDone:
-            # only poll if moving
-            self._statusTimer.start(PollTime, self.getStatus)
+        # self.queueDevCmd(statusCmd)
+        # if not self.isDone:
+        #     # only poll if moving
+        #     self._statusTimer.start(PollTime, self.getStatus)
         return userCmd
 
     def _statusCallback(self, cmd):
@@ -168,8 +168,10 @@ class M2Device(TCPDevice):
                 # move is done, power off galil
                 self.queueDevCmd(DevCmd(cmdStr="galil off"))
                 self.waitMoveCmd.setState(self.waitMoveCmd.Done)
-            if self.waitGalilCmd.isActive and not self.isDone:
+            elif self.waitGalilCmd.isActive and self.isDone:
                 self.waitGalilCmd.setState(self.waitGalilCmd.Done)
+            elif not self.isDone:
+                self._statusTimer.start(PollTime, self.getStatus)
 
     def stop(self, userCmd=None):
         userCmd = expandUserCmd(userCmd)
@@ -222,9 +224,9 @@ class M2Device(TCPDevice):
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
         # begin polling status
-        def startStatusLoop(*arg):
-            self.getStatus()
-        statusCmd.addCallback(startStatusLoop) # begin polling
+        # def startStatusLoop(*arg):
+        #     self.getStatus()
+        # statusCmd.addCallback(startStatusLoop) # begin polling
         return userCmd
 
     def handleReply(self, replyStr):
