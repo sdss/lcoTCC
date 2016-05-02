@@ -122,6 +122,7 @@ class M2Device(TCPDevice):
         Only thing to do is query for status or connect if not connected
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
+        # print("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
         userCmd = expandUserCmd(userCmd)
         # if not self.isConnected:
         #     return self.connect(userCmd=userCmd)
@@ -136,6 +137,7 @@ class M2Device(TCPDevice):
         """Return current telescope status. Continuously poll.
         """
         log.info("%s.getStatus(userCmd=%s)" % (self, userCmd)) # logging this will flood the log
+        # print("%s.getStatus(userCmd=%s)" % (self, userCmd))
         userCmd = expandUserCmd(userCmd)
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to M2")
@@ -146,16 +148,17 @@ class M2Device(TCPDevice):
         # gather list of status elements to get
         statusCmd = DevCmd(cmdStr="status")
         LinkCommands(userCmd, [statusCmd])
-        # self.queueDevCmd(statusCmd)
-        # if not self.isDone:
-        #     # only poll if moving
-        #     self._statusTimer.start(PollTime, self.getStatus)
+        self.queueDevCmd(statusCmd)
+        if not self.isDone:
+            # only poll if moving
+            self._statusTimer.start(PollTime, self.getStatus)
         return userCmd
 
     def _statusCallback(self, cmd):
         """! When status command is complete, send info to users, and check if any
         wait commands need to be set done
         """
+        # print("m2 status callback", cmd)
         if cmd.isDone:
             # do we want status output so frequently? probabaly not.
             # perhaps only write status if it has changed...
@@ -240,6 +243,7 @@ class M2Device(TCPDevice):
         - Parse status to update the model parameters
         """
         log.info("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
+        # print("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
         replyStr = replyStr.strip()
         if not replyStr:
             return
@@ -265,6 +269,7 @@ class M2Device(TCPDevice):
         @param[in] devCmd: a twistedActor DevCmd.
         """
         log.info("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
+        # print("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (other wise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd.cmdVerb = devCmd.cmdStr
