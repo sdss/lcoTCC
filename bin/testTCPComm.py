@@ -28,7 +28,7 @@ class Ping(Protocol):
     def __init__(self):
         self.responseTimes = []
         self.sentTime = None
-        self.printEvery = 100 # every 100 pings print stats
+        self.printEvery = 10000 # every 100 pings print stats
 
     @property
     def nPings(self):
@@ -65,16 +65,20 @@ class PingFactory(Factory):
 if __name__ == '__main__':
     pongFactory = PongFactory()
     pingFactory = PingFactory()
+    t1 = time.time()
 
     def playPingPong(protocol):
+        global t1
+        print("client startup took", time.time()-t1)
         print("playPingPong")
         protocol.ping()
 
 
     def startClient(port):
+        global t1
+        print("server startup took", time.time()-t1)
+        t1 = time.time()
         print("starting client")
-        print(port)
-        print(dir(port))
         point = TCP4ClientEndpoint(reactor, "localhost", PORT)
         d = point.connect(pingFactory)
         # when the client has started
