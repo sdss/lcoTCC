@@ -8,9 +8,11 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet.endpoints import TCP4ClientEndpoint, TCP4ServerEndpoint
 from twisted.internet import reactor
 
+from tcc.dev import M2DeviceWrapper
+
 import numpy
 
-PORT = 8007
+PORT = 16007
 
 class Pong(Protocol):
     def dataReceived(self, line):
@@ -61,8 +63,7 @@ class PingFactory(Factory):
     def buildProtocol(self, addr):
         return Ping()
 
-
-if __name__ == '__main__':
+def pingPongRawTwisted():
     pongFactory = PongFactory()
     pingFactory = PingFactory()
     t1 = time.time()
@@ -95,4 +96,54 @@ if __name__ == '__main__':
 
     startServer()
     reactor.run()
+
+class ActorPing(M2DeviceWrapper):
+    def __init__(self, *args, **kwargs):
+        self.responseTimes = []
+        self.sentTime = None
+        self.printEvery = 10000 # every 100 pings print stats
+        M2DeviceWrapper.__init__(self, *args, **kwargs)
+
+    @property
+    def nPings(self):
+        return len(self.responseTimes)
+
+    def ping(self):
+        # print("sending ping")
+        self.sentTime = time.time()
+        cmd = self.device.getStatus()
+        cmd.addCallback(self.pingDone)
+
+    def pingDone(self, callbackCmd):
+        if callbackCmd.isDone:
+            self.responseTimes.append(time.time()-self.sentTime)
+            self.sentTime = None
+            if self.nPings % self.printEvery == 0:
+                self.printStats()
+            self.ping()
+
+    def meanTimes(self):
+        return numpy.mean(self.responseTimes)
+
+    def stdDevTimes(self):
+        return numpy.std(self.responseTimes)
+
+    def printStats(self):
+        print("%.6f (%.6f)"%(self.meanTimes(), self.stdDevTimes()))
+
+
+def pingPongTwistedActor():
+    def ping(device):
+        if device.isReady:
+            print("ping!")
+            device.ping()
+    m2Wrapper = ActorPing(name="pinger", stateCallback=ping)
+    reactor.run()
+
+
+
+if __name__ == '__main__':
+    pingPongTwistedActor()
+
+
 

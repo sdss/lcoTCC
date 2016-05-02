@@ -53,7 +53,7 @@ class Status(object):
         """
         # lowerify everything
         replyStr = replyStr.lower()
-        print("replyStr parseStatus", replyStr)
+        # print("replyStr parseStatus", replyStr)
         for statusBit in replyStr.split():
             key, val = statusBit.split("=")
             if key == "state":
@@ -238,7 +238,7 @@ class M2Device(TCPDevice):
         - Parse status to update the model parameters
         """
         log.info("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
-        print("replyStr", replyStr, self.currDevCmdStr)
+        # print("replyStr", replyStr, self.currDevCmdStr)
         replyStr = replyStr.strip()
         if not replyStr:
             return
