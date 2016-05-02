@@ -63,7 +63,7 @@ class TestLCOCommands(TestCase):
         )
         return d1
 
-    def queueTrackCmd(self, cmdStr, raVal, decVal):
+    def queueOffsetCmd(self, cmdStr, raVal, decVal):
         """TCS device sets track commands done instantly (eg before state=Tracking)
         return a deferred here that will only fire when state==Tracking
         """
@@ -71,7 +71,7 @@ class TestLCOCommands(TestCase):
         def fireWhenTracking(keyVar):
             if keyVar.valueList[0] == "Tracking" and keyVar.valueList[1] == "Tracking":
                 # telescope is tracking
-                self.checkTrackDone(raVal, decVal)
+                self.checkOffsetDone(raVal, decVal)
                 d.callback(None)
         def removeCB(foo=None):
             self.model.axisCmdState.removeCallback(fireWhenTracking)
@@ -129,10 +129,10 @@ class TestLCOCommands(TestCase):
     def checkIsSlewing(self):
             self.checkAxesState("Slewing")
 
-    def checkTrackDone(self, raVal, decVal):
+    def checkOffsetDone(self, raVal, decVal):
         # how to verify position is correct?
         self.checkAxesState("Tracking")
-        self.checkAxesPosition(raVal, decVal)
+        self.checkAxesPosition(-1*raVal, -1*decVal) # offsets are applied negatively (Du Pont TCS convention)
 
     def testFocus(self):
         focusVal = 10
@@ -148,42 +148,42 @@ class TestLCOCommands(TestCase):
         deferredList = [self.queueCmd(cmdStr, callFunc) for cmdStr, callFunc in itertools.izip(focusCmdList, callFuncList)]
         return gatherResults(deferredList)
 
-    def testTrack(self):
+    def testOffset(self):
         # self.checkAxesState("Idle")
         raVal, decVal = 5,5
-        trackCmd = "track %i,%i icrs"%(raVal, decVal)
-        d = self.queueTrackCmd(trackCmd, raVal, decVal)
+        offsetCmd = "offset arc %i,%i"%(raVal, decVal)
+        d = self.queueOffsetCmd(offsetCmd, raVal, decVal)
         reactor.callLater(0.1, self.checkIsSlewing)
         return d
 
-    def testTrack2(self):
+    def testOffset2(self):
         # self.checkAxesState("Idle")
         raVal, decVal = 10.8,-5.2
-        trackCmd = "track %.2f,%.2f icrs"%(raVal, decVal)
-        d = self.queueTrackCmd(trackCmd, raVal, decVal)
+        offsetCmd = "offset arc %.2f,%.2f"%(raVal, decVal)
+        d = self.queueOffsetCmd(offsetCmd, raVal, decVal)
         reactor.callLater(0.1, self.checkIsSlewing)
         return d
 
-    def _trackAndOffset(self, raVal, decVal, raOff, decOff):
+    def _doubleOffset(self, raOff1, decOff1, raOff2, decOff2):
         returnD = Deferred()
-        trackCmd = "track %.2f,%.2f icrs"%(raVal, decVal)
-        offsetCmd = "offset arc %.2f,%.2f"%(raOff, decOff)
-        d1 = self.queueTrackCmd(trackCmd, raVal, decVal)
+        offsetCmd = "offset arc %.2f,%.2f"%(raOff1, decOff1)
+        offsetCmd2 = "offset arc %.2f,%.2f"%(raOff2, decOff2)
+        d1 = self.queueOffsetCmd(offsetCmd, raOff1, decOff1)
         reactor.callLater(0.1, self.checkIsSlewing)
-        def sendOffset(*args):
-            def checkOffsetDone(*args):
-                self.checkTrackDone(raVal-raOff, decVal-decOff) # ra and dec are inverted
-                returnD.callback(None)
+        def sendNextOffset(*args):
             # only send offset once track is finished
-            d2 = self.queueCmd(offsetCmd, checkOffsetDone)
-        d1.addCallback(sendOffset)
+            d2 = self.queueOffsetCmd(offsetCmd2, raOff1+raOff2, decOff1+decOff2)
+            def setDone(callback):
+                returnD.callback(None)
+            d2.addCallback(setDone)
+        d1.addCallback(sendNextOffset)
         return returnD
 
-    def testTrackAndOffset(self):
-        return self._trackAndOffset(5,6,7,8)
+    def testDoubleOffset(self):
+        return self._doubleOffset(5,6,7,8)
 
-    def testTrackAndOffset2(self):
-        return self._trackAndOffset(5.4, -3.6, 7.02, -8.2)
+    def testDoubleOffset2(self):
+        return self._doubleOffset(5.4, -3.6, 7.02, -8.2)
 
     def testScale(self):
         scaleVal = 1.00006

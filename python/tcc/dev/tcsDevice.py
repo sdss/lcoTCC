@@ -263,7 +263,7 @@ class TCSDevice(TCPDevice):
     @property
     def isSlewing(self):
 
-        if not self.waitOffsetCmd.isDone or not self.waitSlewCmd.isDone:
+        if not self.waitOffsetCmd.isDone:# or not self.waitSlewCmd.isDone:
             return True
         else:
             return False
