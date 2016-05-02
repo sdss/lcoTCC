@@ -389,9 +389,7 @@ class FakeM2Ctrl(FakeDev):
                 self.doMove(stop=True)
             elif tokens[0].lower() in ["move", "focus", "offset", "dfocus"]:
                 isOffset = tokens[0].lower() in ["offset", "dfocus"]
-                print("isOffset", isOffset)
                 for ind, value in enumerate(tokens[1:]):
-                    print("value", float(value))
                     if isOffset:
                         self.targOrientation[ind] += float(value)
                     else:
