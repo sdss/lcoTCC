@@ -8,7 +8,7 @@ from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUs
 __all__ = ["M2Device"]
 
 PollTime = 0.5 #seconds, LCO says status is updated no more frequently that 5 times a second
-PollTime = 1
+# PollTime = 1
 # Speed = 25.0 # microns per second for focus
 
 Done = "done"
