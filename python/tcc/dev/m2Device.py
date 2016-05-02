@@ -238,7 +238,6 @@ class M2Device(TCPDevice):
         - Parse status to update the model parameters
         """
         log.info("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
-        print(replyStr)
         replyStr = replyStr.strip()
         if not replyStr:
             return
