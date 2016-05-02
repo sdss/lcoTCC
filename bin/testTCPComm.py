@@ -13,7 +13,6 @@ from tcc.dev import M2DeviceWrapper
 import numpy
 
 PORT = 16007
-
 class Pong(Protocol):
     def dataReceived(self, line):
         # if a ping is received, reply with pong

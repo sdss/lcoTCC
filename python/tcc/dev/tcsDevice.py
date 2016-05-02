@@ -273,6 +273,7 @@ class TCSDevice(TCPDevice):
         Only thing to do is query for status or connect if not connected
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
+        # print("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
         userCmd = expandUserCmd(userCmd)
         # if not self.isConnected:
         #     # time lim handled by lco.deviceCmd
@@ -315,6 +316,7 @@ class TCSDevice(TCPDevice):
         """! When status command is complete, send info to users, and check if any
         wait commands need to be set done
         """
+        # print("tcs status callback", cmd)
         if cmd.isDone:
             # do we want status output so frequently? probabaly not.
             # perhaps only write status if it has changed...
