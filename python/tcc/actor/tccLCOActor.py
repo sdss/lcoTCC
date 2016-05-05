@@ -11,16 +11,34 @@ from twistedActor import CommandError, BaseActor, DeviceCollection
 from .tccLCOCmdParser import TCCLCOCmdParser
 from ..version import __version__
 
-tcsHost = "localhost"
-tcsPort = 0
-scaleHost = "localhost"
-scalePort = 1
+# tcsHost = "localhost"
+# tcsPort = 0
+# scaleHost = "localhost"
+# scalePort = 1
 
 __all__ = ["TCCLCOActor"]
+
+"""
+From Paul's email regarding scaling solution:
+
+focal plane focal plane      focal      ratio           Scale
+location        location        length                          Change
+BFDr        BFDp                                                1 parts in
+(inches)        (mm)        (mm)
+10           993            18868.78
+10.04        994                 18870.37       1.0000843    8.43e-5
+9.96                 992            18867.18        0.9999152       -8.48e-5
+
+So lets say that a scale change +8.45e05 as reported by the guider requires a plate motion of up by 1mm (towards the primary)
+                 and  a scale change -8.45e05 as reported by the guider requires a plate motion of down by 1mm (away from the primary)
+"""
 
 class TCCLCOActor(BaseActor):
     """!TCC actor for the LCO telescope
     """
+    SCALE_PER_MM = 8.45e-05
+    MAX_SF = 1.0008 # max scale factor from tcc25m/inst/default.dat
+    MIN_SF = 1./MAX_SF  # min scale factor
     def __init__(self,
         userPort,
         tcsDev,
@@ -50,6 +68,20 @@ class TCCLCOActor(BaseActor):
         self.cmdParser = TCCLCOCmdParser()
         BaseActor.__init__(self, userPort=userPort, maxUsers=1, name=name, version=__version__)
         # Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)
+
+    @property
+    def currentScaleFactor(self):
+        return self.mm2scale(self.scaleDev.status.position)
+
+    def scale2mm(self, scaleValue):
+        return scaleValue / self.SCALE_PER_MM + self.scaleDev.status.scaleZero
+
+    def mm2scale(self, mm):
+        return (mm - self.scaleDev.status.scaleZero) * self.SCALE_PER_MM
+
+    def scaleMult2mm(self, multiplier):
+        # avoid use of SCALE_PER_MM for numerical stability
+        return (self.scaleDev.status.position - self.scaleDev.status.scaleZero)*float(multiplier) + self.scaleDev.status.scaleZero
 
     def parseAndDispatchCmd(self, cmd):
         """Dispatch the user command

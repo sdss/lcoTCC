@@ -26,15 +26,20 @@ def setScaleFactor(tccActor, userCmd):
     valueList = userCmd.parsedCmd.paramDict["scalefactor"].valueList[0].valueList
     if valueList:
         scaleFac = valueList[0]
-        if userCmd.parsedCmd.qualDict['multiplicative'].boolValue:
-            scaleFac *= tccActor.scaleDev.currentScaleFactor
-        if not (tccActor.scaleDev.minSF <= scaleFac <= tccActor.scaleDev.maxSF):
-            userCmd.setState(userCmd.Failed,
-                textMsg="Scale factor %0.6f invalid; must be in range [%0.6f, %0.6f]" % (scaleFac, tccActor.scaleDev.minSF, tccActor.scaleDev.maxSF),
-            )
+        mult = userCmd.parsedCmd.qualDict['multiplicative'].boolValue
+        if mult:
+            absPosMM = tccActor.scaleMult2mm(scaleFac)
+        else:
+            # an absolute move, convert scale to mm
+            absPosMM = tccActor.scale2mm(scaleFac)
+        # verify move is within limits:
+        if mult:
+            scaleFac = tccActor.currentScaleFactor * scaleFac
+        if not (tccActor.MIN_SF <= scaleFac <= tccActor.MAX_SF):
+            # scale factor out of range:
+            userCmd.setState(userCmd.Failed, "Desired ScaleFactor out of range: %.6f"%scaleFac)
             return
-
-        scaleCmd = tccActor.scaleDev.move(scaleFac)
+        scaleCmd = tccActor.scaleDev.move(absPosMM)
         scaleCmd.addCallback(showScaleWhenDone)
     else:
         # no scale value received, just show current vale

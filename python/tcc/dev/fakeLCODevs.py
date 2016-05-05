@@ -79,10 +79,19 @@ class FakeScaleCtrl(FakeDev):
         @param[in] port  port on which to command scale controller
         """
         self.isMoving = False
-        self.moveRange = [0., 100.]
+        self.moveRange = [0., 40.]
         self.desPosition = 50
         self.position = 50
+        self.speed = 0
         self.moveTimer = Timer()
+        self.posSw1, self.posSw2, self.posSw3 = (0, 0, 0)
+        self.cartID = 0
+        self.lockPos = 18
+        # faults
+        self.trOT = False
+        self.trHWF, self.trIF = 0, 0
+        self.lockHWF, self.lockIF = 0, 0
+        self.winchHWF, self.winchIF = 0, 0
         self.positionTimer = Timer()
         self.userSock = None # created upon connection
         FakeDev.__init__(self,
@@ -117,6 +126,8 @@ class FakeScaleCtrl(FakeDev):
                 self.isMoving = True
                 self.moveTimer.start(0, self.moveLoop)
                 self.sendPositionLoop()
+        elif "speed" in cmdStr.lower():
+            self.speed = float(cmdStr.split()[-1])
         elif "stop" in cmdStr.lower():
             self.stop()
         else:
@@ -132,21 +143,80 @@ class FakeScaleCtrl(FakeDev):
     def sendPositionLoop(self):
         # only write if we are "moving"
         if self.userSock is not None and self.isMoving == True:
-            currPosStr = "CURRENT_POSITION %.6f"%self.position
+            currPosStr = "__ACTUAL_POSITION %.6f"%self.position
             self.userSock.writeLine(currPosStr)
             self.positionTimer.start(TimerDelay, self.sendPositionLoop)
 
+    # def sendStatusAndOK(self):
+    #     statusLines = [
+    #         "CURRENT_POSITION %.6f"%self.position,
+    #         "TARGET_POSITION %.6f"%self.desPosition,
+    #         "CARTRIDGE_ID 4",
+    #         "DRIVE_SPEED 23",
+    #         "DRIVE_ACCEL 3",
+    #         "MOVE_RANGE %.1f - %.1f"%(self.moveRange[0], self.moveRange[1]),
+    #         "HARDWARE FAULT NONE",
+    #         "INSTRUCTION_FAULT NONE",
+    #         "OK"
+    #     ]
+    #     for line in statusLines:
+    #         self.userSock.writeLine(line)
+
     def sendStatusAndOK(self):
         statusLines = [
-            "CURRENT_POSITION %.6f"%self.position,
-            "TARGET_POSITION %.6f"%self.desPosition,
-            "CARTRIDGE_ID 4",
-            "DRIVE_SPEED 23",
-            "DRIVE_ACCEL 3",
-            "MOVE_RANGE %.1f - %.1f"%(self.moveRange[0], self.moveRange[1]),
-            "HARDWARE FAULT NONE",
-            "INSTRUCTION_FAULT NONE",
-            "OK"
+            "THREAD_RING_AXIS:",
+            "__ACTUAL_POSITION %.7f"%self.position,
+            "__TARGET_POSITION 0.20000000",
+            "__DRIVE_STATUS: OFF",
+            "__MOTOR_CURRENT: -0.39443308",
+            "__DRIVE_SPEED %.7f"%self.speed,
+            "__DRIVE_ACCEL 20",
+            "__DRIVE_DECEL 20",
+            "__MOVE_RANGE %.4f - %.4f"%tuple(self.moveRange),
+            "__HARDWARE_FAULT %i"%(self.trHWF),
+            "__INSTRUCTION_FAULT %i"%(self.trIF),
+            "__THREADRING_OVERTRAVEL_%s"%("ON" if bool(self.trOT) else "OFF"),
+            "LOCK_RING_AXIS:",
+            "__ACTUAL_POSITION %.7f"%(self.lockPos),
+            "__TARGET_POSITION 18.0000000",
+            "__OPEN_SETPOINT: 150.000000",
+            "__LOCKED_SETPOINT: 18.0000000",
+            "__DRIVE_STATUS: OFF",
+            "__MOTOR_CURRENT: 0.0",
+            "__DRIVE_SPEED 50.0000000",
+            "__DRIVE_ACCEL 20",
+            "__DRIVE_DECEL 20",
+            "__MOVE_RANGE 0.0 - 152.399994",
+            "__HARDWARE_FAULT %i"%(self.lockHWF),
+            "__INSTRUCTION_FAULT %i"%(self.lockIF),
+            "WINCH_AXIS:",
+            "__ACTUAL_POSITION -1840.48157",
+            "__TARGET_POSITION 1652.00000",
+            "__UP_SETPOINT: 23.0000000",
+            "__TO_CART_SETPOINT: 1560.00000",
+            "__ON_CART_SETPOINT: 1652.00000",
+            "__RELEASE_SETPOINT: 1695.00000",
+            "__DRIVE_STATUS: OFF",
+            "__MOTOR_CURRENT: -0.02553883",
+            "__DRIVE_SPEED 50.0000000",
+            "__DRIVE_ACCEL 2",
+            "__DRIVE_DECEL 2",
+            "__MOVE_RANGE 0.0 - 3000.00000",
+            "__HARDWARE_FAULT %i"%self.winchHWF,
+            "__INSTRUCTION_FAULT %i"%self.winchIF,
+            "SCALE_1: 1.70607793",
+            "SCALE 2: 1.66883636",
+            "SCALE 3: -0.07550588",
+            "CARTRIDGE_ID %i"%self.cartID,
+            "__ID_SW: 0 1 2 3 4 5 6 7 8",
+            "         0 0 0 0 0 0 0 0 0",
+            "__POS_SW: 1 2 3",
+            "          %i %i %i"%(self.posSw1, self.posSw2, self.posSw3),
+            "WINCH_HOOK_SENSOR: OFF",
+            "WINCH_ENCODER_1_POS: 0.0",
+            "WINCH_ENCODER_2_POS: 0.0",
+            "WINCH_ENCODER_3_POS: 0.0",
+            "OK",
         ]
         for line in statusLines:
             self.userSock.writeLine(line)
@@ -253,17 +323,16 @@ class FakeTCS(FakeDev):
                 self.doSlew()
                 self.userSock.writeLine("0")
             elif tokens[0] == "SLEW":
+                raise RuntimeError("SLEWS NOT ALLOWED")
                 # slew to target
                 self.doSlew()
                 self.userSock.writeLine("0")
             elif tokens[0] == "MP":
-                # slew to target
-                # LCO: HACK, set slewing after MP is seen (this is not true TCS behavior but convenient for testing because)
-                # we are not allowed to send the actual SLEW command (the operator must do that)
+                # set epoch
                 self.MP = float(tokens[1])
-                self.doSlew()
                 self.userSock.writeLine("0")
             elif tokens[0] == "FOCUS":
+                raise RuntimeError("DON'T USE TCS FOR FOCUS!")
                 if len(tokens) == 1:
                    self.userSock.writeLine(str(self.focus))
                 else:
