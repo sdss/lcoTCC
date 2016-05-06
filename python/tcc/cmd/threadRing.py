@@ -1,13 +1,9 @@
 from __future__ import division, absolute_import
 
-from .showScaleFactor import showScaleFactor
 
-__all__ = ["setScaleFactor"]
+__all__ = ["threadRing"]
 
-#@todo, move M2 along with scale
-# what to do if mirror is currently moving?
-
-def setScaleFactor(tccActor, userCmd):
+def threadRing(tccActor, userCmd):
     """Implement Set ScaleFactor
 
     @param[in,out] tccActor  tcc actor

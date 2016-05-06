@@ -9,11 +9,40 @@ from twisted.internet.defer import gatherResults, Deferred
 from twisted.internet import reactor
 
 from tcc.actor import TCCLCODispatcherWrapper
+
 from twistedActor import testUtils
+
 testUtils.init(__file__)
 
 
 """todo, test slew and offset supersedes
+
+test move / stop m2, scale device
+test set scale factor, verify mirror moves
+move m2, set scale, m2 move shoud fail?
+
+test scale zeropoint current and number
+
+test target command
+test target command with unsafe cart
+
+test rotator move
+
+fake and test mirror moving states
+"""
+
+"""
+test these on tcc model:
+        "ScaleState=%s, %.4f"%(self._state, timeRemaining)
+        kwList.append("ThreadRingPos=%.4f"%self.position)
+        kwList.append("ScaleZeroPos=%.4f"%self.scaleZero)
+        kwList.append("ThreadRingSpeed%.4f"%self.speed)
+        kwList.append("ThreadRingMaxSpeed%.4f"%self.maxSpeed)
+        kwList.append("DesThreadRingPos=%.4f"%self.desPosition)
+        kwList.append("CartID=%i"%self.cartID)
+        kwList.append("CartLocked=%s"%(str(self.locked)))
+        kwList.append("CartLoaded=%s"%(str(self.loaded)))
+
 """
 
 class TestLCOCommands(TestCase):
@@ -90,7 +119,7 @@ class TestLCOCommands(TestCase):
         """
         if cmdVar.isDone:
             self.assertFalse(cmdVar.didFail)
-            self.assertAlmostEqual(float(focusVal), float(self.actor.m2Dev.status.secFocus))
+            self.assertAlmostEqual(float(focusVal), float(self.actor.secDev.status.secFocus))
             # tcs isn't used for focus
             # self.assertAlmostEqual(float(focusVal), float(self.actor.tcsDev.status.statusFieldDict["focus"].value))
             # model doesn't update very fast
@@ -104,8 +133,8 @@ class TestLCOCommands(TestCase):
         @param[in] scaleVal, the expected scale value
         """
         if cmdVar.isDone:
-            self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.currentScaleFactor), msg="actor-current: %.6f, %.6f"%(float(scaleVal), float(self.actor.scaleDev.currentScaleFactor)))
-            self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor), msg="actor-target: %.6f, %.6f"%(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor)))
+            # self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.currentScaleFactor), msg="actor-current: %.6f, %.6f"%(float(scaleVal), float(self.actor.scaleDev.currentScaleFactor)))
+            # self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor), msg="actor-target: %.6f, %.6f"%(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor)))
             self.assertAlmostEqual(float(scaleVal), float(self.model.scaleFac.valueList[0]), msg="model: %.6f, %.6f"%(float(scaleVal), float(self.model.scaleFac.valueList[0])))
 
     def checkAxesState(self, axisState):
@@ -186,6 +215,18 @@ class TestLCOCommands(TestCase):
     def testDoubleOffset2(self):
         return self._doubleOffset(5.4, -3.6, 7.02, -8.2)
 
+    def testScale1(self):
+        scaleVal = 1
+        def checkScaleAndMotorPos():
+            self.checkScale(scaleVal=scaleVal)
+            pos = self.actor.scaleDev.status.position
+            zeropoint = self.actor.scaleDev.status.scaleZero
+            self.assertAlmostEqual(float(pos), float(zeropoint), msg="pos: %.4f, zeropoint: %.4f"%(pos, zeropoint))
+        return self.queueCmd(
+            cmdStr = "set scale=%.6f"%scaleVal,
+            callFunc = functools.partial(self.checkScale, scaleVal=scaleVal)
+            )
+
     def testScale(self):
         scaleVal = 1.00006
         return self.queueCmd(
@@ -201,10 +242,10 @@ class TestLCOCommands(TestCase):
             )
 
     def testScaleList(self):
-        scaleVal = 1.00006
+        scaleVal1 = 1.00006
         scaleMult = 1.0004
-        scaleCmdList = ["set scale=%.6f"%scaleVal, "set scale=%.6f/mult"%scaleMult]
-        scaleValList = [scaleVal, scaleVal*scaleMult]
+        scaleCmdList = ["set scale=%.6f"%scaleVal1, "set scale=%.6f/mult"%scaleMult]
+        scaleValList = [scaleVal1, scaleVal1*scaleMult]
         callFuncList = [functools.partial(self.checkScale, scaleVal=scaleVal) for scaleVal in scaleValList]
         deferredList = [self.queueCmd(cmdStr, callFunc) for cmdStr, callFunc in itertools.izip(scaleCmdList, callFuncList)]
         return gatherResults(deferredList)

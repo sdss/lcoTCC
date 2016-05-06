@@ -7,7 +7,7 @@ from RO.StringUtil import dmsStrFromDeg
 ArcsecPerDeg = 3600.
 AxisVelocity = 1.25 # deg / sec
 FocusVelocity = 100 # microns / sec
-ScaleVelocity = 10 # mm /sec
+ScaleVelocity = 1 # mm /sec
 TimerDelay = 0.01 # seconds till next timer update
 FocusStepSize = FocusVelocity * TimerDelay # microns
 AxisStepSize = AxisVelocity * TimerDelay # deg
@@ -82,7 +82,7 @@ class FakeScaleCtrl(FakeDev):
         self.moveRange = [0., 40.]
         self.desPosition = 50
         self.position = 50
-        self.speed = 0
+        self.speed = 0.5
         self.moveTimer = Timer()
         self.posSw1, self.posSw2, self.posSw3 = (0, 0, 0)
         self.cartID = 0
@@ -104,7 +104,7 @@ class FakeScaleCtrl(FakeDev):
 
     def moveLoop(self):
         # loops always
-        self.position = self.incrementPosition(self.desPosition, self.position, 1)
+        self.position = self.incrementPosition(self.desPosition, self.position, self.speed*TimerDelay)
         if self.position == self.desPosition:
             # move is done, send OK
             self.userSock.writeLine("OK")
@@ -128,6 +128,7 @@ class FakeScaleCtrl(FakeDev):
                 self.sendPositionLoop()
         elif "speed" in cmdStr.lower():
             self.speed = float(cmdStr.split()[-1])
+            self.userSock.writeLine("OK")
         elif "stop" in cmdStr.lower():
             self.stop()
         else:

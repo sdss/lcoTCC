@@ -15,14 +15,14 @@ def showFocus(tccActor, userCmd, setDone=True):
         when the status is done show the current value to users
         then set the user command done.
         """
-        focusVal = tccActor.m2Dev.status.secFocus
+        focusVal = tccActor.secDev.status.secFocus
         focusStr = "%0.4f"%focusVal if focusVal is not None else "NaN"
         kwStr = "SecFocus=%s" % (focusStr,)
         tccActor.writeToUsers('i', kwStr, cmd=userCmd)
         if setDone and not userCmd.isDone:
             userCmd.setState(userCmd.Done)
 
-    statusCmd = tccActor.m2Dev.getStatus()
+    statusCmd = tccActor.secDev.getStatus()
     statusCmd.addCallback(showFocusAfterStatus)
 
 

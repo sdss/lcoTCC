@@ -28,8 +28,13 @@ class Status(object):
         self.speed = None
         self.state = None
         self.orientation = [None]*5
+        self.desOrientation = [None]*5
         self.lamps = None
         self.galil = None
+
+    @property
+    def desFocus(self):
+        return self.desOrientation[0]
 
     @property
     def secFocus(self):
@@ -223,6 +228,7 @@ class M2Device(TCPDevice):
             userCmd.setState(userCmd.Failed, "Must specify 1 to 5 numbers for a move")
             return userCmd
         self.waitMoveCmd = UserCmd()
+        self.status.desOrientation = valueList
         cmdType = "offset" if offset else "move"
         strValList = ", ".join(["%.2f"%val for val in valueList])
         cmdStr = "%s %s"%(cmdType, strValList)

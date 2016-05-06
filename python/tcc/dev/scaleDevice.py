@@ -22,6 +22,9 @@ from RO.StringUtil import strFromException
 # command out of limits scale factor
 # repeatedly hammer status
 # force move timeout--
+# does scale device respond with current_position or actual_position?
+# set max speed?
+# test move stop
 
 # output keywords to add to actorkeys
 # implement a queue? for commands?
@@ -39,6 +42,12 @@ from RO.StringUtil import strFromException
 
 __all__ = ["ScaleDevice"]
 
+# M2 nominal speed is 25 um/sec
+# so scale nominal speed should be 25 * 7 um/sec
+# or 0.175 mm/sec
+MAX_SPEED = 0.3
+NOM_SPEED = 0.175
+SEC_TIMEOUT = 2.0
 
 class Status(object):
     # how close you must be to the locked setpoint to be considered "locked"
@@ -63,16 +72,15 @@ class Status(object):
         self._timeRemaining = timeRem
         self._timeStamp = time.time()
 
-    def getStateKW(self):
-        # determine time remaining in this state
-        timeElapsed = time.time() - self._timeStamp
-        # cannot have negative time remaining
-        timeRemaining = max(0, self._timeRemaining - timeElapsed)
-        return "ScaleState=%s, %.4f"%(self._state, timeRemaining)
-
     @property
     def moveRange(self):
+        # in mm
         return self.dict["thread_ring_axis"]["move_range"]
+
+    @property
+    def maxSpeed(self):
+        # in mm / sec
+        return MAX_SPEED
 
     @property
     def scaleZero(self):
@@ -84,7 +92,7 @@ class Status(object):
 
     @property
     def speed(self):
-        return self.dict["thread_ring_axis"]["speed"]
+        return self.dict["thread_ring_axis"]["drive_speed"]
 
     @property
     def position(self):
@@ -109,7 +117,7 @@ class Status(object):
     @property
     def locked(self):
         # all 3 position switches?
-        pos = self.dict["lock_ring_axis"]["actual_potition"]
+        pos = self.dict["lock_ring_axis"]["actual_position"]
         if pos is None:
             return False
         lockedPos = self.dict["lock_ring_axis"]["locked_setpoint"]
@@ -145,28 +153,28 @@ class Status(object):
         """
         return {
             "thread_ring_axis": {
-                "actual_position": None,
-                "target_position": None,
-                "drive_speed": None,
-                "move_range": None,
+                "actual_position": numpy.nan,
+                "target_position": numpy.nan,
+                "drive_speed": numpy.nan,
+                "move_range": [numpy.nan, numpy.nan],
                 "hardware_fault": None,
                 "instruction_fault": None,
                 "overtravel": None,
             },
             "lock_ring_axis": {
-                "actual_position": None,
-                "target_position": None,
-                "open_setpoint": None,
-                "locked_setpoint": None,
-                "move_range": None,
+                "actual_position": numpy.nan,
+                "target_position": numpy.nan,
+                "open_setpoint": numpy.nan,
+                "locked_setpoint": numpy.nan,
+                "move_range": [numpy.nan, numpy.nan],
                 "hardware_fault": None,
                 "instruction_fault": None,
             },
             "winch_axis": {
-                "actual_position": None,
-                "target_position": None,
-                "move_range": None,
-                "up_setpoint": None,
+                "actual_position": numpy.nan,
+                "target_position": numpy.nan,
+                "move_range": [numpy.nan, numpy.nan],
+                "up_setpoint": numpy.nan,
                 "hardware_fault": None,
                 "instruction_fault": None,
 
@@ -175,16 +183,24 @@ class Status(object):
             "pos_sw": None
         }
 
-    def checkFullStatus(self, statusDict, axis=None):
+    def checkFullStatus(self, statusDict=None, axis=None):
         """Verify that every piece of status we expect is found in
         statusDict
         """
+        if statusDict is None:
+            statusDict = self.dict
         for key, val in statusDict.iteritems():
             if hasattr(val, "iteritems"):
                 # val is a dict
-                self.assertFullStatus(val, axis=key)
+                self.checkFullStatus(statusDict=val, axis=key)
             else:
-                if val is None:
+                if "range" in key:
+                    # 2 element list
+                    isEmpty = numpy.nan in val
+                else:
+                    # not a list
+                    isEmpty = val in [None, numpy.nan]
+                if isEmpty:
                     errStr = "Status: %s not found"%(key)
                     if axis is not None:
                         errStr += " for %s"%axis
@@ -192,9 +208,13 @@ class Status(object):
         return "" # return empty string if no status missing
 
     def parseStatusLine(self, line):
+        """Return True if recognized and parsed,
+        else return False
+        """
         # see status example at below
         # some status lines include a colon, get rid of it, along with any leading underscores
         line = line.strip().strip("_").lower().replace(":", "")
+        # print(line)
         # first look out for POS_SW
         # this is a weird one to parse because
         # it is of keyvalue type, but the key and value are on
@@ -230,6 +250,16 @@ class Status(object):
             self.dict[self._currentAxis][key] = [float(x) for x in value.split("-")]
         elif "cartridge" in key:
             self.dict[key] =  int(value)
+        else:
+            return False
+        return True
+
+    def getStateKW(self):
+        # determine time remaining in this state
+        timeElapsed = time.time() - self._timeStamp
+        # cannot have negative time remaining
+        timeRemaining = max(0, self._timeRemaining - timeElapsed)
+        return "ScaleState=%s, %.4f"%(self._state, timeRemaining)
 
     def getFaultStr(self):
         faultList = []
@@ -251,33 +281,52 @@ class Status(object):
         kwList.append("ThreadRingPos=%.4f"%self.position)
         kwList.append("ScaleZeroPos=%.4f"%self.scaleZero)
         kwList.append("ThreadRingSpeed%.4f"%self.speed)
+        kwList.append("ThreadRingMaxSpeed%.4f"%self.maxSpeed)
         kwList.append("DesThreadRingPos=%.4f"%self.desPosition)
         kwList.append("CartID=%i"%self.cartID)
         kwList.append("CartLocked=%s"%(str(self.locked)))
         kwList.append("CartLoaded=%s"%(str(self.loaded)))
-        return "; ".join([kwList])
+        return "; ".join(kwList)
 
 class ScaleDevice(TCPDevice):
     """!A Device for communicating with the LCO Scaling ring."""
-    def __init__(self, name, host, port, callFunc=None):
+    validCmdVerbs = ["move", "stop", "status", "speed"]
+    def __init__(self, name, host, port, nomSpeed=NOM_SPEED, callFunc=None):
         """!Construct a ScaleDevice
 
         Inputs:
         @param[in] name  name of device
         @param[in] host  host address of scaling ring controller
         @param[in] port  port of scaling ring controller
+        @param[in] nom_speed nominal speed at which to move (this can be modified via the speed command)
         @param[in] callFunc  function to call when state of device changes;
                 note that it is NOT called when the connection state changes;
                 register a callback with "conn" for that task.
         """
         self.targetPos = None
+        self.nomSpeed = nomSpeed
         self.status = Status()
 
         # self.currCmd = UserCmd()
         # self.currCmd.setState(self.currCmd.Done)
         # self.currDevCmdStr = ""
 
-        self.devCmdQueue = CommandQueue({}) # all commands of equal priority
+        # all commands of equal priority
+        # except stop kills a running (or pending move) move
+        # priorityDict = {"stop": CommandQueue.Immediate}
+        priorityDict = {
+            "stop":1,
+            "status":1,
+            "move":1,
+            "speed":1,
+        }
+        self.devCmdQueue = CommandQueue(
+            priorityDict,
+            killFunc = self.killFunc,
+            )
+        # stop will kill a running move
+        # else everything queues with equal prioirty
+        self.devCmdQueue.addRule(CommandQueue.KillRunning, ["stop"], ["move"])
 
         TCPDevice.__init__(self,
             name = name,
@@ -286,6 +335,9 @@ class ScaleDevice(TCPDevice):
             callFunc = callFunc,
             cmdInfo = (),
         )
+
+    def killFunc(self, doomedCmd, killerCmd):
+        doomedCmd.setState(doomedCmd.Failed, "Killed by %s"%(str(killerCmd)))
 
     @property
     def currExeDevCmd(self):
@@ -299,13 +351,13 @@ class ScaleDevice(TCPDevice):
     # def currCmdVerb(self):
     #     return self.currDevCmdStr.split()[0]
 
-    @property
-    def targetScaleFactor(self):
-        return self.mm2scale(self.targetPos)
+    # @property
+    # def targetScaleFactor(self):
+    #     return self.mm2scale(self.targetPos)
 
-    @property
-    def currentScaleFactor(self):
-        return self.mm2scale(self.status.position)
+    # @property
+    # def currentScaleFactor(self):
+    #     return self.mm2scale(self.status.position)
 
     @property
     def isMoving(self):
@@ -317,11 +369,17 @@ class ScaleDevice(TCPDevice):
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
         userCmd = expandUserCmd(userCmd)
-        if getStatus:
-            return self.getStatus(userCmd=userCmd)
-        else:
-            userCmd.setState(userCmd.Done)
-            return userCmd
+        # stop, set speed, then status?
+        stopCmd = self.queueDevCmd("stop", userCmd)
+        speedCmd = self.queueDevCmd("speed %.4f"%self.nomSpeed, userCmd)
+        statusCmd = self.queueDevCmd("status", userCmd)
+        LinkCommands(userCmd, [stopCmd, speedCmd, statusCmd])
+        return userCmd
+        # if getStatus:
+        #     return self.getStatus(userCmd=userCmd)
+        # else:
+        #     userCmd.setState(userCmd.Done)
+        #     return userCmd
 
     def getStatus(self, userCmd=None, timeLim=None):
         """!Get status of the device.  If the device is
@@ -331,11 +389,12 @@ class ScaleDevice(TCPDevice):
         """
         userCmd = expandUserCmd(userCmd)
         if self.isMoving:
+            self.writeToUsers("i", "text=showing cached status", userCmd)
             self.writeStatusToUsers(userCmd)
             self.userCmd.setState(self.userCmd.Done)
         else:
             # get a completely fresh status from the device
-            statusDevCmd = self.queueCmd("status", userCmd)
+            statusDevCmd = self.queueDevCmd("status", userCmd)
             statusDevCmd.addCallback(self._statusCallback)
             LinkCommands(userCmd, [statusDevCmd])
         return userCmd
@@ -352,8 +411,8 @@ class ScaleDevice(TCPDevice):
             self.status.setThreadAxisCurrent()
             statusError = self.status.checkFullStatus()
             if statusError:
-                self.writeToUsers("w", statusError)
-            self.writeStatusToUsers(cmd=statusCmd.currCmd)
+                self.writeToUsers("w", statusError, statusCmd.userCmd)
+            self.writeStatusToUsers(statusCmd.userCmd)
 
     def writeStatusToUsers(self, userCmd=None):
         """Write the current status to all users
@@ -373,20 +432,30 @@ class ScaleDevice(TCPDevice):
         stateKW = self.status.getStateKW()
         self.writeToUsers("i", stateKW, userCmd)
 
-    def setScaleZeroPoint(self, zeroPoint, userCmd=None):
+    def setScaleZeroPoint(self, zeroPoint=None, userCmd=None):
         """Set the scale zero point (in mm)
 
-        @param[in] zeroPoint: the value in mm to set as scale zero point
+        @param[in] zeroPoint: the value in mm to set as scale zero point, if None, use current position
         @param[in] userCmd: a twistedActor BaseCommand
         """
+        userCmd = expandUserCmd(userCmd)
+        if self.isMoving:
+            userCmd.setState(userCmd.Failed, "Cannot set zero point, device is busy moving")
+            return userCmd
+        if zeroPoint is None:
+            # note status should be fresh
+            # because it is commanded after
+            # any move or stop
+            zeroPoint = self.status.position
         zeroPoint = float(zeroPoint)
         minScale, maxScale = self.status.moveRange
-        if not (minScale<=zeroPoint<=maxScale):
-            # zero point is outside the vaild move range
-            userCmd.setState(userCmd.Failed, "%.4f is outside vaild thread ring range: [%.2f, %.2f]"%(zeroPoint, minScale, maxScale))
-        else:
-            self.status._scaleZero = zeroPoint
-            userCmd.setState(userCmd.Done)
+        # no reason the zero point cant be outside the range, right?
+        # if not (minScale<=zeroPoint<=maxScale):
+        #     # zero point is outside the vaild move range
+        #     userCmd.setState(userCmd.Failed, "%.4f is outside vaild thread ring range: [%.2f, %.2f]"%(zeroPoint, minScale, maxScale))
+        # else:
+        self.status._scaleZero = zeroPoint
+        userCmd.setState(userCmd.Done)
         return userCmd
 
     def speed(self, speedValue, userCmd=None):
@@ -394,7 +463,18 @@ class ScaleDevice(TCPDevice):
         @param[in] speedValue: a float, scale value to be converted to steps and sent to motor
         @param[in] userCmd: a twistedActor BaseCommand
         """
-        pass
+        speedValue = float(speedValue)
+        userCmd = expandUserCmd(userCmd)
+        if self.isMoving:
+            userCmd.setState(userCmd.Failed, "Cannot set speed, device is busy moving")
+            return userCmd
+        elif float(speedValue) > self.status.maxSpeed:
+            userCmd.setState(userCmd.Failed, "Max Speed Exceeded: %.4f > %.4f"%(speedValue, self.status.maxSpeed))
+            return userCmd
+        else:
+            speedDevCmd = self.queueDevCmd("speed %.6f"%speedValue, userCmd)
+            LinkCommands(userCmd, [speedDevCmd])
+        return userCmd
 
     def move(self, position, userCmd=None):
         """!Move to a position
@@ -404,32 +484,52 @@ class ScaleDevice(TCPDevice):
         """
         log.info("%s.move(postion=%.6f, userCmd=%s)" % (self, position, userCmd))
         userCmd=expandUserCmd(userCmd)
+        if self.isMoving:
+            userCmd.setState(userCmd.Failed, "Cannot move, device is busy moving")
+            return userCmd
         # verify position is in range
+        minPos, maxPos = self.status.moveRange
+        if not minPos<=position<=maxPos:
+            userCmd.setState(userCmd.Failed, "Move %.6f not in range [%.4f, %.4f]"%(position, minPos, maxPos))
+            return userCmd
         moveCmdStr = "move %.6f"%(position)
         # status output from move corresponds to threadring
         # after a status command the winch axis is the current axis
-        self.status.setThreadAxisCurrent() # should already be there but whatever
-        self.sendCmd(moveCmdStr, userCmd)
-        # start a timer
+        self.targetPos = position
+        moveDevCmd = self.queueDevCmd(moveCmdStr, userCmd)
+        moveDevCmd.addCallback(self._moveCallback)
+        statusDevCmd = self.queueDevCmd("status", userCmd)
+        statusDevCmd.addCallback(self._statusCallback)
+        # note userCmd-move will not be done until status is done
+        # this is good because it ensures we have the
+        # correct status before returning
+        LinkCommands(userCmd, [moveDevCmd, statusDevCmd])
         return userCmd
 
     def _moveCallback(self, moveCmd):
-        pass
-
-    def moveCmd(self, devCmd):
-        # stop a timer?
-        pass
+        if moveCmd.isActive:
+            self.status.setThreadAxisCurrent() # should already be there but whatever
+            # set state to moving, compute time, etc
+            time4move = abs(self.targetPos-self.status.position)/float(self.status.speed)
+            # update command timeout
+            moveCmd.setTimeLimit(time4move)
+            self.status.setState(self.status.Moving, time4move)
+            self.writeState(moveCmd.userCmd)
+        if moveCmd.isDone:
+            # set state
+            self.status.setState(self.status.Idle)
+            self.writeState(moveCmd.userCmd)
 
     def stop(self, userCmd=None):
         """Stop any scaling movement, cancelling any currently executing
-        move
+        command and any commands waiting on queue
 
         @param[in] userCmd: a twistedActor BaseCommand
         """
         userCmd=expandUserCmd(userCmd)
-        if self.isMoving:
-            self.currCmd.setState(self.currCmd.Cancelled, "Move Stopped")
-        self.sendCmd("stop", userCmd)
+        # kill any commands pending on the queue
+
+        self.queueDevCmd("stop", userCmd)
         return userCmd
 
     def handleReply(self, replyStr):
@@ -439,41 +539,25 @@ class ScaleDevice(TCPDevice):
         """
         log.info("%s.handleReply(replyStr=%s)" % (self, replyStr))
         replyStr = replyStr.strip().lower()
+        # print(replyStr, self.currExeDevCmd.cmdStr)
         if not replyStr:
             return
-        # check if this is an ok
-        commandFinished = False
-        if replyStr == "ok":
-            commandFinished = True
-        if "error" in replyStr:
-            self.currCmd.setState(self.currCmd.Failed, replyStr)
+        if self.currExeDevCmd.isDone:
+            # ignore unsolicited output?
             return
-        if self.currDevCmdStr == "status":
-            self.status.parseStatusLine(replyStr)
-        elif "move" in self.currDevCmdStr and "actual_position" in replyStr:
-            # will update thread_ring_axis actual_position in status
-            self.status.parseStatusLine(replyStr)
+        if replyStr == "ok":
+            self.currExeDevCmd.setState(self.currExeDevCmd.Done)
+        elif replyStr == self.currExeDevCmd.cmdStr:
+            # command echo
+            pass
+        elif "error" in replyStr:
+            self.currExeDevCmd.setState(self.currExeDevCmd.Failed, replyStr)
+        else:
+            parsed = self.status.parseStatusLine(replyStr)
+            # if not parsed:
+            #     print("%s.handleReply unparsed line: %s" % (self, replyStr))
+            #     log.info("%s.handleReply unparsed line: %s" % (self, replyStr))
 
-        if commandFinished:
-            # ok may have come even if the last command failed
-            if self.currCmd.didFail:
-                # some error, cmd state set to failed
-                pass
-            elif self.currCmd.isDone:
-                raise RuntimeError("Got OK for an already done command: %r"%self.currCmd)
-            else:
-                # if self.currDevCmdStr == "status":
-                #     # if this was a status, write output to users
-                #     # and set the current axis back to the thread ring
-                #     self.status.setThreadAxisCurrent()
-                #     statusError = self.status.checkFullStatus()
-                #     if statusError:
-                #         self.currCmd.setState(self.currCmd.Failed, statusError)
-                #         return
-                #     self.writeStatusToUsers(cmd=self.currCmd)
-                # if "move" in self.currDevCmdStr:
-                #     self.moveFinished()
-                self.currCmd.setState(self.currCmd.Done)
 
     # def sendCmd(self, devCmdStr, userCmd):
     #     """!Execute the command
@@ -504,11 +588,15 @@ class ScaleDevice(TCPDevice):
         log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
+        cmdVerb = devCmdStr.split()[0]
+        assert cmdVerb in self.validCmdVerbs
         devCmd = DevCmd(cmdStr=devCmdStr)
-        devCmd.cmdVerb = devCmd.cmdStr
+        devCmd.cmdVerb = cmdVerb
         devCmd.userCmd = userCmd
         def queueFunc(devCmd):
             # when the command is ready run this
+            # everything besides a move should return quickly
+            devCmd.setTimeLimit(SEC_TIMEOUT)
             self.startDevCmd(devCmd.cmdStr)
         self.devCmdQueue.addCmd(devCmd, queueFunc)
         return devCmd
@@ -518,7 +606,7 @@ class ScaleDevice(TCPDevice):
         """
         @param[in] devCmdStr a line of text to send to the device
         """
-        devCmdStr = devCmdStr.lower() # lco uses all upper case
+        devCmdStr = devCmdStr.lower()
         log.info("%s.startDevCmd(%r)" % (self, devCmdStr))
         try:
             if self.conn.isConnected:

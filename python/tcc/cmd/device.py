@@ -7,7 +7,7 @@ __all = ["device"]
 
 # a mapping between command parameter string and
 # method to be called on the device
-devMethodDict ={
+devMethodDict = {
     "initialize": "init",
     "status": "getStatus",
     "connect": "connect",
@@ -25,7 +25,7 @@ def device(tccActor, userCmd):
     devDict = {
         "tcs": tccActor.tcsDev,
         "scale": tccActor.scaleDev,
-        "m2": tccActor.m2Dev,
+        "sec": tccActor.secDev,
     }
     if "all" in devNameList:
         devNameList = devDict.keys()

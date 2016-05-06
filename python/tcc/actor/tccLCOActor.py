@@ -58,13 +58,14 @@ class TCCLCOActor(BaseActor):
         self.tcsDev.writeToUsers = self.writeToUsers
         self.scaleDev = scaleDev
         self.scaleDev.writeToUsers = self.writeToUsers
-        self.m2Dev = m2Dev
-        self.m2Dev.writeToUsers = self.writeToUsers
-        self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.m2Dev]) # auto connection looks for self.dev
+        self.secDev = m2Dev
+        self.secDev.writeToUsers = self.writeToUsers
+        # auto connection looks for self.dev
+        self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.secDev])
         # connect devices
-        self.tcsDev.connect()
-        self.scaleDev.connect()
-        self.m2Dev.connect()
+        # self.tcsDev.connect()
+        # self.scaleDev.connect()
+        # self.secDev.connect()
         self.cmdParser = TCCLCOCmdParser()
         BaseActor.__init__(self, userPort=userPort, maxUsers=1, name=name, version=__version__)
         # Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)
@@ -74,14 +75,22 @@ class TCCLCOActor(BaseActor):
         return self.mm2scale(self.scaleDev.status.position)
 
     def scale2mm(self, scaleValue):
-        return scaleValue / self.SCALE_PER_MM + self.scaleDev.status.scaleZero
+        # scale=1 device is at zero point
+        return (scaleValue - 1.0) / self.SCALE_PER_MM + self.scaleDev.status.scaleZero
 
     def mm2scale(self, mm):
-        return (mm - self.scaleDev.status.scaleZero) * self.SCALE_PER_MM
+        return (mm - self.scaleDev.status.scaleZero) * self.SCALE_PER_MM + 1.0
 
     def scaleMult2mm(self, multiplier):
-        # avoid use of SCALE_PER_MM for numerical stability
-        return (self.scaleDev.status.position - self.scaleDev.status.scaleZero)*float(multiplier) + self.scaleDev.status.scaleZero
+        return self.scale2mm(self.currentScaleFactor*multiplier)
+
+    def scaleMult2mmStable(self, multiplier):
+        # this may be more numerically stable test it?
+        m = multiplier
+        z = self.scaleDev.status.scaleZero
+        p = self.scaleDev.status.position
+        alpha = self.SCALE_PER_MM
+        return m*(p-z)+(1.0/alpha)*(m-1.0)+z
 
     def parseAndDispatchCmd(self, cmd):
         """Dispatch the user command

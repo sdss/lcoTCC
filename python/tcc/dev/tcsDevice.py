@@ -378,41 +378,41 @@ class TCSDevice(TCPDevice):
     #         self.queueDevCmd(devCmd)
     #     return userCmd
 
-    # def slew(self, ra, dec, userCmd=None):
-    #     """Slew telescope. If a slew is presently underway, cancel it.
+    def target(self, ra, dec, userCmd=None):
+        """Set coordinates for a slew.
 
-    #     @param[in] ra: right ascension decimal degrees
-    #     @param[in] dec: declination decimal degrees
-    #     @param[in] userCmd: a twistedActor BaseCommand.
-    #     """
-    #     log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
-    #     userCmd = expandUserCmd(userCmd)
-    #     # force slew to show up in axes command state keyword
-    #     self.status.previousDec = ForceSlew
-    #     self.status.previousRA = ForceSlew
-    #     if not self.conn.isConnected:
-    #         userCmd.setState(userCmd.Failed, "Not Connected to TCS")
-    #         return userCmd
-    #     if not self.waitSlewCmd.isDone:
-    #         self.waitSlewCmd(self.waitSlewCmd.Cancelled, "Superseded by new slew")
-    #     self.waitSlewCmd = UserCmd()
-    #     enterRa = "RAD %.8f"%ra
-    #     enterDec = "DECD %.8f"%dec
-    #     enterEpoch = "MP %.2f"%2000 # LCO: HACK
-    #     # cmdSlew = "SLEW" # LCO: HACK operator commands slew don't send it!
-    #     devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]#, cmdSlew]]
-    #     # set userCmd done only when each device command finishes
-    #     # AND the pending slew is also done.
-    #     # when the last dev cmd is done (the slew), set axis cmd statue to slewing
+        @param[in] ra: right ascension decimal degrees
+        @param[in] dec: declination decimal degrees
+        @param[in] userCmd: a twistedActor BaseCommand.
+        """
+        log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
+        userCmd = expandUserCmd(userCmd)
+        # # force slew to show up in axes command state keyword
+        # self.status.previousDec = ForceSlew
+        # self.status.previousRA = ForceSlew
+        if not self.conn.isConnected:
+            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+            return userCmd
+        # if not self.waitSlewCmd.isDone:
+        #     self.waitSlewCmd(self.waitSlewCmd.Cancelled, "Superseded by new slew")
+        # self.waitSlewCmd = UserCmd()
+        enterRa = "RAD %.8f"%ra
+        enterDec = "DECD %.8f"%dec
+        enterEpoch = "MP %.2f"%2000 # LCO: HACK
+        # cmdSlew = "SLEW" # LCO: HACK operator commands slew don't send it!
+        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]#, cmdSlew]]
+        # set userCmd done only when each device command finishes
+        # AND the pending slew is also done.
+        # when the last dev cmd is done (the slew), set axis cmd statue to slewing
 
-    #     LinkCommands(userCmd, devCmdList) #LCO: HACK don't wait for a slew to finish + [self.waitSlewCmd])
-    #     for devCmd in devCmdList:
-    #         self.queueDevCmd(devCmd)
+        LinkCommands(userCmd, devCmdList) #LCO: HACK don't wait for a slew to finish + [self.waitSlewCmd])
+        for devCmd in devCmdList:
+            self.queueDevCmd(devCmd)
 
-    #     statusStr = self.status.getStatusStr()
-    #     if statusStr:
-    #         self.writeToUsers("i", statusStr, userCmd)
-    #     return userCmd
+        statusStr = self.status.getStatusStr()
+        if statusStr:
+            self.writeToUsers("i", statusStr, userCmd)
+        return userCmd
 
     def slewOffset(self, ra, dec, userCmd=None):
         """Offset telescope in right ascension and declination.

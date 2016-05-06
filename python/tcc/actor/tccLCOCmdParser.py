@@ -3,7 +3,7 @@ from __future__ import division, absolute_import
 """
 from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
-from ..cmd import setFocus, setScaleFactor, offset, device, ping #,track
+from ..cmd import setFocus, setScaleFactor, offset, device, ping, threadRing, sec #,track
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -182,14 +182,77 @@ TCCLCOCmdList = (
             parseDefs.KeywordParam(
                 name = 'device',
                 keywordDefList = [parseDefs.Keyword(name = item) for item in [
-                    "tcs", "scale", "m2"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
+                    "tcs", "scale", "sec"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
                 numParamRange = [0, None],
                 help = "Which controller? If omitted then all devices.",
             ),
         ],
         qualifierList = [TimeLimit],
-    )
+    ),
 
+    parseDefs.CommandWrapper(
+        name = "threadRing",
+        subCmdList = [
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="move"),
+                paramList = [parseDefs.ValueParam("moveValue", castVals=float)],
+                callFunc = threadRing,
+                qualifierList = [
+                    parseDefs.Qualifier(
+                        name = "incremental",
+                        help = "move as offset rather than abs move.",
+                    ),
+                ],
+                help = "directly move the scaling ring",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="speed"),
+                paramList = [parseDefs.ValueParam("speedValue", castVals=float)],
+                callFunc = threadRing,
+                qualifierList = [
+                    parseDefs.Qualifier(
+                        name = "incremental",
+                        help = "move as offset rather than abs move.",
+                    ),
+                ],
+                help = "directly move the scaling ring in mm",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="zero"),
+                paramList = [parseDefs.ValueParam("zeroValue", numValueRange=[0,1], castVals=float)],
+                callFunc = threadRing,
+                help = "set the scale zero point on the scaling ring in mm",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="stop"),
+                callFunc = threadRing,
+                help = "stop the scaling ring",
+            ),
+        ],
+    ),
+
+    parseDefs.CommandWrapper(
+        name = "sec",
+        subCmdList = [
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="move"),
+                paramList = [parseDefs.ValueParam("moveValue", numValueRange=[0,5], castVals=float)],
+                callFunc = sec,
+                qualifierList = [
+                    parseDefs.Qualifier(
+                        name = "incremental",
+                        help = "move as offset rather than abs move.",
+                    ),
+                ],
+                help = "directly move the sec to desired orientation in um and arcsecs: focus, tipx, tipy, transx, transy",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="stop"),
+                callFunc = sec,
+                help = "stop the sec",
+            ),
+        ],
+    ),
 )
 
 class TCCLCOCmdParser(CmdParser):
