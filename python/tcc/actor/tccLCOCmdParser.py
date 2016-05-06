@@ -191,11 +191,12 @@ TCCLCOCmdList = (
     ),
 
     parseDefs.CommandWrapper(
-        name = "threadRing",
+        name = "threadring",
         subCmdList = [
             parseDefs.SubCommand(
                 parseDefs.Keyword(name="move"),
-                paramList = [parseDefs.ValueParam("moveValue", castVals=float)],
+                minParAmt = 1, # must specify a position to move to
+                paramList = [parseDefs.ValueParam("movevalue", numValueRange=[1,1], castVals=float)],
                 callFunc = threadRing,
                 qualifierList = [
                     parseDefs.Qualifier(
@@ -207,19 +208,20 @@ TCCLCOCmdList = (
             ),
             parseDefs.SubCommand(
                 parseDefs.Keyword(name="speed"),
-                paramList = [parseDefs.ValueParam("speedValue", castVals=float)],
+                minParAmt = 1, # must specify a position to move to
+                paramList = [parseDefs.ValueParam("speedvalue", numValueRange=[1,1], castVals=float)],
                 callFunc = threadRing,
                 qualifierList = [
                     parseDefs.Qualifier(
-                        name = "incremental",
-                        help = "move as offset rather than abs move.",
+                        name = "multiplicative",
+                        help = "adjust speed fractionally.",
                     ),
                 ],
                 help = "directly move the scaling ring in mm",
             ),
             parseDefs.SubCommand(
                 parseDefs.Keyword(name="zero"),
-                paramList = [parseDefs.ValueParam("zeroValue", numValueRange=[0,1], castVals=float)],
+                paramList = [parseDefs.ValueParam("zerovalue", numValueRange=[0,1], castVals=float)],
                 callFunc = threadRing,
                 help = "set the scale zero point on the scaling ring in mm",
             ),
@@ -227,6 +229,11 @@ TCCLCOCmdList = (
                 parseDefs.Keyword(name="stop"),
                 callFunc = threadRing,
                 help = "stop the scaling ring",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="status"),
+                callFunc = threadRing,
+                help = "get threadring status",
             ),
         ],
     ),
@@ -236,7 +243,8 @@ TCCLCOCmdList = (
         subCmdList = [
             parseDefs.SubCommand(
                 parseDefs.Keyword(name="move"),
-                paramList = [parseDefs.ValueParam("moveValue", numValueRange=[0,5], castVals=float)],
+                minParAmt = 1, # must specify a position to move to
+                paramList = [parseDefs.ValueParam("movevalue", numValueRange=[1,5], castVals=float)],
                 callFunc = sec,
                 qualifierList = [
                     parseDefs.Qualifier(
@@ -250,6 +258,11 @@ TCCLCOCmdList = (
                 parseDefs.Keyword(name="stop"),
                 callFunc = sec,
                 help = "stop the sec",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="status"),
+                callFunc = sec,
+                help = "get sec status",
             ),
         ],
     ),

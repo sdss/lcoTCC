@@ -80,8 +80,8 @@ class FakeScaleCtrl(FakeDev):
         """
         self.isMoving = False
         self.moveRange = [0., 40.]
-        self.desPosition = 50
-        self.position = 50
+        self.desPosition = 20 # wake up in mid travel
+        self.position = 20
         self.speed = 0.5
         self.moveTimer = Timer()
         self.posSw1, self.posSw2, self.posSw3 = (0, 0, 0)

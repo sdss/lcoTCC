@@ -391,7 +391,7 @@ class ScaleDevice(TCPDevice):
         if self.isMoving:
             self.writeToUsers("i", "text=showing cached status", userCmd)
             self.writeStatusToUsers(userCmd)
-            self.userCmd.setState(self.userCmd.Done)
+            self.userCmd.setState(userCmd.Done)
         else:
             # get a completely fresh status from the device
             statusDevCmd = self.queueDevCmd("status", userCmd)
@@ -449,10 +449,9 @@ class ScaleDevice(TCPDevice):
             zeroPoint = self.status.position
         zeroPoint = float(zeroPoint)
         minScale, maxScale = self.status.moveRange
-        # no reason the zero point cant be outside the range, right?
-        # if not (minScale<=zeroPoint<=maxScale):
-        #     # zero point is outside the vaild move range
-        #     userCmd.setState(userCmd.Failed, "%.4f is outside vaild thread ring range: [%.2f, %.2f]"%(zeroPoint, minScale, maxScale))
+        if not (minScale<=zeroPoint<=maxScale):
+            # zero point is outside the vaild move range
+            userCmd.setState(userCmd.Failed, "%.4f is outside vaild thread ring range: [%.2f, %.2f]"%(zeroPoint, minScale, maxScale))
         # else:
         self.status._scaleZero = zeroPoint
         userCmd.setState(userCmd.Done)
@@ -473,7 +472,9 @@ class ScaleDevice(TCPDevice):
             return userCmd
         else:
             speedDevCmd = self.queueDevCmd("speed %.6f"%speedValue, userCmd)
-            LinkCommands(userCmd, [speedDevCmd])
+            statusDevCmd = self.queueDevCmd("status", userCmd)
+            statusDevCmd.addCallback(self._statusCallback)
+            LinkCommands(userCmd, [speedDevCmd, statusDevCmd])
         return userCmd
 
     def move(self, position, userCmd=None):
@@ -529,7 +530,10 @@ class ScaleDevice(TCPDevice):
         userCmd=expandUserCmd(userCmd)
         # kill any commands pending on the queue
 
-        self.queueDevCmd("stop", userCmd)
+        stopDevCmd = self.queueDevCmd("stop", userCmd)
+        statusDevCmd = self.queueDevCmd("status", userCmd)
+        statusDevCmd.addCallback(self._statusCallback)
+        LinkCommands(userCmd, [stopDevCmd, statusDevCmd])
         return userCmd
 
     def handleReply(self, replyStr):
@@ -544,6 +548,7 @@ class ScaleDevice(TCPDevice):
             return
         if self.currExeDevCmd.isDone:
             # ignore unsolicited output?
+            log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
         if replyStr == "ok":
             self.currExeDevCmd.setState(self.currExeDevCmd.Done)

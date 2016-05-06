@@ -4,43 +4,35 @@ from __future__ import division, absolute_import
 __all__ = ["threadRing"]
 
 def threadRing(tccActor, userCmd):
-    """Implement Set ScaleFactor
+    """Implement direct thread ring commands
 
     @param[in,out] tccActor  tcc actor
 
     @param[in,out] userCmd  a twistedActor BaseCommand with parseCmd attribute
     """
-    def showScaleWhenDone(scaleCmd):
-        """@param[in] scaleCmd, a twistedActor.UserCmd instance passed automatically via callback
-
-        when the scale is done show the current value to users
-        then set the user command done.
-        """
-        setDone = True
-        if scaleCmd.isDone:
-            if scaleCmd.didFail:
-                userCmd.setState(userCmd.Failed, scaleCmd.textMsg)
-                setDone=False
-            showScaleFactor(tccActor, userCmd, setDone=setDone)
-    valueList = userCmd.parsedCmd.paramDict["scalefactor"].valueList[0].valueList
-    if valueList:
-        scaleFac = valueList[0]
-        mult = userCmd.parsedCmd.qualDict['multiplicative'].boolValue
+    params = userCmd.parsedCmd.paramDict
+    parsedKeys = params.keys()
+    if "stop" in parsedKeys:
+        tccActor.scaleDev.stop(userCmd)
+    elif "move" in parsedKeys:
+        value = params["movevalue"].valueList[0]
+        offset = userCmd.parsedCmd.qualDict["incremental"].boolValue
+        if offset:
+            value += tccActor.scaleDev.status.position
+        tccActor.scaleDev.move(value, userCmd)
+    elif "speed" in parsedKeys:
+        value = params["speedvalue"].valueList[0]
+        mult = userCmd.parsedCmd.qualDict["multiplicative"].boolValue
         if mult:
-            absPosMM = tccActor.scaleMult2mm(scaleFac)
+            value *= tccActor.scaleDev.status.speed
+        tccActor.scaleDev.speed(value, userCmd)
+    elif "zero" in parsedKeys:
+        if "zerovalue" in parsedKeys and params["zerovalue"].valueList:
+            value = params["zerovalue"].valueList[0]
         else:
-            # an absolute move, convert scale to mm
-            absPosMM = tccActor.scale2mm(scaleFac)
-        # verify move is within limits:
-        if mult:
-            scaleFac = tccActor.currentScaleFactor * scaleFac
-        if not (tccActor.MIN_SF <= scaleFac <= tccActor.MAX_SF):
-            # scale factor out of range:
-            userCmd.setState(userCmd.Failed, "Desired ScaleFactor out of range: %.6f"%scaleFac)
-            return
-        scaleCmd = tccActor.scaleDev.move(absPosMM)
-        scaleCmd.addCallback(showScaleWhenDone)
-    else:
-        # no scale value received, just show current vale
-        showScaleFactor(tccActor, userCmd, setDone=True)
+            # set current position as zero point
+            value = None
+        tccActor.scaleDev.setScaleZeroPoint(value, userCmd)
+    elif "status" in parsedKeys:
+        tccActor.scaleDev.getStatus(userCmd)
 

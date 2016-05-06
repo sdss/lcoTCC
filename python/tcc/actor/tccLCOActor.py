@@ -63,9 +63,9 @@ class TCCLCOActor(BaseActor):
         # auto connection looks for self.dev
         self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.secDev])
         # connect devices
-        # self.tcsDev.connect()
-        # self.scaleDev.connect()
-        # self.secDev.connect()
+        self.tcsDev.connect()
+        self.scaleDev.connect()
+        self.secDev.connect()
         self.cmdParser = TCCLCOCmdParser()
         BaseActor.__init__(self, userPort=userPort, maxUsers=1, name=name, version=__version__)
         # Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)
@@ -85,7 +85,9 @@ class TCCLCOActor(BaseActor):
         return self.scale2mm(self.currentScaleFactor*multiplier)
 
     def scaleMult2mmStable(self, multiplier):
-        # this may be more numerically stable test it?
+        # this may be more numerically stable,
+        # according to unittests self.scaleMult2mm
+        # works just fine, and it is simpler
         m = multiplier
         z = self.scaleDev.status.scaleZero
         p = self.scaleDev.status.position
