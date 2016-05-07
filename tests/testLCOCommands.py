@@ -160,7 +160,7 @@ class TestLCOCommands(TestCase):
         # self.assertAlmostEqual(float(decVal), float(decModelPos))
 
     def checkIsSlewing(self):
-            self.checkAxesState("Slewing")
+        self.checkAxesState("Slewing")
 
     def checkOffsetDone(self, raVal, decVal):
         # how to verify position is correct?
@@ -168,18 +168,32 @@ class TestLCOCommands(TestCase):
         self.checkAxesPosition(-1*raVal, -1*decVal) # offsets are applied negatively (Du Pont TCS convention)
 
     def testFocus(self):
-        focusVal = 10
+        focusVal = 70
         return self.queueCmd(
             cmdStr = "set focus=%i"%focusVal,
             callFunc = functools.partial(self.checkFocus, focusVal=focusVal)
             )
 
     def testFocusList(self):
-        focusCmdList = ["set focus=10", "set focus=10/incr", "set focus=-5/incr", "set focus=10.4", "set focus"]
-        focusValList = [10, 20, 15, 10.4, 10.4]
+        focusCmdList = ["set focus=70", "set focus=100/incr", "set focus=-50/incr", "set focus=30.4", "set focus"]
+        focusValList = [70, 170, 120, 30.4, 30.4]
         callFuncList = [functools.partial(self.checkFocus, focusVal=focusVal) for focusVal in focusValList]
         deferredList = [self.queueCmd(cmdStr, callFunc) for cmdStr, callFunc in itertools.izip(focusCmdList, callFuncList)]
         return gatherResults(deferredList)
+
+    def testFocusFail1(self):
+        focusVal = self.actor.secDev.status.secFocus + 20
+        return self.queueCmd(
+            cmdStr = "set focus=%i"%focusVal,
+            callFunc = functools.partial(self.checkFocus, focusVal=focusVal)
+            )
+
+    def testFocusFail2(self):
+        focusVal = 20
+        return self.queueCmd(
+            cmdStr = "set focus=%i/incr"%focusVal,
+            callFunc = functools.partial(self.checkFocus, focusVal=focusVal)
+            )
 
     def testOffset(self):
         # self.checkAxesState("Idle")
@@ -377,6 +391,59 @@ class TestLCOCommands(TestCase):
     #         self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
     #         self.assertEqual(self.actor.scaleDev.status.scaleZero, zeropoint)
     #     return self.queueCmd("threadring zero %.4f"%zeropoint, cb)
+
+    def testSecStatus(self):
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("sec status", cb)
+
+    def testSecStop(self):
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("sec stop", cb)
+
+    def testSecMove(self):
+        position = self.actor.secDev.status.secFocus + 5
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+            self.assertEqual(self.actor.secDev.status.secFocus, position)
+        return self.queueCmd("sec move %.4f"%position, cb)
+
+    def testSecMove2(self):
+        position = self.actor.secDev.status.secFocus + 5
+        tipx = 2
+        newOrient = self.actor.secDev.status.orientation[:]
+        newOrient[0] = position
+        newOrient[1] = tipx
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+            for x1, x2 in itertools.izip(self.actor.secDev.status.orientation, newOrient):
+                self.assertEqual(x1, x2)
+        return self.queueCmd("sec move %.4f, %.2f"%(position,tipx), cb)
+
+    def testTarget(self):
+        ra = 5
+        dec = 6
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+            self.assertTrue(self.actor.tcsDev.status.statusFieldDict["inpra"], ra)
+            self.assertTrue(self.actor.tcsDev.status.statusFieldDict["inpdc"], dec)
+            self.assertTrue(self.actor.tcsDev.status.statusFieldDict["ra"], ra)
+            self.assertTrue(self.actor.tcsDev.status.statusFieldDict["dec"], dec)
+        return self.queueCmd("target %.4f, %.2f icrs"%(ra, dec), cb)
+
+    def testTargetUnsafe(self):
+        self.actor.scaleDev.status.dict["lock_ring_axis"]["actual_position"]=50
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("target %.4f, %.2f icrs"%(5,6), cb)
+
+    #
+    # def testTargetUnsafe2(self):
+    #     self.actor.scaleDev.status.dict["pos_sw"][1]=0
+    #     def cb(cmdVar):
+    #         self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+    #     return self.queueCmd("target %.4f, %.2f icrs"%(5,6), cb)
 
 if __name__ == '__main__':
     from unittest import main

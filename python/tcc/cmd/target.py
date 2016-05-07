@@ -22,9 +22,9 @@ def target(tccActor, userCmd):
         raise CommandError("%s coordSys not supported at LCO"%name)
     if val.valueList:
         raise CommandError("%s coordSys date input not supported at LCO"%str(val.valueList[0]))
-    if not tccActor.scaleDevice.loaded:
+    if not tccActor.scaleDev.status.loaded:
         raise CommandError("Cartridge not loaded")
-    if not tccActor.scaleDevice.locked:
+    if not tccActor.scaleDev.status.locked:
         raise CommandError("Cartridge not locked")
     coordPair = parsedCmd.paramDict["coordpair"].valueList
     if len(coordPair) != 2:

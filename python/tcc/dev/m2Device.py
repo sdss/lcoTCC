@@ -10,6 +10,7 @@ __all__ = ["M2Device"]
 PollTime = 0.5 #seconds, LCO says status is updated no more frequently that 5 times a second
 # PollTime = 1
 # Speed = 25.0 # microns per second for focus
+MIN_FOCUS_MOVE = 50 # microns
 
 Done = "done"
 Moving = "moving"
@@ -203,21 +204,33 @@ class M2Device(TCPDevice):
         @param[in] focusValue: float, focus value in microns
         @param[in] offset, if true this is offset, else absolute
         @param[in] userCmd: a twistedActor BaseCommand
-        """
-        """Command an offset to the current focus value
 
-        @param[in] focusValue: float, focus value in microns
-        @param[in] userCmd: a twistedActor BaseCommand
+        At APO increasing focus corresponds to decreasing M1-M2 dist.
+        The mirror controller at LCO convention is the opposite.
+        Apply the -1 here.
         """
         log.info("%s.focus(userCmd=%s, focusValue=%.2f, offset=%s)" % (self, userCmd, focusValue, str(bool(offset))))
-        return self.move(valueList=[focusValue], offset=offset, userCmd=userCmd)
+        # if this focus value is < 50 microns
+        userCmd = expandUserCmd(userCmd)
+        if offset:
+            deltaFocus = focusValue
+        else:
+            deltaFocus = self.status.secFocus - focusValue
+        if abs(deltaFocus) < MIN_FOCUS_MOVE:
+            # should focus be cancelled or just set to done?
+            userCmd.setState(userCmd.Done, "Focus offset below threshold of < %.2f, not moving."%MIN_FOCUS_MOVE)
+            return userCmd
+        return self.move(valueList=[-1*focusValue], offset=offset, userCmd=userCmd)
 
     def move(self, valueList, offset=False, userCmd=False):
-        """Command an offset or absolute focus move
+        """Command an offset or absolute orientation move
 
-        @param[in] valueList: list of 1 to 5 values specifying focus(um), tiltx("), tilty("), transx(um), transy(um)
+        @param[in] valueList: list of 1 to 5 values specifying pistion(um), tiltx("), tilty("), transx(um), transy(um)
         @param[in] offset, if true this is offset, else absolute
         @param[in] userCmd: a twistedActor BaseCommand
+
+        Note: increasing distance eg pistion means increasing spacing between primary and
+        secondary mirrors.
         """
         log.info("%s.move(userCmd=%s, valueList=%s, offset=%s)" % (self, userCmd, str(valueList), str(bool(offset))))
         userCmd = expandUserCmd(userCmd)

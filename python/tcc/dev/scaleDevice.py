@@ -112,16 +112,15 @@ class Status(object):
         sw = self.dict["pos_sw"]
         if sw is None:
             return False
-        return not False in [bool(sw) for x in sw]
+        return not 0 in sw
 
     @property
     def locked(self):
-        # all 3 position switches?
         pos = self.dict["lock_ring_axis"]["actual_position"]
         if pos is None:
             return False
         lockedPos = self.dict["lock_ring_axis"]["locked_setpoint"]
-        return abs(pos-lockedPos) > self.LOCKED_TOL
+        return abs(pos-lockedPos) < self.LOCKED_TOL
 
     @property
     def lockedAndLoaded(self):

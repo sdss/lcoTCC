@@ -9,13 +9,15 @@ def sec(tccActor, userCmd):
 
     @param[in,out] userCmd  a twistedActor BaseCommand with parseCmd attribute
     """
-    parsedKeys = userCmd.parsedCmd.paramDict.keys()
+    params = userCmd.parsedCmd.paramDict
+    quals = userCmd.parsedCmd.qualDict
+    parsedKeys = params.keys()
     if "stop" in parsedKeys:
         tccActor.secDev.stop(userCmd)
     elif "move" in parsedKeys:
-        value = userCmd.parsedKeys.paramDict["movevalue"]
-        offset = userCmd.parsedCmd.qualDict["incremental"].boolValue
-        tccActor.secDev.move(value, offset, userCmd)
+        values = params["movevalue"].valueList
+        offset = quals["incremental"].boolValue
+        tccActor.secDev.move(values, offset, userCmd)
     elif "status" in parsedKeys:
         tccActor.secDev.getStatus(userCmd)
 

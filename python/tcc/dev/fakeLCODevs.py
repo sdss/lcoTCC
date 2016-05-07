@@ -84,7 +84,7 @@ class FakeScaleCtrl(FakeDev):
         self.position = 20
         self.speed = 0.5
         self.moveTimer = Timer()
-        self.posSw1, self.posSw2, self.posSw3 = (0, 0, 0)
+        self.posSw1, self.posSw2, self.posSw3 = (1, 1, 1)
         self.cartID = 0
         self.lockPos = 18
         # faults

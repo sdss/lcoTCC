@@ -11,18 +11,19 @@ def threadRing(tccActor, userCmd):
     @param[in,out] userCmd  a twistedActor BaseCommand with parseCmd attribute
     """
     params = userCmd.parsedCmd.paramDict
+    quals = userCmd.parsedCmd.qualDict
     parsedKeys = params.keys()
     if "stop" in parsedKeys:
         tccActor.scaleDev.stop(userCmd)
     elif "move" in parsedKeys:
         value = params["movevalue"].valueList[0]
-        offset = userCmd.parsedCmd.qualDict["incremental"].boolValue
+        offset = quals["incremental"].boolValue
         if offset:
             value += tccActor.scaleDev.status.position
         tccActor.scaleDev.move(value, userCmd)
     elif "speed" in parsedKeys:
         value = params["speedvalue"].valueList[0]
-        mult = userCmd.parsedCmd.qualDict["multiplicative"].boolValue
+        mult = quals["multiplicative"].boolValue
         if mult:
             value *= tccActor.scaleDev.status.speed
         tccActor.scaleDev.speed(value, userCmd)
