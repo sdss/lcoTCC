@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import
 
-from twistedActor import LinkCommands
+from twistedActor import LinkCommands, UserCmd
 
 from .showScaleFactor import showScaleFactor
 
@@ -22,18 +22,15 @@ def setScaleFactor(tccActor, userCmd):
     M2.  To maintain current focus the M2 must also move fractionally in the
     same direction
     """
+    showScaleCmd = UserCmd() # to be set done when scale is shown
     def showScaleWhenDone(scaleCmd):
         """@param[in] scaleCmd, a twistedActor.UserCmd instance passed automatically via callback
 
         when the scale is done show the current value to users
         then set the user command done.
         """
-        # setDone = True
         if scaleCmd.isDone:
-            # if scaleCmd.didFail:
-            #     userCmd.setState(userCmd.Failed, scaleCmd.textMsg)
-            #     setDone=False
-            showScaleFactor(tccActor, userCmd, setDone=False)
+            showScaleFactor(tccActor, showScaleCmd, setDone=True)
 
     valueList = userCmd.parsedCmd.paramDict["scalefactor"].valueList[0].valueList
     if valueList:
@@ -73,10 +70,11 @@ def setScaleFactor(tccActor, userCmd):
         # command M2 move
         focusOffset = offsetDir * (absPosMM - tccActor.scaleDev.status.position) * UM_PER_MM * tccActor.SCALE_RATIO
         focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
-
         scaleCmd = tccActor.scaleDev.move(absPosMM)
-        scaleCmd.addCallback(showScaleWhenDone)
-        LinkCommands(userCmd, [scaleCmd, focusCmd])
+        scaleCmd.addCallback(showScaleWhenDone) # showScale command sets done showScaleCmd
+        # user cmd is not done until all three of the
+        # commands below have finshied
+        LinkCommands(userCmd, [scaleCmd, focusCmd, showScaleCmd])
 
     else:
         # no scale value received, just show current vale

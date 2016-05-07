@@ -457,6 +457,7 @@ class FakeM2Ctrl(FakeDev):
             # commands
             elif tokens[0].lower() == "stop":
                 self.doMove(stop=True)
+                self.userSock.writeLine("OK")
             elif tokens[0].lower() in ["move", "focus", "offset", "dfocus"]:
                 isOffset = tokens[0].lower() in ["offset", "dfocus"]
                 for ind, value in enumerate(tokens[1:]):

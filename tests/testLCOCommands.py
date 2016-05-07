@@ -181,17 +181,22 @@ class TestLCOCommands(TestCase):
         deferredList = [self.queueCmd(cmdStr, callFunc) for cmdStr, callFunc in itertools.izip(focusCmdList, callFuncList)]
         return gatherResults(deferredList)
 
-    def testFocusFail1(self):
+    def testFocusSmall1(self):
         focusVal = self.actor.secDev.status.secFocus + 20
+        # focus delta's less than 50 will return successfully
+        # immediately
         return self.queueCmd(
             cmdStr = "set focus=%i"%focusVal,
-            callFunc = functools.partial(self.checkFocus, focusVal=focusVal)
+            callFunc = functools.partial(self.checkFocus, focusVal=focusVal-20)
             )
 
-    def testFocusFail2(self):
-        focusVal = 20
+    def testFocusSmall2(self):
+        focusValInc = 20
+        # focus delta's less than 50 will return successfully
+        # immediately
+        focusVal = self.actor.secDev.status.secFocus
         return self.queueCmd(
-            cmdStr = "set focus=%i/incr"%focusVal,
+            cmdStr = "set focus=%i/incr"%focusValInc,
             callFunc = functools.partial(self.checkFocus, focusVal=focusVal)
             )
 
@@ -234,14 +239,14 @@ class TestLCOCommands(TestCase):
 
     def testScale1(self):
         scaleVal = 1
-        def checkScaleAndMotorPos():
-            self.checkScale(scaleVal=scaleVal)
+        def checkScaleAndMotorPos(cmdVar):
+            self.checkScale(cmdVar, scaleVal=scaleVal)
             pos = self.actor.scaleDev.status.position
             zeropoint = self.actor.scaleDev.status.scaleZero
             self.assertAlmostEqual(float(pos), float(zeropoint), msg="pos: %.4f, zeropoint: %.4f"%(pos, zeropoint))
         return self.queueCmd(
             cmdStr = "set scale=%.6f"%scaleVal,
-            callFunc = functools.partial(self.checkScale, scaleVal=scaleVal)
+            callFunc = checkScaleAndMotorPos
             )
 
     def testScale(self):
@@ -432,11 +437,11 @@ class TestLCOCommands(TestCase):
             self.assertTrue(self.actor.tcsDev.status.statusFieldDict["dec"], dec)
         return self.queueCmd("target %.4f, %.2f icrs"%(ra, dec), cb)
 
-    def testTargetUnsafe(self):
-        self.actor.scaleDev.status.dict["lock_ring_axis"]["actual_position"]=50
-        def cb(cmdVar):
-            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
-        return self.queueCmd("target %.4f, %.2f icrs"%(5,6), cb)
+    # def testTargetUnsafe(self):
+    #     self.actor.scaleDev.status.dict["lock_ring_axis"]["actual_position"]=50
+    #     def cb(cmdVar):
+    #         self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+    #     return self.queueCmd("target %.4f, %.2f icrs"%(5,6), cb)
 
     #
     # def testTargetUnsafe2(self):

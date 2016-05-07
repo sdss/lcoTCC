@@ -231,6 +231,7 @@ class M2Device(TCPDevice):
         userCmd = expandUserCmd(userCmd)
         if not self.waitMoveCmd.isDone:
             self.waitMoveCmd.setState(self.waitMoveCmd.Cancelled, "Stop commanded")
+        print("sec stop commanded")
         stopCmd = self.queueDevCmd("stop", userCmd)
         status = self.queueDevCmd("status", userCmd)
         LinkCommands(userCmd, [stopCmd, status])
@@ -256,7 +257,8 @@ class M2Device(TCPDevice):
             deltaFocus = self.status.secFocus - focusValue
         if abs(deltaFocus) < MIN_FOCUS_MOVE:
             # should focus be cancelled or just set to done?
-            userCmd.setState(userCmd.Done, "Focus offset below threshold of < %.2f, not moving."%MIN_FOCUS_MOVE)
+            self.writeToUsers("w", "Focus offset below threshold of < %.2f, not moving."%MIN_FOCUS_MOVE, userCmd)
+            userCmd.setState(userCmd.Done)
             return userCmd
         # focusDir = 1 # use M2's natural coordinates
         # focusDir = -1 # use convention at APO
@@ -284,7 +286,7 @@ class M2Device(TCPDevice):
         self.waitMoveCmd.userCmd = userCmd # for write to users
         self.status.desOrientation = valueList
         cmdType = "offset" if offset else "move"
-        strValList = ", ".join(["%.2f"%val for val in valueList])
+        strValList = " ".join(["%.2f"%val for val in valueList])
         cmdStr = "%s %s"%(cmdType, strValList)
         moveCmd = self.queueDevCmd(cmdStr, userCmd)
         statusCmd = self.queueDevCmd("status", userCmd)
@@ -294,7 +296,7 @@ class M2Device(TCPDevice):
         galilOverHead = 2 # galil take roughly 2 secs to boot up.
         extraOverHead = 2 #
         self.status._moveTimeTotal = self.getTimeForMove()
-        timeout = self.status._moveTimeTotal++galilOverHead+extraOverHead
+        timeout = self.status._moveTimeTotal+galilOverHead+extraOverHead
         userCmd.setTimeLimit(timeout)
         LinkCommands(userCmd, [moveCmd, statusCmd, self.waitMoveCmd])
         return userCmd
@@ -360,7 +362,6 @@ class M2Device(TCPDevice):
         """
         devCmdStr = devCmd.cmdStr.lower() # m2 uses all lower case
         log.info("%s.startDevCmd(%r)" % (self, devCmdStr))
-        # print("%s.startDevCmd(%r)" % (self, devCmdStr))
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmdStr))
