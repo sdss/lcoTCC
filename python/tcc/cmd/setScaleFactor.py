@@ -60,12 +60,13 @@ def setScaleFactor(tccActor, userCmd):
         newScale = tccActor.mm2scale(absPosMM)
         if newScale > tccActor.currentScaleFactor:
             # scale increases, focal lengh decreases,
-            # M2 moves away from M1, command a focus
-            # decrease
-            offsetDir = -1
-        else:
-            # scale decreases ...
+            # M2 moves away from M1
+            # as LCO greater increase focus moves away
+            # from M2
             offsetDir = 1
+        else:
+            # move M2 other direction ...
+            offsetDir = -1
         # determine magnitude of offset
         # convert to microns
         # apply scaling ratio

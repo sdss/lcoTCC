@@ -1,5 +1,7 @@
 from __future__ import division, absolute_import
 
+import numpy
+
 from RO.Comm.TwistedTimer import Timer
 from RO.StringUtil import strFromException
 
@@ -12,9 +14,9 @@ PollTime = 0.5 #seconds, LCO says status is updated no more frequently that 5 ti
 # Speed = 25.0 # microns per second for focus
 MIN_FOCUS_MOVE = 50 # microns
 
-Done = "done"
-Moving = "moving"
-Error = "error"
+Done = "Done"
+Moving = "Moving"
+Error = "Error"
 On = "on"
 Off = "off"
 validMotionStates = [Done, Moving, Error]
@@ -32,6 +34,22 @@ class Status(object):
         self.desOrientation = [None]*5
         self.lamps = None
         self.galil = None
+        self._moveTimeTotal = 0.
+
+
+    @property
+    def moveTimeRemaining(self):
+        if self.state == Done:
+            return 0
+        else:
+            return max(0, (self.desFocus - self.secFocus)/self.speed)
+
+    @property
+    def moveTimeTotal(self):
+        if self.state == Done:
+            return 0
+        else:
+            return self._moveTimeTotal
 
     @property
     def desFocus(self):
@@ -45,10 +63,22 @@ class Status(object):
         secFocus = "NaN" if self.secFocus is None else "%.2f"%self.secFocus
         return "SecFocus=%s"%secFocus
 
+    def secStateStr(self):
+        # secState [Moving, Done, Homing, Failed, NotHomed]
+        #   current iteration
+        #   max iterations
+        #   remaining time
+        #   total time
+        currIter = 1 # no meaning at LCO
+        maxIter = 1 # no meaning at LCO
+        return "secState=%s, %i, %i, %.2f, %.2f"%(
+            self.state, currIter, maxIter, self.moveTimeRemaining, self.moveTimeTotal
+            )
+
     def getStatusStr(self):
         """Grab and format tcc keywords, only output those which have changed
         """
-        kwOutputList = [self.secFocusStr()]
+        kwOutputList = [self.secStateStr(), self.secFocusStr()]
         # add mirror moving times, and actuator positions?
         # eg colimation
         return "; ".join(kwOutputList)
@@ -63,7 +93,9 @@ class Status(object):
         for statusBit in replyStr.split():
             key, val = statusBit.split("=")
             if key == "state":
-                val = val.lower()
+                val = val.title()
+                if val == "Error":
+                    val = "Failed" # failed fits with teh secState keyword, Error doesn't
                 assert val in validMotionStates
             elif key == "ori":
                 key = "orientation"
@@ -72,6 +104,8 @@ class Status(object):
             elif key == "galil":
                 assert val in validGalilStates
             # note don't really care about lamps
+            # set the status values as attrs on this
+            # object
             assert key in dir(self)
             setattr(self, key, val)
 
@@ -143,7 +177,7 @@ class M2Device(TCPDevice):
         #     return self.connect(userCmd=userCmd)
         # get the speed on startup
         # ignore getStatus flag, just do it always
-        self.queueDevCmd(DevCmd(cmdStr="speed"))
+        self.queueDevCmd("speed")
         return self.getStatus(userCmd=userCmd)
         # userCmd.setState(userCmd.Done)
         # return userCmd
@@ -161,9 +195,8 @@ class M2Device(TCPDevice):
         userCmd = expandUserCmd(userCmd)
         # userCmd.addCallback(self._statusCallback)
         # gather list of status elements to get
-        statusCmd = DevCmd(cmdStr="status")
+        statusCmd = self.queueDevCmd("status", userCmd)
         LinkCommands(userCmd, [statusCmd])
-        self.queueDevCmd(statusCmd)
         return userCmd
 
     def processStatus(self, replyStr):
@@ -172,16 +205,21 @@ class M2Device(TCPDevice):
         self.status.parseStatus(replyStr)
         # do we want status output so frequently? probabaly not.
         # perhaps only write status if it has changed...
+        # but so far status is a small amount of values
+        # so its probably ok
         statusStr = self.status.getStatusStr()
         if statusStr:
-            self.writeToUsers("i", statusStr)
+            userCmd = self.currExeDevCmd.userCmd
+            if self.waitMoveCmd.isActive:
+                userCmd = self.waitMoveCmd
+            self.writeToUsers("i", statusStr, userCmd)
 
         if self.waitMoveCmd.isActive:
             if not self.isBusy:
                 # move is done
                 if not self.isOff:
-                    # galil is not off, turn it off
-                    self.queueDevCmd(DevCmd(cmdStr="galil off"))
+                    # move just finished but galil is not off, turn it off
+                    self.queueDevCmd("galil off")
                 else:
                     # move is done and galil is off, set wait move command as done
                     self.waitMoveCmd.setState(self.waitMoveCmd.Done)
@@ -193,9 +231,9 @@ class M2Device(TCPDevice):
         userCmd = expandUserCmd(userCmd)
         if not self.waitMoveCmd.isDone:
             self.waitMoveCmd.setState(self.waitMoveCmd.Cancelled, "Stop commanded")
-        stopCmd = DevCmd(cmdStr="stop")
-        self.queueDevCmd(stopCmd)
-        LinkCommands(userCmd, [stopCmd])
+        stopCmd = self.queueDevCmd("stop", userCmd)
+        status = self.queueDevCmd("status", userCmd)
+        LinkCommands(userCmd, [stopCmd, status])
         return userCmd
 
     def focus(self, focusValue, offset=False, userCmd=None):
@@ -205,9 +243,9 @@ class M2Device(TCPDevice):
         @param[in] offset, if true this is offset, else absolute
         @param[in] userCmd: a twistedActor BaseCommand
 
+        WARNING!!!
         At APO increasing focus corresponds to decreasing M1-M2 dist.
         The mirror controller at LCO convention is the opposite.
-        Apply the -1 here.
         """
         log.info("%s.focus(userCmd=%s, focusValue=%.2f, offset=%s)" % (self, userCmd, focusValue, str(bool(offset))))
         # if this focus value is < 50 microns
@@ -220,7 +258,9 @@ class M2Device(TCPDevice):
             # should focus be cancelled or just set to done?
             userCmd.setState(userCmd.Done, "Focus offset below threshold of < %.2f, not moving."%MIN_FOCUS_MOVE)
             return userCmd
-        return self.move(valueList=[-1*focusValue], offset=offset, userCmd=userCmd)
+        # focusDir = 1 # use M2's natural coordinates
+        # focusDir = -1 # use convention at APO
+        return self.move(valueList=[focusValue], offset=offset, userCmd=userCmd)
 
     def move(self, valueList, offset=False, userCmd=False):
         """Command an offset or absolute orientation move
@@ -241,18 +281,28 @@ class M2Device(TCPDevice):
             userCmd.setState(userCmd.Failed, "Must specify 1 to 5 numbers for a move")
             return userCmd
         self.waitMoveCmd = UserCmd()
+        self.waitMoveCmd.userCmd = userCmd # for write to users
         self.status.desOrientation = valueList
         cmdType = "offset" if offset else "move"
         strValList = ", ".join(["%.2f"%val for val in valueList])
         cmdStr = "%s %s"%(cmdType, strValList)
-        moveCmd = DevCmd(cmdStr=cmdStr)
-        statusCmd = DevCmd(cmdStr="status")
+        moveCmd = self.queueDevCmd(cmdStr, userCmd)
+        statusCmd = self.queueDevCmd("status", userCmd)
         # status immediately to see moving state
-        devCmdList = [moveCmd, statusCmd]
-        LinkCommands(userCmd, devCmdList + [self.waitMoveCmd])
-        for devCmd in devCmdList:
-            self.queueDevCmd(devCmd)
+        # determine total time for move
+        # just use focus distance as proxy (ignore)
+        galilOverHead = 2 # galil take roughly 2 secs to boot up.
+        extraOverHead = 2 #
+        self.status._moveTimeTotal = self.getTimeForMove()
+        timeout = self.status._moveTimeTotal++galilOverHead+extraOverHead
+        userCmd.setTimeLimit(timeout)
+        LinkCommands(userCmd, [moveCmd, statusCmd, self.waitMoveCmd])
         return userCmd
+
+    def getTimeForMove(self):
+        dist2Move = numpy.abs(self.status.desOrientation[0] - self.status.orientation[0])
+        time4Move = dist2Move / self.status.speed
+        return time4Move
 
     def handleReply(self, replyStr):
         """Handle a line of output from the device. Called whenever the device outputs a new line of data.
@@ -285,26 +335,30 @@ class M2Device(TCPDevice):
         self.currExeDevCmd.setState(self.currExeDevCmd.Done)
 
 
-    def queueDevCmd(self, devCmd):
+    def queueDevCmd(self, cmdStr, userCmd=None):
         """Add a device command to the device command queue
 
-        @param[in] devCmd: a twistedActor DevCmd.
+        @param[in] cmdStr, string to send to the device.
         """
-        log.info("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
+        log.info("%s.queueDevCmd(cmdStr=%r, cmdQueue: %r"%(self, cmdStr, self.devCmdQueue))
         # print("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (other wise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
-        devCmd.cmdVerb = devCmd.cmdStr
+        userCmd = expandUserCmd(userCmd)
+        devCmd = DevCmd(cmdStr)
+        devCmd.cmdVerb = cmdStr
+        devCmd.userCmd = userCmd
         def queueFunc(devCmd):
-            self.startDevCmd(devCmd.cmdStr)
+            self.startDevCmd(devCmd)
         self.devCmdQueue.addCmd(devCmd, queueFunc)
+        return devCmd
 
 
-    def startDevCmd(self, devCmdStr):
+    def startDevCmd(self, devCmd):
         """
         @param[in] devCmdStr a line of text to send to the device
         """
-        devCmdStr = devCmdStr.lower() # m2 uses all lower case
+        devCmdStr = devCmd.cmdStr.lower() # m2 uses all lower case
         log.info("%s.startDevCmd(%r)" % (self, devCmdStr))
         # print("%s.startDevCmd(%r)" % (self, devCmdStr))
         try:
@@ -314,6 +368,8 @@ class M2Device(TCPDevice):
                 # with status
                 if "move" in devCmdStr.lower() or "offset" in devCmdStr.lower():
                     self.waitMoveCmd.setState(self.waitMoveCmd.Running)
+                    self.status.state = Moving
+                    self.writeToUsers("i", self.status.secStateStr(), devCmd.userCmd)
                 # if "galil" in devCmdStr.lower():
                 #     self.waitGalilCmd.setState(self.waitGalilCmd.Running)
                 self.conn.writeLine(devCmdStr)

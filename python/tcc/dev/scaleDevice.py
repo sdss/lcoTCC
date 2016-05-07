@@ -37,7 +37,6 @@ from RO.StringUtil import strFromException
     "CartID=%i"%self.cartID
     "CartLocked=%s"%(str(self.locked))
     "CartLoaded=%s"%(str(self.loaded))
-    "ScaleState=%s, %.4f"%(self._state, timeRemaining)
 """
 
 __all__ = ["ScaleDevice"]
@@ -53,23 +52,23 @@ class Status(object):
     # how close you must be to the locked setpoint to be considered "locked"
     LOCKED_TOL = 0.005 # mm
     Moving = "Moving"
-    Idle = "Idle"
+    Done = "Done"
     def __init__(self):
         self.flushStatus() # sets self.dict and a few other attrs
         self._scaleZero = None
-        self._state = self.Idle
-        self._timeRemaining = 0
+        self._state = self.Done
+        self._totalTime = 0
         self._timeStamp = 0
 
-    def setState(self, state, timeRem=0):
+    def setState(self, state, totalTime=0):
         """Set the state
 
-        @param[in] state: one of self.Moving or self.Idle
-        @param[in] timeRem: time remaining in this state, 0 for indefinite
+        @param[in] state: one of self.Moving or self.Done
+        @param[in] totalTime: total time for this state, 0 for indefinite
         """
-        assert state in [self.Moving, self.Idle]
+        assert state in [self.Moving, self.Done]
         self._state = state
-        self._timeRemaining = timeRem
+        self._totalTime = totalTime
         self._timeStamp = time.time()
 
     @property
@@ -254,11 +253,22 @@ class Status(object):
         return True
 
     def getStateKW(self):
+        # secState [Moving, Done, Homing, Failed, NotHomed]
+        #   current iteration
+        #   max iterations
+        #   remaining time
+        #   total time
+        currIter = 1 # no meaning at LCO
+        maxIter = 1 # no meaning at LCO
+
         # determine time remaining in this state
         timeElapsed = time.time() - self._timeStamp
         # cannot have negative time remaining
-        timeRemaining = max(0, self._timeRemaining - timeElapsed)
-        return "ScaleState=%s, %.4f"%(self._state, timeRemaining)
+        timeRemaining = max(0, self._totalTime - timeElapsed)
+        return "PrimState=%s, %i, %i, %.2f, %.2f"%(
+            self._state, currIter, maxIter, timeRemaining, self._totalTime
+            )
+        # return "ScaleState=%s, %.4f"%(self._state, timeRemaining)
 
     def getFaultStr(self):
         faultList = []
@@ -517,7 +527,7 @@ class ScaleDevice(TCPDevice):
             self.writeState(moveCmd.userCmd)
         if moveCmd.isDone:
             # set state
-            self.status.setState(self.status.Idle)
+            self.status.setState(self.status.Done)
             self.writeState(moveCmd.userCmd)
 
     def stop(self, userCmd=None):
