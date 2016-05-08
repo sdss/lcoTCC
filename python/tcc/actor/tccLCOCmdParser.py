@@ -82,6 +82,7 @@ TCCLCOCmdList = (
                     parseDefs.Keyword(name = "arc", help = "Offset along great circle on sky (coordSys axis 1, 2, e.g. RA, Dec)."),
                     parseDefs.Keyword(name = "rotator", help = "Rotator offset (1 axis)"),
                     parseDefs.Keyword(name = "calibration", help = "Local pointing correction (az, alt, rot)."),
+                    parseDefs.Keyword(name = "guide", help = "There are three axes: azimuth, altitude and rotator. The offset is in telescope mount coordinates.  For LCO only the rotator offset is allowed."),
                 ],
             ),
             CoordSet(

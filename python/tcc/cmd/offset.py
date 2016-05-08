@@ -17,10 +17,16 @@ def offset(tccActor, userCmd):
     """
     parsedCmd = userCmd.parsedCmd
     offsetType = parsedCmd.paramDict["type"].valueList[0].keyword.lower()
-    if offsetType != "arc":
+    if offsetType not in  ["arc", "guide"]:
         raise CommandError("offset type of %s not supported for LCO"%offsetType)
     coordSet = parsedCmd.paramDict["coordset"].valueList
-    if len(coordSet) != 2:
-        raise CommandError("Must specify coordSet of solely ra, dec")
-    ra, dec = coordSet
-    tccActor.tcsDev.slewOffset(ra, dec, userCmd)
+    if offsetType == "arc":
+        if len(coordSet) != 2:
+            raise CommandError("Must specify coordSet of solely ra, dec")
+        ra, dec = coordSet
+        tccActor.tcsDev.slewOffset(ra, dec, userCmd)
+    else:
+        if not coordSet[0] == coordSet[1] == 0 or len(coordSet) != 3:
+            raise CommandError("Guide offset must be solely in rotation")
+        offsetRot = coordSet[-1]
+

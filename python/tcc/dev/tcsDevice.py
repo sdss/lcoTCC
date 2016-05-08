@@ -19,6 +19,7 @@ PollTimeTrack = 5
 PollTimeIdle = 10
 # FocusPosTol = 0.001 # microns?
 ArcSecPerDeg = 3600 # arcseconds per degree
+MinRotOffset = 0.5 / ArcSecPerDeg # minimum commandable rotator offset
 
 # DuPontLat = -1*(29 + 52.56 / float(ArcSecPerDeg))
 # DuPontLong = 70 + 41.0 / 60. + 33.36 / float(ArcSecPerDeg)
@@ -87,10 +88,12 @@ class Status(object):
         # used to determine when offset is done, or AxisCmdState should be set to tracking/slewing.
         self.previousRA = None
         self.previousDec = None
+        self.previousRot = None
         # on target when within 0:0:01 degrees dec
         # 0:0:0.2 seconds ra
         self.raOnTarg = castHoursToDeg("0:0:0.2")
         self.decOnTarg = degFromDMSStr("0:0:01")
+        self.rotOnTarg = MinRotOffset * 0.5
         self.statusFieldDict = collections.OrderedDict(( (x.cmdVerb, x) for x in StatusFieldList ))
         # self.focus = None
         # self.targFocus = None
@@ -116,7 +119,7 @@ class Status(object):
         axisCmdState = self.statusFieldDict["state"].value or "?"
         # check if we are really slewing instead of tracking (offsets don't trigger slew state)
         # so check manually
-        axisCmdStateList = [axisCmdState, axisCmdState, "NotAvailable"]
+        axisCmdStateList = [axisCmdState, axisCmdState, axisCmdState]
         axisSlewingCheck = self.axesSlewing()
         for ii, manualCheck in enumerate(axisSlewingCheck):
             if manualCheck:
@@ -184,7 +187,11 @@ class Status(object):
             raSlewing = True
         else:
             raSlewing = abs(self.previousRA - self.statusFieldDict["ra"].value) > self.raOnTarg if self.previousRA is not None else False
-        return [raSlewing, decSlewing, False]
+        if not self.isClamped:
+            rotSlewing = True
+        else:
+            rotSlewing = False
+        return [raSlewing, decSlewing, rotSlewing]
 
     def currArcOff(self):
         return "currArcOff=%s"%self.arcOff
@@ -221,8 +228,9 @@ class TCSDevice(TCPDevice):
         self.status = Status()
         self._statusTimer = Timer()
 
-        # self.waitSlewCmd = UserCmd()
-        # self.waitSlewCmd.setState(self.waitSlewCmd.Done)
+        self.waitRotCmd = UserCmd()
+        self.waitRotCmd.setState(self.waitRotCmd.Done)
+
         # self.waitFocusCmd = UserCmd()
         # self.waitFocusCmd.setState(self.waitFocusCmd.Done)
 
@@ -323,16 +331,11 @@ class TCSDevice(TCPDevice):
             statusStr = self.status.getStatusStr()
             if statusStr:
                 self.writeToUsers("i", statusStr, cmd)
-            # update delta ra and decs
-
-            # if self.waitSlewCmd.isActive and self.isTracking:
-            #     self.waitSlewCmd.setState(self.waitSlewCmd.Done)
-
-            # if self.waitFocusCmd.isActive and self.atFocus:
-            #     self.waitFocusCmd.setState(self.waitFocusCmd.Done)
 
             if self.waitOffsetCmd.isActive and not True in self.status.axesSlewing():
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
+
+    # focus will come back if focus functionality ever gets ported back to the TCS
 
     # def focus(self, focusValue, userCmd=None):
     #     """Command a new focus move
@@ -387,19 +390,12 @@ class TCSDevice(TCPDevice):
         """
         log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
         userCmd = expandUserCmd(userCmd)
-        # # force slew to show up in axes command state keyword
-        # self.status.previousDec = ForceSlew
-        # self.status.previousRA = ForceSlew
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
-        # if not self.waitSlewCmd.isDone:
-        #     self.waitSlewCmd(self.waitSlewCmd.Cancelled, "Superseded by new slew")
-        # self.waitSlewCmd = UserCmd()
         enterRa = "RAD %.8f"%ra
         enterDec = "DECD %.8f"%dec
         enterEpoch = "MP %.2f"%2000 # LCO: HACK
-        # cmdSlew = "SLEW" # LCO: HACK operator commands slew don't send it!
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]#, cmdSlew]]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
@@ -421,7 +417,7 @@ class TCSDevice(TCPDevice):
         @param[in] dec: declination in decimal degrees
         @param[in] userCmd a twistedActor BaseCommand
 
-        @todo, consolidate similar code with self.slew
+        @todo, consolidate similar code with self.target?
         """
         log.info("%s.slewOffset(userCmd=%s, ra=%.6f, dec=%.6f)" % (self, userCmd, ra, dec))
         userCmd = expandUserCmd(userCmd)
@@ -440,6 +436,41 @@ class TCSDevice(TCPDevice):
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
         LinkCommands(userCmd, devCmdList + [self.waitOffsetCmd])
+        for devCmd in devCmdList:
+            self.queueDevCmd(devCmd)
+        statusStr = self.status.getStatusStr()
+        if statusStr:
+            self.writeToUsers("i", statusStr, userCmd)
+        return userCmd
+
+    def rotOffset(self, rot, userCmd=None):
+        """Offset telescope rotator.
+
+        @param[in] rot: in decimal degrees
+        @param[in] userCmd a twistedActor BaseCommand
+        """
+        log.info("%s.rotOffset(userCmd=%s, ra=%.6f)" % (self, userCmd, rot))
+        userCmd = expandUserCmd(userCmd)
+        # zero the delta computation so the offset isn't marked done immediately
+        if not self.conn.isConnected:
+            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+            return userCmd
+        if not self.waitRot.isDone:
+            userCmd.setState(userCmd.Failed, "Rotator is busy moving")
+            return userCmd
+        if rot < MinRotOffset:
+            # set command done, rotator offset is miniscule
+            self.writeToUsers("w", "Rot offset less than min threshold", userCmd)
+            userCmd.setState(userCmd.Done)
+            return userCmd
+        self.status.previousRot = ForceSlew
+        self.waitRotCmd = UserCmd()
+        enterRa = "OFRA %.8f"%(-1.0*ra*ArcSecPerDeg) #LCO: HACK
+        enterDec = "OFDC %.8f"%(-1.0*dec*ArcSecPerDeg)
+        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
+        # set userCmd done only when each device command finishes
+        # AND the pending slew is also done.
+        LinkCommands(userCmd, devCmdList + [self.waitSlewCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
         statusStr = self.status.getStatusStr()

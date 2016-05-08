@@ -103,7 +103,9 @@ class Status(object):
 
     @property
     def cartID(self):
-        return self.dict["cartridge_id"]
+        #LCOHACK: hard code cart 20 to match José's db'
+        return 20
+        # return self.dict["cartridge_id"]
 
     @property
     def loaded(self):
@@ -292,7 +294,7 @@ class Status(object):
         kwList.append("ThreadRingSpeed%.4f"%self.speed)
         kwList.append("ThreadRingMaxSpeed%.4f"%self.maxSpeed)
         kwList.append("DesThreadRingPos=%.4f"%self.desPosition)
-        kwList.append("CartID=%i"%self.cartID)
+        kwList.append("InstrumentNum=%i"%self.cartID)
         kwList.append("CartLocked=%s"%(str(self.locked)))
         kwList.append("CartLoaded=%s"%(str(self.loaded)))
         return "; ".join(kwList)
@@ -538,7 +540,9 @@ class ScaleDevice(TCPDevice):
         """
         userCmd=expandUserCmd(userCmd)
         # kill any commands pending on the queue
-
+        # nicely kill move command if it's running
+        # if not self.currExeDevCmd.userCmd.isDone:
+        #     self.currExeDevCmd.userCmd.setState(self.currExeDevCmd.userCmd.Failed, "Killed by stop")
         stopDevCmd = self.queueDevCmd("stop", userCmd)
         statusDevCmd = self.queueDevCmd("status", userCmd)
         statusDevCmd.addCallback(self._statusCallback)

@@ -437,6 +437,18 @@ class TestLCOCommands(TestCase):
             self.assertTrue(self.actor.tcsDev.status.statusFieldDict["dec"], dec)
         return self.queueCmd("target %.4f, %.2f icrs"%(ra, dec), cb)
 
+    def testOffsetGuide(self):
+        offset = 0.001
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("offset guide 0, 0, %.5f"%(offset), cb)
+
+    def testOffsetGuideFail(self):
+        offset = 0.001
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("offset guide 0, 1, %.5f"%(offset), cb)
+
     # def testTargetUnsafe(self):
     #     self.actor.scaleDev.status.dict["lock_ring_axis"]["actual_position"]=50
     #     def cb(cmdVar):
