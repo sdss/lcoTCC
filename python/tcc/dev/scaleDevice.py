@@ -103,7 +103,7 @@ class Status(object):
 
     @property
     def cartID(self):
-        #LCOHACK: hard code cart 20 to match José's db'
+        #LCOHACK: hard code cart 20 to match Jose's db'
         return 20
         # return self.dict["cartridge_id"]
 
