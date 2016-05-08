@@ -85,6 +85,7 @@ class Status(object):
     def __init__(self):
         """Container for holding current status of the TCS
         """
+        self.isClamped = True
         # used to determine when offset is done, or AxisCmdState should be set to tracking/slewing.
         self.previousRA = None
         self.previousDec = None
