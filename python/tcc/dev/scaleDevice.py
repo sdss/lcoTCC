@@ -441,7 +441,8 @@ class ScaleDevice(TCPDevice):
 
     def writeState(self, userCmd=None):
         stateKW = self.status.getStateKW()
-        self.writeToUsers("i", stateKW, userCmd)
+        self.writeToUsers("i", stateKW)
+        # self.writeToUsers("i", stateKW, userCmd)
 
     def setScaleZeroPoint(self, zeroPoint=None, userCmd=None):
         """Set the scale zero point (in mm)
