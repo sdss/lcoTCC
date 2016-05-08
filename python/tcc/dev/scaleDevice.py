@@ -294,7 +294,7 @@ class Status(object):
         kwList.append("ThreadRingSpeed%.4f"%self.speed)
         kwList.append("ThreadRingMaxSpeed%.4f"%self.maxSpeed)
         kwList.append("DesThreadRingPos=%.4f"%self.desPosition)
-        kwList.append("InstrumentNum=%i"%self.cartID)
+        kwList.append("instrumentNum=%i"%self.cartID)
         kwList.append("CartLocked=%s"%(str(self.locked)))
         kwList.append("CartLoaded=%s"%(str(self.loaded)))
         return "; ".join(kwList)
