@@ -5,9 +5,8 @@ from twistedActor import CommandError
 
 __all__ = ["offset"]
 
-# offset arc ra, dec
-# offset guide?
-# do we want calib offsets?
+# what is the convention for rotation!??
+RotDir = 1
 
 def offset(tccActor, userCmd):
     """!Implement the offset command for the LCO TCS
@@ -29,4 +28,5 @@ def offset(tccActor, userCmd):
         if not coordSet[0] == coordSet[1] == 0 or len(coordSet) != 3:
             raise CommandError("Guide offset must be solely in rotation")
         offsetRot = coordSet[-1]
+        tccActor.tcsDev.rotOffset(RotDir * offsetRot, userCmd)
 

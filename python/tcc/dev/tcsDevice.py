@@ -8,18 +8,29 @@ from RO.StringUtil import strFromException, degFromDMSStr
 
 from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd, LinkCommands
 
+#TODO: Combine offset wait command and rotation offset wait commands.
+# make queueDev command return a dev command rather than requiring one.
+# creat a command list where subsequent commands are not sent if the previous is not successful
+# i think this is handled easily by canceling all commands on the queue if the return value is not 0
+# maybe we don't want this behavior in the case of the rotator, because we always want it
+# to clamp!!!
+
+
 def tai():
     return time.time() - 36.
 
 __all__ = ["TCSDevice"]
 ForceSlew = "ForceSlew"
 
+PollTimeRot = 0.5 # if rotator is slewing query frequently
 PollTimeSlew = 2 #seconds, LCO says status is updated no more frequently that 5 times a second
 PollTimeTrack = 5
 PollTimeIdle = 10
 # FocusPosTol = 0.001 # microns?
 ArcSecPerDeg = 3600 # arcseconds per degree
-MinRotOffset = 0.5 / ArcSecPerDeg # minimum commandable rotator offset
+MinRotOffset = 5 / ArcSecPerDeg # minimum commandable rotator offset
+MaxRotOffset = 60 / ArcSecPerDeg # max commandable rotator offset
+ClampFudgeTime = 0.5 #seconds.  Time delay between perceived end of rotation and issuing "clamp"
 
 # DuPontLat = -1*(29 + 52.56 / float(ArcSecPerDeg))
 # DuPontLong = 70 + 41.0 / 60. + 33.36 / float(ArcSecPerDeg)
@@ -49,6 +60,14 @@ def castHoursToDeg(tcsHourStr):
     tcsHours = degFromDMSStr(tcsHourStr)
     return tcsHours * 15.
 
+def castClamp(lcoReply):
+    """MRP command output:
+    "%d %d %d %d %d", status.irclamped, status.mirrorexposed, status.mirrorcoveropen, status.mirrorcoverclosed, status.oilpump
+    MRP
+    1 0 0 1 3
+    """
+    return bool(lcoReply.split()[0])
+
 class StatusField(object):
     def __init__(self, cmdVerb, castFunc):
         """A class defining an LCO Status Field intended to be queried for
@@ -68,6 +87,7 @@ class StatusField(object):
         """
         self.value = self.castFunc(lcoReply)
 
+
 StatusFieldList = [
                 # StatusField("focus", float),
                 StatusField("ra", castHoursToDeg),
@@ -79,27 +99,27 @@ StatusFieldList = [
                 StatusField("telel", float), # I think degrees
                 StatusField("telaz", float), # I think degrees
                 StatusField("rot", float), # I think degrees
+                StatusField("mrp", castClamp)
             ]
 
 class Status(object):
     def __init__(self):
         """Container for holding current status of the TCS
         """
-        self.isClamped = True
         # used to determine when offset is done, or AxisCmdState should be set to tracking/slewing.
         self.previousRA = None
         self.previousDec = None
-        self.previousRot = None
         # on target when within 0:0:01 degrees dec
         # 0:0:0.2 seconds ra
         self.raOnTarg = castHoursToDeg("0:0:0.2")
         self.decOnTarg = degFromDMSStr("0:0:01")
-        self.rotOnTarg = MinRotOffset * 0.5
+        self.rotOnTarg = 1 * ArcSecPerDeg # within 1 arcsec rot move is considered done
         self.statusFieldDict = collections.OrderedDict(( (x.cmdVerb, x) for x in StatusFieldList ))
         # self.focus = None
         # self.targFocus = None
-        self.ra = None
-        self.dec = None
+        self.ra = None #unused?
+        self.dec = None #unused?
+        self.targRot = None
         self.targRA = None
         self.targDec = None
         self.offDec = None
@@ -120,14 +140,15 @@ class Status(object):
         axisCmdState = self.statusFieldDict["state"].value or "?"
         # check if we are really slewing instead of tracking (offsets don't trigger slew state)
         # so check manually
-        axisCmdStateList = [axisCmdState, axisCmdState, axisCmdState]
-        axisSlewingCheck = self.axesSlewing()
-        for ii, manualCheck in enumerate(axisSlewingCheck):
-            if manualCheck:
-                # axis is moving, force it to report slewing
-                # offsets do not trigger a slewing state in TCS, but we want them to.
-                axisCmdStateList[ii] = Slewing
-        return axisCmdStateList
+        ra, dec = [axisCmdState]*2
+        rot = Halted if self.isClamped else Slewing
+        raSlewing, decSlewing = self.axesSlewing()
+        # force ra or dec slewing if true in axesSlewing
+        if raSlewing:
+            ra = Slewing
+        if decSlewing:
+            dec = Slewing
+        return [ra, dec, rot]
 
     def axisCmdState(self):
         """Format the AxisCmdState keyword
@@ -179,6 +200,13 @@ class Status(object):
         # return "%.6f, 0.0, 0.0, %.6f, 0.0, 0.0"%(raOff, decOff)
         return "%.6f, %.6f"%(raOff, decOff)
 
+    @property
+    def rotOnTarget(self):
+        return abs(self.status.targRot - self.status.statusFieldDict["rot"].value)<self.rotOnTarg
+
+    def setRotOffsetTarg(self, rotOffset):
+        self.status.targRot = self.statusFieldDict["rot"].value + rotOffset
+
     def axesSlewing(self):
         if self.previousDec == ForceSlew:
             decSlewing = True
@@ -188,11 +216,11 @@ class Status(object):
             raSlewing = True
         else:
             raSlewing = abs(self.previousRA - self.statusFieldDict["ra"].value) > self.raOnTarg if self.previousRA is not None else False
-        if not self.isClamped:
-            rotSlewing = True
-        else:
-            rotSlewing = False
-        return [raSlewing, decSlewing, rotSlewing]
+        return [raSlewing, decSlewing]
+
+    @property
+    def isClamped(self):
+        return self.statusFieldDict["mrp"].value
 
     def currArcOff(self):
         return "currArcOff=%s"%self.arcOff
@@ -272,7 +300,8 @@ class TCSDevice(TCPDevice):
     @property
     def isSlewing(self):
 
-        if not self.waitOffsetCmd.isDone:# or not self.waitSlewCmd.isDone:
+        if not self.waitOffsetCmd.isDone or not self.status.isClamped:
+            # if clamp is not on, then we are moving the rotator
             return True
         else:
             return False
@@ -312,11 +341,17 @@ class TCSDevice(TCPDevice):
         LinkCommands(userCmd, devCmdList)
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
-        if self.isSlewing:
+        if not self.status.isClamped:
+            # rotator is moving, get status frequently
+            pollTime = PollTimeRot
+        elif self.isSlewing:
+            # slewing, get status kinda frequently
             pollTime = PollTimeSlew
         elif self.isTracking:
+            # tracking, get status less frequently
             pollTime = PollTimeTrack
         else:
+            # idle, get status infrequently (as things shouldn't be changing fast)
             pollTime = PollTimeIdle
         self._statusTimer.start(pollTime, self.getStatus)
         return userCmd
@@ -335,6 +370,9 @@ class TCSDevice(TCPDevice):
 
             if self.waitOffsetCmd.isActive and not True in self.status.axesSlewing():
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
+
+            if self.waitRotCmd.isActive and self.status.rotOnTarg:
+                self.waitRotCmd.setState(self.waitRotCmd.Done)
 
     # focus will come back if focus functionality ever gets ported back to the TCS
 
@@ -396,7 +434,7 @@ class TCSDevice(TCPDevice):
             return userCmd
         enterRa = "RAD %.8f"%ra
         enterDec = "DECD %.8f"%dec
-        enterEpoch = "MP %.2f"%2000 # LCO: HACK
+        enterEpoch = "MP %.2f"%2000 # LCO: HACK should coords always be 2000?
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]#, cmdSlew]]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
@@ -456,23 +494,35 @@ class TCSDevice(TCPDevice):
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
-        if not self.waitRot.isDone:
-            userCmd.setState(userCmd.Failed, "Rotator is busy moving")
+        if not self.status.isClamped:
+            # rotator is unclamped, a move is in progress
+            userCmd.setState(userCmd.Failed, "Rotator is unclamped (already moving)")
             return userCmd
         if rot < MinRotOffset:
             # set command done, rotator offset is miniscule
             self.writeToUsers("w", "Rot offset less than min threshold", userCmd)
             userCmd.setState(userCmd.Done)
             return userCmd
-        self.status.previousRot = ForceSlew
+        if rot > MaxRotOffset:
+            # set command failed, rotator offset is too big
+            self.writeToUsers("w", "Rot offset less than min threshold", userCmd)
+            userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
+            return userCmd
         self.waitRotCmd = UserCmd()
-        enterRa = "OFRA %.8f"%(-1.0*ra*ArcSecPerDeg) #LCO: HACK
-        enterDec = "OFDC %.8f"%(-1.0*dec*ArcSecPerDeg)
-        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
+        self.status.setRotOffsetTarg(rot)
+        clamp = DevCmd(cmdStr="CLAMP")
+        enterDCIR = DevCmd(cmdStr="DCIR %.8f"%(rot))
+        unclamp = DevCmd(cmdStr="UNCLAMP")
         # set userCmd done only when each device command finishes
-        # AND the pending slew is also done.
-        LinkCommands(userCmd, devCmdList + [self.waitSlewCmd])
-        for devCmd in devCmdList:
+        # AND the wait command is also done.
+        LinkCommands(userCmd, [unclamp, enterDCIR, self.waitRotCmd, clamp])
+        def sendClamp(waitRotCmd):
+            # when waitRotCmd is Done, send the clamp
+            # add a time fudge factor just to be careful?
+            if waitRotCmd.isDone:
+                Timer(ClampFudgeTime, self.queueDevCmd, clamp)
+        self.waitRotCmd.addCallback(sendClamp)
+        for devCmd in [unclamp, enterDCIR]:
             self.queueDevCmd(devCmd)
         statusStr = self.status.getStatusStr()
         if statusStr:
@@ -496,7 +546,13 @@ class TCSDevice(TCPDevice):
         replyStr = replyStr.strip()
         if replyStr == "-1":
             # error
-            self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "handleReply failed for %s with -1"%self.currDevCmdStr)
+            errorStr = "handleReply failed for %s with -1"%self.currDevCmdStr
+            if self.waitOffsetCmd.isActive:
+                self.waitOffsetCmd.setState(self.waitOffsetCmd.Failed, errorStr)
+            if self.waitRotCmd.isActive:
+                # note the clamp should still execute!!!!
+                self.waitRotCmd.setState(self.waitRotCmd.Failed, errorStr)
+            self.currExeDevCmd.setState(self.currExeDevCmd.Failed, errorStr)
             return
         statusField = self.status.statusFieldDict.get(self.currDevCmdStr, None)
         if statusField:
@@ -537,6 +593,8 @@ class TCSDevice(TCPDevice):
                 log.info("%s writing %r" % (self, devCmdStr))
                 if CMDOFF.upper() == devCmdStr:
                     self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
+                elif "DCIR" in devCmdStr:
+                    self.waitRotCmd.setState(self.waitRotCmd.Running)
                 self.conn.writeLine(devCmdStr)
             else:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected")

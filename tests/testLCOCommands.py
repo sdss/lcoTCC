@@ -30,8 +30,11 @@ test target command
 test target command with unsafe cart
 
 test rotator move
+min/max values
 
 fake and test mirror moving states
+
+test rotation triggers slewing state in rot axis
 """
 
 """
@@ -140,9 +143,10 @@ class TestLCOCommands(TestCase):
             # self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor), msg="actor-target: %.6f, %.6f"%(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor)))
             self.assertAlmostEqual(float(scaleVal), float(self.model.scaleFac.valueList[0]), msg="model: %.6f, %.6f"%(float(scaleVal), float(self.model.scaleFac.valueList[0])))
 
-    def checkAxesState(self, axisState):
-        assert axisState in ["Tracking", "Slewing", "Halted"]
-        axisStateList = [axisState, axisState, "NotAvailable"] # rotator is not available
+    def checkAxesState(self, axisStateList):
+        assert len(axisStateList) == 3
+        for axisState in axisStateList:
+            assert axisState in ["Tracking", "Slewing", "Halted"]
         # model isn't always 100% reliable check the state on status instead
         #for desState, lastState in itertools.izip(axisStateList, self.model.axisCmdState.valueList):
         for desState, lastState in itertools.izip(axisStateList, self.actor.tcsDev.status.axisCmdStateList()):
@@ -160,11 +164,11 @@ class TestLCOCommands(TestCase):
         # self.assertAlmostEqual(float(decVal), float(decModelPos))
 
     def checkIsSlewing(self):
-        self.checkAxesState("Slewing")
+        self.checkAxesState(["Slewing"]*2 + ["Halted"])
 
     def checkOffsetDone(self, raVal, decVal):
         # how to verify position is correct?
-        self.checkAxesState("Tracking")
+        self.checkAxesState(["Tracking"]*2 + ["Halted"])
         self.checkAxesPosition(-1*raVal, -1*decVal) # offsets are applied negatively (Du Pont TCS convention)
 
     def testFocus(self):
@@ -437,17 +441,29 @@ class TestLCOCommands(TestCase):
             self.assertTrue(self.actor.tcsDev.status.statusFieldDict["dec"], dec)
         return self.queueCmd("target %.4f, %.2f icrs"%(ra, dec), cb)
 
-    def testOffsetGuide(self):
-        offset = 0.001
+    def testOffsetGuideMin(self):
+        offset = 0.001 # below min threshold
         def cb(cmdVar):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
         return self.queueCmd("offset guide 0, 0, %.5f"%(offset), cb)
 
-    def testOffsetGuideFail(self):
-        offset = 0.001
+    def testOffsetGuideOverMax(self):
+        offset = 0.5 # above max thresh
         def cb(cmdVar):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
-        return self.queueCmd("offset guide 0, 1, %.5f"%(offset), cb)
+        return self.queueCmd("offset guide 0, 0, %.5f"%(offset), cb)
+
+    def testOffsetGuide(self):
+        offset = 0.01
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("offset guide 0, 0, %.5f"%(offset), cb)
+
+    # def testOffsetGuideFail(self):
+    #     offset = 0.001
+    #     def cb(cmdVar):
+    #         self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+    #     return self.queueCmd("offset guide 0, 1, %.5f"%(offset), cb)
 
     # def testTargetUnsafe(self):
     #     self.actor.scaleDev.status.dict["lock_ring_axis"]["actual_position"]=50
