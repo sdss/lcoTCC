@@ -250,6 +250,7 @@ class FakeTCS(FakeDev):
         @param[in] port  port on which to command TCS
         """
         self.isClamped = 1
+        self.targRot = 0.
         self.focus = 0.
         self.targFocus = 0.
         self.ra = 0.
@@ -333,7 +334,7 @@ class FakeTCS(FakeDev):
             elif tokens[0] == "UNCLAMP":
                 self.isClamped = 0
                 self.userSock.writeLine("0")
-            elif tokens[0] == "UNCLAMP":
+            elif tokens[0] == "CLAMP":
                 self.isClamped = 1
                 self.userSock.writeLine("0")
             elif tokens[0] == "DCIR":
