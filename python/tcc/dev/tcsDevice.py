@@ -202,10 +202,10 @@ class Status(object):
 
     @property
     def rotOnTarget(self):
-        return abs(self.status.targRot - self.status.statusFieldDict["rot"].value)<self.rotOnTarg
+        return abs(self.targRot - self.status.statusFieldDict["rot"].value)<self.rotOnTarg
 
     def setRotOffsetTarg(self, rotOffset):
-        self.status.targRot = self.statusFieldDict["rot"].value + rotOffset
+        self.targRot = self.statusFieldDict["rot"].value + rotOffset
 
     def axesSlewing(self):
         if self.previousDec == ForceSlew:
