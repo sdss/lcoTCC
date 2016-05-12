@@ -3,7 +3,8 @@ from __future__ import division, absolute_import
 """
 from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
-from ..cmd import setFocus, setScaleFactor, offset, device, ping, threadRing, sec, target #,track
+from ..cmd import setFocus, showFocus, setScaleFactor, showScaleFactor, showStatus, \
+                   showVersion, offset, device, ping, threadRing, sec, target #,track
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -158,6 +159,33 @@ TCCLCOCmdList = (
             ),
         ],
     ),
+
+    parseDefs.CommandWrapper(
+        name = "show",
+        subCmdList = [
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="focus"),
+                callFunc = showFocus,
+                help = "Show focus value",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="scaleFactor"),
+                callFunc = showScaleFactor,
+                help = "Show the scale factor.",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="status"),
+                callFunc = showStatus,
+                help = "Show tcc status.",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="version"),
+                callFunc = showVersion,
+                help = "Show tcc version.",
+            ),
+        ],
+    ),
+
     parseDefs.Command(
         name = "ping",
         callFunc = ping,

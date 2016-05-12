@@ -459,6 +459,22 @@ class TestLCOCommands(TestCase):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
         return self.queueCmd("offset guide 0, 0, %.5f"%(offset), cb)
 
+    def testShowFocus(self):
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("show focus", cb)
+
+    def testShowScale(self):
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("show scaleFactor", cb)
+
+    def testShowStatus(self):
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("show status", cb)
+
+
     # def testOffsetGuideFail(self):
     #     offset = 0.001
     #     def cb(cmdVar):
