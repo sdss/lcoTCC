@@ -251,6 +251,7 @@ class FakeTCS(FakeDev):
         """
         self.isClamped = 1
         self.targRot = 0.
+        self.rot = 0.
         self.focus = 0.
         self.targFocus = 0.
         self.ra = 0.
