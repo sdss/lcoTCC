@@ -16,10 +16,11 @@ MIN_FOCUS_MOVE = 50 # microns
 
 Done = "Done"
 Moving = "Moving"
-Error = "Error"
+# Error = "ERROR"
+Failed = "Failed"
 On = "on"
 Off = "off"
-validMotionStates = [Done, Moving, Error]
+validMotionStates = [Done, Moving, Failed]
 validGalilStates = [On, Off]
 
 class Status(object):
@@ -94,9 +95,11 @@ class Status(object):
             key, val = statusBit.split("=")
             if key == "state":
                 val = val.title()
-                if val == "Error":
+                if val == "error":
                     val = "Failed" # failed fits with teh secState keyword, Error doesn't
-                assert val in validMotionStates
+                else:
+                    val = val.title()
+                assert val in validMotionStates, "%s, %s"%(val, str(validMotionStates))
             elif key == "ori":
                 key = "orientation"
                 val = [float(x) for x in val.split(",")]
@@ -233,8 +236,9 @@ class M2Device(TCPDevice):
             self.waitMoveCmd.setState(self.waitMoveCmd.Cancelled, "Stop commanded")
         print("sec stop commanded")
         stopCmd = self.queueDevCmd("stop", userCmd)
+        galilOffCmd = self.queueDevCmd("galil off", userCmd)
         status = self.queueDevCmd("status", userCmd)
-        LinkCommands(userCmd, [stopCmd, status])
+        LinkCommands(userCmd, [stopCmd, galilOffCmd, status])
         return userCmd
 
     def focus(self, focusValue, offset=False, userCmd=None):
