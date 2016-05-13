@@ -13,3 +13,5 @@ from .offset import *
 from .device import *
 from .sec import *
 from .threadRing import *
+from .showStatus import *
+from .showVersion import *

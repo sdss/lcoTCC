@@ -8,9 +8,11 @@ ArcsecPerDeg = 3600.
 AxisVelocity = 1.25 # deg / sec
 FocusVelocity = 100 # microns / sec
 ScaleVelocity = 1 # mm /sec
+RotVelocity = 0.5 # arcseconds per second
 TimerDelay = 0.01 # seconds till next timer update
 FocusStepSize = FocusVelocity * TimerDelay # microns
 AxisStepSize = AxisVelocity * TimerDelay # deg
+RotStepSize = RotVelocity * TimerDelay #deg
 ScaleStepSize = ScaleVelocity * TimerDelay # deg
 
 __all__ = ["FakeScaleCtrl", "FakeTCS", "FakeM2Ctrl"]
@@ -247,6 +249,9 @@ class FakeTCS(FakeDev):
         @param[in] name  name of TCS controller
         @param[in] port  port on which to command TCS
         """
+        self.isClamped = 1
+        self.targRot = 0.
+        self.rot = 0.
         self.focus = 0.
         self.targFocus = 0.
         self.ra = 0.
@@ -259,6 +264,7 @@ class FakeTCS(FakeDev):
         self.telState = self.Idle
         self.focusTimer = Timer()
         self.slewTimer = Timer()
+        self.rotTimer = Timer()
 
         FakeDev.__init__(self,
             name = name,
@@ -296,6 +302,9 @@ class FakeTCS(FakeDev):
                 self.userSock.writeLine(str(40.6)) #placeholder
             elif tokens[0] == "ROT" and len(tokens) == 1:
                 self.userSock.writeLine(str(30.6)) #placeholder
+            elif tokens[0] == "MRP" and len(tokens) == 1:
+                mrpLine = "%i 0 0 1 3"%(self.isClamped)
+                self.userSock.writeLine(mrpLine) #placeholder
 
             # commands
             elif tokens[0] == "RAD":
@@ -322,6 +331,18 @@ class FakeTCS(FakeDev):
                 self.targDec += self.offDec
                 self.offRA, self.offDec = 0., 0.
                 self.doSlew()
+                self.userSock.writeLine("0")
+            elif tokens[0] == "UNCLAMP":
+                self.isClamped = 0
+                self.userSock.writeLine("0")
+            elif tokens[0] == "CLAMP":
+                self.isClamped = 1
+                self.userSock.writeLine("0")
+            elif tokens[0] == "DCIR":
+                assert len(tokens) == 2, "Error Parsising DCIR Execute"
+                assert self.isClamped == 0, "Rotator is clamped"
+                self.targRot += float(tokens[1])
+                self.doRot()
                 self.userSock.writeLine("0")
             elif tokens[0] == "SLEW":
                 raise RuntimeError("SLEWS NOT ALLOWED")
@@ -360,7 +381,7 @@ class FakeTCS(FakeDev):
                 raise RuntimeError("Unknown Command: %s"%cmdStr)
         except Exception as e:
             self.userSock.writeLine("-1") # error!
-            print "Error: ", e
+            print("Error: ", e)
 
     def doSlew(self, offset=False):
         if not offset:
@@ -373,6 +394,11 @@ class FakeTCS(FakeDev):
             self.telState = self.Tracking
         else:
             self.slewTimer.start(TimerDelay, self.doSlew)
+
+    def doRot(self):
+        self.rot = self.incrementPosition(self.targRot, self.rot, RotStepSize)
+        if self.rot != self.targRot:
+            self.rotTimer.start(TimerDelay, self.doRot)
 
     def doFocus(self, stop=False):
         """stop: halt focus at it's current location
@@ -480,7 +506,7 @@ class FakeM2Ctrl(FakeDev):
                 raise RuntimeError("Unknown Command: %s"%cmdStr)
         except Exception as e:
             self.userSock.writeLine("-1") # error!
-            print "Error: ", e
+            print("Error: ", e)
 
     def powerdown(self):
         self.galil = self.Off

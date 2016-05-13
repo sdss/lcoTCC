@@ -26,6 +26,8 @@ from RO.StringUtil import strFromException
 # set max speed?
 # test move stop
 
+# add fiber plugged position in safe to slew?
+
 # output keywords to add to actorkeys
 # implement a queue? for commands?
 """
@@ -441,8 +443,7 @@ class ScaleDevice(TCPDevice):
 
     def writeState(self, userCmd=None):
         stateKW = self.status.getStateKW()
-        self.writeToUsers("i", stateKW)
-        # self.writeToUsers("i", stateKW, userCmd)
+        self.writeToUsers("i", stateKW, userCmd)
 
     def setScaleZeroPoint(self, zeroPoint=None, userCmd=None):
         """Set the scale zero point (in mm)
