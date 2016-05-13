@@ -26,6 +26,8 @@ from RO.StringUtil import strFromException
 # set max speed?
 # test move stop
 
+# add fiber plugged position in safe to slew?
+
 # output keywords to add to actorkeys
 # implement a queue? for commands?
 """

@@ -6,8 +6,6 @@ from .showScaleFactor import showScaleFactor
 
 __all__ = ["setScaleFactor"]
 
-#@todo, move M2 along with scale
-# what to do if mirror is currently moving?
 # m2 and scale directions need to be determined.
 UM_PER_MM = 1000.
 
