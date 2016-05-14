@@ -46,9 +46,10 @@ __all__ = ["ScaleDevice"]
 # M2 nominal speed is 25 um/sec
 # so scale nominal speed should be 25 * 7 um/sec
 # or 0.175 mm/sec
-MAX_SPEED = 0.15
-NOM_SPEED = 0.15
+MAX_SPEED = 0.1
+NOM_SPEED = 0.1
 SEC_TIMEOUT = 2.0
+SCALE_ZERO = 30 #mm
 
 class Status(object):
     # how close you must be to the locked setpoint to be considered "locked"
@@ -57,7 +58,7 @@ class Status(object):
     Done = "Done"
     def __init__(self):
         self.flushStatus() # sets self.dict and a few other attrs
-        self._scaleZero = None
+        self._scaleZero = SCALE_ZERO
         self._state = self.Done
         self._totalTime = 0
         self._timeStamp = 0
