@@ -64,6 +64,10 @@ class Status(object):
         secFocus = "NaN" if self.secFocus is None else "%.2f"%self.secFocus
         return "SecFocus=%s"%secFocus
 
+    def galilStr(self):
+        galil = "?" if self.galil is None else "%s"%self.galil
+        return "Galil=%s"%galil
+
     def secStateStr(self):
         # secState [Moving, Done, Homing, Failed, NotHomed]
         #   current iteration
@@ -79,7 +83,7 @@ class Status(object):
     def getStatusStr(self):
         """Grab and format tcc keywords, only output those which have changed
         """
-        kwOutputList = [self.secStateStr(), self.secFocusStr()]
+        kwOutputList = [self.secStateStr(), self.secFocusStr(), self.galilStr()]
         # add mirror moving times, and actuator positions?
         # eg colimation
         return "; ".join(kwOutputList)
@@ -94,7 +98,6 @@ class Status(object):
         for statusBit in replyStr.split():
             key, val = statusBit.split("=")
             if key == "state":
-                val = val.title()
                 if val == "error":
                     val = "Failed" # failed fits with teh secState keyword, Error doesn't
                 else:
@@ -152,6 +155,7 @@ class M2Device(TCPDevice):
     @property
     def isDone(self):
         # only done when state=done and galil=off
+        print(self.status.state, self.status.galil)
         return not self.isBusy and self.isOff
 
     @property
@@ -238,7 +242,10 @@ class M2Device(TCPDevice):
         stopCmd = self.queueDevCmd("stop", userCmd)
         galilOffCmd = self.queueDevCmd("galil off", userCmd)
         status = self.queueDevCmd("status", userCmd)
-        LinkCommands(userCmd, [stopCmd, galilOffCmd, status])
+        status2 = self.queueDevCmd("status", userCmd)
+        # first status gets the error state
+        # second status clears it
+        LinkCommands(userCmd, [stopCmd, status, galilOffCmd, status2])
         return userCmd
 
     def focus(self, focusValue, offset=False, userCmd=None):

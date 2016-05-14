@@ -46,8 +46,8 @@ __all__ = ["ScaleDevice"]
 # M2 nominal speed is 25 um/sec
 # so scale nominal speed should be 25 * 7 um/sec
 # or 0.175 mm/sec
-MAX_SPEED = 0.3
-NOM_SPEED = 0.175
+MAX_SPEED = 0.15
+NOM_SPEED = 0.15
 SEC_TIMEOUT = 2.0
 
 class Status(object):
@@ -293,8 +293,8 @@ class Status(object):
         kwList = []
         kwList.append("ThreadRingPos=%.4f"%self.position)
         kwList.append("ScaleZeroPos=%.4f"%self.scaleZero)
-        kwList.append("ThreadRingSpeed%.4f"%self.speed)
-        kwList.append("ThreadRingMaxSpeed%.4f"%self.maxSpeed)
+        kwList.append("ThreadRingSpeed=%.4f"%self.speed)
+        kwList.append("ThreadRingMaxSpeed=%.4f"%self.maxSpeed)
         kwList.append("DesThreadRingPos=%.4f"%self.desPosition)
         kwList.append("instrumentNum=%i"%self.cartID)
         kwList.append("CartLocked=%s"%(str(self.locked)))
