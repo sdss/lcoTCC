@@ -404,7 +404,7 @@ class ScaleDevice(TCPDevice):
         if self.isMoving:
             self.writeToUsers("i", "text=showing cached status", userCmd)
             self.writeStatusToUsers(userCmd)
-            self.userCmd.setState(userCmd.Done)
+            userCmd.setState(userCmd.Done)
         else:
             # get a completely fresh status from the device
             statusDevCmd = self.queueDevCmd("status", userCmd)
@@ -573,7 +573,12 @@ class ScaleDevice(TCPDevice):
         elif "error" in replyStr:
             self.currExeDevCmd.setState(self.currExeDevCmd.Failed, replyStr)
         else:
-            parsed = self.status.parseStatusLine(replyStr)
+            try:
+                parsed = self.status.parseStatusLine(replyStr)
+            except Exception as e:
+                errMsg = "Scale Device failed to parse: %s"%str(replyStr)
+                log.error(errMsg)
+                self.writeToUsers("w", errMsg)
             # if not parsed:
             #     print("%s.handleReply unparsed line: %s" % (self, replyStr))
             #     log.info("%s.handleReply unparsed line: %s" % (self, replyStr))

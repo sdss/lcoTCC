@@ -355,7 +355,7 @@ class TestLCOCommands(TestCase):
         return d
 
     def testThreadRingSpeed(self):
-        speed = 0.2
+        speed = 0.1
         def cb(cmdVar):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
             self.assertEqual(self.actor.scaleDev.status.speed, speed)

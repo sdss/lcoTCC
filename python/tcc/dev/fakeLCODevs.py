@@ -224,6 +224,7 @@ class FakeScaleCtrl(FakeDev):
         for line in statusLines:
             self.userSock.writeLine(line)
 
+
     def stateCallback(self, server=None):
         if self.isReady:
             # self.readyDeferred.callback(None)

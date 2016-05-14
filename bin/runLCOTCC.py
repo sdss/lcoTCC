@@ -19,10 +19,8 @@ if not os.path.exists(logPath):
     os.makedirs(logPath)
 
 startFileLogging(os.path.join(logPath, "tcc"))
-# startSystemLogging(TCC25mActor.Facility)
 
 UserPort = 25000
-# UDPPort = 25010
 
 ScaleDeviceHost = "10.1.1.30"
 ScaleDevicePort = 15000
@@ -31,29 +29,18 @@ TCSDevicePort = 4242
 M2DeviceHost = "vinchuca"
 M2DevicePort = 52001
 
-# print "Start fake LCO controllers"
-# fakeScaleController  = FakeScaleCtrl("fakeScale",  ScaleDevicePort)
-# fakeTCS = FakeTCS("mockTCSDevice", TCSDevicePort)
-
 def startTCCLCO(*args):
     try:
         tccActor = TCCLCOActor(
             name = "tcc",
             userPort = UserPort,
             tcsDev = TCSDevice("tcsDev", TCSHost, TCSDevicePort),
-            scaleDev = ScaleDevice("mockScale", ScaleDeviceHost, ScaleDevicePort),
+            scaleDev = ScaleDevice("scaleDev", ScaleDeviceHost, ScaleDevicePort),
             m2Dev = M2Device("m2Dev", M2DeviceHost, M2DevicePort),
             )
     except Exception:
         print >>sys.stderr, "Error lcoTCC"
         traceback.print_exc(file=sys.stderr)
-
-# def checkFakesRunning(ignored):
-#     if fakeScaleController.isReady:# and fakeTCS.isReady:
-#         startTCCLCO()
-
-# fakeScaleController.addStateCallback(checkFakesRunning)
-# fakeTCS.addStateCallback(checkFakesRunning)
 
 
 startTCCLCO()
