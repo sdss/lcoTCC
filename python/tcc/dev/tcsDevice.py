@@ -581,10 +581,12 @@ class TCSDevice(TCPDevice):
             if waitUnclampCmdVar.isDone:
                 # self.waitRotCmd is set running when dcir is sent
                 self.queueDevCmd(enterDCIR)
+                self.writeToUsers("i", "text=Rotator DCIR %.4f sent"%rot)
 
         def sendClamp(waitRotCmdVar):
             if waitRotCmdVar.isDone:
                 self.queueDevCmd(clamp)
+                self.writeToUsers("i", "text=Rot move done, sending CLAMP")
 
 
         unclamp.addCallback(waitForUnclamp)
@@ -592,6 +594,7 @@ class TCSDevice(TCPDevice):
         self.waitRotCmd.addCallback(sendClamp)
         # begin the dominos game
         self.queueDevCmd(unclamp)
+        self.writeToUsers("i", "text=UNCLAMP sent, waiting %i seconds to open"%UnclampWaitTime)
         statusStr = self.status.getStatusStr()
         if statusStr:
             self.writeToUsers("i", statusStr, userCmd)
