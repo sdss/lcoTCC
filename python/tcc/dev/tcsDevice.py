@@ -66,7 +66,53 @@ def castClamp(lcoReply):
     MRP
     1 0 0 1 3
     """
-    return bool(lcoReply.split()[0])
+    clamped = bool(lcoReply.split()[0])
+    print("clamped: %s"%clamped)
+    print()
+    return clamped
+
+class AxisState(object):
+    def __init__(self, name, isStopped, isActive, isMoving, isTracking=False):
+        """axisStatusStr str is output from TCS
+        """
+        self.name = name
+        self.isStopped = bool(isStopped)
+        self.isActive = bool(isActive)
+        self.isMoving = bool(isMoving)
+        self.isTracking = bool(isTracking)
+
+    def __str__(self):
+        return "%s: stop: %s, active: %s, moving: %s, tracking: %s"%(
+            self.name.upper(), self.isStopped, self.isActive, self.isMoving, self.isTracking
+            )
+
+    def __repr__(self):
+        return self.__str__()
+
+def castAxis(lcoReply):
+    """AXISSTATUS command output:
+
+    reply.sprintf("%i %i %i %i %i %i %i %i %i %i %i",
+        status.rstop, status.ractive, status.rmoving, status.rtracking,
+        status.dstop, status.dactive, status.dmoving, status.dtracking,
+        status.istop, status.iactive, status.imoving);
+    """
+    # ra axis
+    flags = [bool(int(f)) for f in lcoReply.split()]
+    raFlags = flags[0:4]
+    decFlags = flags[4:8]
+    rotFlags = flags[8:]
+    raAxisState = AxisState("ra", *raFlags)
+    decAxisState = AxisState("dec", *decFlags)
+    rotAxisState = AxisState("rot", *rotFlags)
+    axesList = [raAxisState, decAxisState, rotAxisState]
+    for axes in axesList:
+        print("%s"%axes)
+    print()
+
+    return axesList
+
+
 
 class StatusField(object):
     def __init__(self, cmdVerb, castFunc):
@@ -99,7 +145,8 @@ StatusFieldList = [
                 StatusField("telel", float), # I think degrees
                 StatusField("telaz", float), # I think degrees
                 StatusField("rot", float), # I think degrees
-                StatusField("mrp", castClamp)
+                StatusField("mrp", castClamp),
+                StatusField("axisstatus", castAxis)
             ]
 
 class Status(object):

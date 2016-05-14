@@ -250,6 +250,18 @@ class FakeTCS(FakeDev):
         @param[in] name  name of TCS controller
         @param[in] port  port on which to command TCS
         """
+        self.rstop = 0
+        self.ractive = 0
+        self.rmoving = 0
+        self.rtracking = 0
+        self.dstop = 0
+        self.dactive = 0
+        self.dmoving = 0
+        self.dtracking = 0
+        self.istop = 0
+        self.iactive = 0
+        self.imoving = 0
+
         self.isClamped = 1
         self.targRot = 0.
         self.rot = 0.
@@ -306,6 +318,13 @@ class FakeTCS(FakeDev):
             elif tokens[0] == "MRP" and len(tokens) == 1:
                 mrpLine = "%i 0 0 1 3"%(self.isClamped)
                 self.userSock.writeLine(mrpLine) #placeholder
+            elif tokens[0] == "AXISSTATUS" and len(tokens) == 1:
+                axisLine = "%i %i %i %i %i %i %i %i %i %i %i" % (
+                    self.rstop, self.ractive, self.rmoving, self.rtracking,
+                    self.dstop, self.dactive, self.dmoving, self.dtracking,
+                    self.istop, self.iactive, self.imoving
+                )
+                self.userSock.writeLine(axisLine)
 
             # commands
             elif tokens[0] == "RAD":
