@@ -32,6 +32,7 @@ MinRotOffset = 5 / ArcSecPerDeg # minimum commandable rotator offset
 MaxRotOffset = 60 / ArcSecPerDeg # max commandable rotator offset
 UnclampWaitTime = 7 # measured with a stopwatch to be 5 seconds listening to motors, add 2 extra secs buffer
 ClampFudgeTime = 0.5 #seconds.  Time delay between perceived end of rotation and issuing "clamp"
+RotSpeed = 1 # in degrees/second for setting timeout.
 
 # DuPontLat = -1*(29 + 52.56 / float(ArcSecPerDeg))
 # DuPontLong = 70 + 41.0 / 60. + 33.36 / float(ArcSecPerDeg)

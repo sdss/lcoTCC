@@ -15,6 +15,8 @@ AxisStepSize = AxisVelocity * TimerDelay # deg
 RotStepSize = RotVelocity * TimerDelay #deg
 ScaleStepSize = ScaleVelocity * TimerDelay # deg
 
+munge = 1
+
 __all__ = ["FakeScaleCtrl", "FakeTCS", "FakeM2Ctrl"]
 
 class FakeDev(TCPServer):
@@ -166,9 +168,15 @@ class FakeScaleCtrl(FakeDev):
     #         self.userSock.writeLine(line)
 
     def sendStatusAndOK(self):
+        global munge
+        munge = munge*-1
+        if munge == 1:
+            pos = "%.7f"%self.position
+        else:
+            pos = "MUNGED"
         statusLines = [
             "THREAD_RING_AXIS:",
-            "__ACTUAL_POSITION %.7f"%self.position,
+            "__ACTUAL_POSITION %s"%pos,
             "__TARGET_POSITION 0.20000000",
             "__DRIVE_STATUS: OFF",
             "__MOTOR_CURRENT: -0.39443308",

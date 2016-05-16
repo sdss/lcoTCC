@@ -35,6 +35,10 @@ min/max values
 fake and test mirror moving states
 
 test rotation triggers slewing state in rot axis
+
+test timeouts
+
+test mangled status
 """
 
 """
