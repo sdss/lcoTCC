@@ -9,10 +9,14 @@ from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUs
 
 __all__ = ["M2Device"]
 
+#TODO: fix move timeout, timeout should be set on device
+# commands, currently it is on the UserCmd
+
 PollTime = 0.5 #seconds, LCO says status is updated no more frequently that 5 times a second
 # PollTime = 1
 # Speed = 25.0 # microns per second for focus
 MIN_FOCUS_MOVE = 50 # microns
+DefaultTimeout = 2 # seconds
 
 Done = "Done"
 Moving = "Moving"

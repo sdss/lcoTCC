@@ -414,11 +414,11 @@ class ScaleDevice(TCPDevice):
         return userCmd
 
     def _statusCallback(self, statusCmd):
-        if statusCmd.isActive:
-            # not sure this is necessary
-            # but ensures we get a 100% fresh status
-            self.status.flushStatus()
-        elif statusCmd.isDone:
+        # if statusCmd.isActive:
+        #     # not sure this is necessary
+        #     # but ensures we get a 100% fresh status
+        #     self.status.flushStatus()
+        if statusCmd.isDone:
             # write the status we have to users
             # if this was a status, write output to users
             # and set the current axis back to the thread ring
@@ -527,7 +527,7 @@ class ScaleDevice(TCPDevice):
             # set state to moving, compute time, etc
             time4move = abs(self.targetPos-self.status.position)/float(self.status.speed)
             # update command timeout
-            moveCmd.setTimeLimit(time4move)
+            moveCmd.setTimeLimit(time4move+2)
             self.status.setState(self.status.Moving, time4move)
             self.writeState(moveCmd.userCmd)
         if moveCmd.isDone:
@@ -565,15 +565,30 @@ class ScaleDevice(TCPDevice):
         if self.currExeDevCmd.isDone:
             # ignore unsolicited output?
             log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
+            self.writeToUsers("i", "%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
         if replyStr == "ok":
+            # print("got ok", self.currExeDevCmd.cmdStr)
+            if self.currExeDevCmd.cmdStr == "status":
+                # if this is a status, verify it was not mangled before setting done
+                # if it is mangled try again
+                statusError = self.status.checkFullStatus()
+                print("statusERror", statusError)
+                if statusError:
+                    self.writeToUsers("w", statusError, self.currExeDevCmd.userCmd)
+                    self.writeToUsers("w", "scale status mangle trying again", self.currExeDevCmd.userCmd)
+                    print("rewriting status")
+                    log.info("%s writing %r" % (self, "status"))
+                    self.conn.writeLine("status")
+                    return
             self.currExeDevCmd.setState(self.currExeDevCmd.Done)
         elif replyStr == self.currExeDevCmd.cmdStr:
             # command echo
             pass
         elif "error" in replyStr:
             self.currExeDevCmd.setState(self.currExeDevCmd.Failed, replyStr)
-        else:
+        elif self.currExeDevCmd.cmdStr == "status":
+            # only parse lines if we asked for status
             try:
                 parsed = self.status.parseStatusLine(replyStr)
             except Exception as e:
@@ -623,6 +638,11 @@ class ScaleDevice(TCPDevice):
             # when the command is ready run this
             # everything besides a move should return quickly
             devCmd.setTimeLimit(SEC_TIMEOUT)
+            devCmd.setState(devCmd.Running)
+            if cmdVerb == "status":
+                # wipe status, to ensure we've
+                # gotten a full status when done.
+                self.status.flushStatus()
             self.startDevCmd(devCmd.cmdStr)
         self.devCmdQueue.addCmd(devCmd, queueFunc)
         return devCmd
