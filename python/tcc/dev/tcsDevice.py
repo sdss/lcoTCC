@@ -155,7 +155,7 @@ class Status(object):
         # 0:0:0.2 seconds ra
         self.raOnTarg = castHoursToDeg("0:0:0.2")
         self.decOnTarg = degFromDMSStr("0:0:01")
-        # self.rotOnTarg = 1 * ArcSecPerDeg # within 1 arcsec rot move is considered done
+        self.rotOnTarg = 1 * ArcSecPerDeg # within 1 arcsec rot move is considered done
         self.statusFieldDict = collections.OrderedDict(( (x.cmdVerb, x) for x in StatusFieldList ))
         # self.focus = None
         # self.targFocus = None
@@ -242,9 +242,9 @@ class Status(object):
         # return "%.6f, 0.0, 0.0, %.6f, 0.0, 0.0"%(raOff, decOff)
         return "%.6f, %.6f"%(raOff, decOff)
 
-    # @property
-    # def rotOnTarget(self):
-    #     return abs(self.targRot - self.status.statusFieldDict["rot"].value)<self.rotOnTarg
+    @property
+    def rotOnTarget(self):
+        return abs(self.targRot - self.statusFieldDict["rot"].value)<self.rotOnTarg
 
     def setRotOffsetTarg(self, rotOffset):
         self.targRot = self.statusFieldDict["rot"].value + rotOffset
@@ -266,7 +266,9 @@ class Status(object):
 
     @property
     def rotMoving(self):
-        return self.statusFieldDict["axisstatus"]["rot"].isMoving
+        rotMoving = self.statusFieldDict["axisstatus"].value["rot"].isMoving
+        print('rotMoving', rotMoving)
+        return rotMoving
 
     def currArcOff(self):
         return "currArcOff=%s"%self.arcOff
@@ -417,7 +419,7 @@ class TCSDevice(TCPDevice):
             if self.waitOffsetCmd.isActive and not True in self.status.axesSlewing():
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
-            if self.waitRotCmd.isActive and not self.status.rotMoving:
+            if self.waitRotCmd.isActive and self.status.rotOnTarget and not self.status.rotMoving:
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
 
     # focus will come back if focus functionality ever gets ported back to the TCS
@@ -544,12 +546,12 @@ class TCSDevice(TCPDevice):
             # rotator is unclamped, a move is in progress
             userCmd.setState(userCmd.Failed, "Rotator is unclamped (already moving)")
             return userCmd
-        if rot < MinRotOffset:
+        if abs(rot) < MinRotOffset:
             # set command done, rotator offset is miniscule
             self.writeToUsers("w", "Rot offset less than min threshold", userCmd)
             userCmd.setState(userCmd.Done)
             return userCmd
-        if rot > MaxRotOffset:
+        if abs(rot) > MaxRotOffset:
             # set command failed, rotator offset is too big
             self.writeToUsers("w", "Rot offset less than min threshold", userCmd)
             userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))

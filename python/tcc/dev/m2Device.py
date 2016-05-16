@@ -43,7 +43,10 @@ class Status(object):
         if self.state == Done:
             return 0
         else:
-            return max(0, (self.desFocus - self.secFocus)/self.speed)
+            if not None in [self.desFocus, self.secFocus, self.speed]:
+                return max(0, (self.desFocus - self.secFocus)/self.speed)
+            else:
+                return 0
 
     @property
     def moveTimeTotal(self):
@@ -155,7 +158,6 @@ class M2Device(TCPDevice):
     @property
     def isDone(self):
         # only done when state=done and galil=off
-        print(self.status.state, self.status.galil)
         return not self.isBusy and self.isOff
 
     @property
@@ -238,7 +240,7 @@ class M2Device(TCPDevice):
         userCmd = expandUserCmd(userCmd)
         if not self.waitMoveCmd.isDone:
             self.waitMoveCmd.setState(self.waitMoveCmd.Cancelled, "Stop commanded")
-        print("sec stop commanded")
+        #print("sec stop commanded")
         stopCmd = self.queueDevCmd("stop", userCmd)
         galilOffCmd = self.queueDevCmd("galil off", userCmd)
         status = self.queueDevCmd("status", userCmd)
@@ -295,7 +297,13 @@ class M2Device(TCPDevice):
             return userCmd
         self.waitMoveCmd = UserCmd()
         self.waitMoveCmd.userCmd = userCmd # for write to users
-        self.status.desOrientation = valueList
+        if offset:
+            self.status.desOrientation = self.status.orientation[:]
+            for ii, value in enumerate(valueList):
+                self.status.desOrientation[ii] += value
+        else:
+            for ii, value in enumerate(valueList):
+                self.status.desOrientation[ii] = value
         cmdType = "offset" if offset else "move"
         strValList = " ".join(["%.2f"%val for val in valueList])
         cmdStr = "%s %s"%(cmdType, strValList)
