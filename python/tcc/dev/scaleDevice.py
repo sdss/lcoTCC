@@ -51,6 +51,11 @@ NOM_SPEED = 0.1
 SEC_TIMEOUT = 2.0
 SCALE_ZERO = 30 #mm
 
+class MungedStatusError(Exception):
+    """The scaling ring occassionally returns a Munged status
+    """
+    pass
+
 class Status(object):
     # how close you must be to the locked setpoint to be considered "locked"
     LOCKED_TOL = 0.005 # mm
@@ -150,6 +155,8 @@ class Status(object):
         # parsed
         self.setThreadAxisCurrent()
         self.posSwNext = False
+        self.nIter = 0
+        self.maxIter = 4 # try at most status iterations before giving up
 
     def _getEmptyStatusDict(self):
         """Return an empty status dict to be popuated
@@ -183,7 +190,7 @@ class Status(object):
 
             },
             "cartridge_id": None,
-            "pos_sw": None
+            "pos_sw": [None, None, None]
         }
 
     def checkFullStatus(self, statusDict=None, axis=None):
@@ -200,15 +207,19 @@ class Status(object):
                 if "range" in key:
                     # 2 element list
                     isEmpty = numpy.nan in val
+                elif "pos_sw" == key:
+                    isEmpty = None in val
                 else:
                     # not a list
-                    isEmpty = val in [None, numpy.nan]
+                    isEmpty = val is None or numpy.isnan(val)
+                    # print("val", val, "isEmpty", isEmpty)
+
                 if isEmpty:
                     errStr = "Status: %s not found"%(key)
                     if axis is not None:
                         errStr += " for %s"%axis
-                    return errStr
-        return "" # return empty string if no status missing
+                    raise MungedStatusError(errStr)
+
 
     def parseStatusLine(self, line):
         """Return True if recognized and parsed,
@@ -423,9 +434,13 @@ class ScaleDevice(TCPDevice):
             # if this was a status, write output to users
             # and set the current axis back to the thread ring
             self.status.setThreadAxisCurrent()
-            statusError = self.status.checkFullStatus()
-            if statusError:
-                self.writeToUsers("w", statusError, statusCmd.userCmd)
+            # full status is checked in handleReply, and
+            # another status is commanded if the current status
+            # is munged
+            # statusError = self.status.checkFullStatus()
+            # if statusError:
+            #     print("status Error")
+            #     self.writeToUsers("w", statusError, statusCmd.userCmd)
             self.writeStatusToUsers(statusCmd.userCmd)
 
     def writeStatusToUsers(self, userCmd=None):
@@ -572,15 +587,22 @@ class ScaleDevice(TCPDevice):
             if self.currExeDevCmd.cmdStr == "status":
                 # if this is a status, verify it was not mangled before setting done
                 # if it is mangled try again
-                statusError = self.status.checkFullStatus()
-                print("statusERror", statusError)
-                if statusError:
+                try:
+                    statusError = self.status.checkFullStatus()
+                except MungedStatusError as statusError:
+                    # status was munged, try again
+                    print("statusError", statusError)
                     self.writeToUsers("w", statusError, self.currExeDevCmd.userCmd)
-                    self.writeToUsers("w", "scale status mangle trying again", self.currExeDevCmd.userCmd)
-                    print("rewriting status")
-                    log.info("%s writing %r" % (self, "status"))
-                    self.conn.writeLine("status")
+                    self.status.nIter += 1
+                    if self.status.nIter > self.status.maxIter:
+                        self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Maximum status iter reached. Status output generally mangled?")
+                    else:
+                        self.writeToUsers("w", "scale status mangle trying again iter %i"%self.status.nIter, self.currExeDevCmd.userCmd)
+                        print("status munged, rewriting status")
+                        log.info("%s writing %r iter %i" % (self, "status", self.status.nIter))
+                        self.conn.writeLine("status")
                     return
+                print("status done and good")
             self.currExeDevCmd.setState(self.currExeDevCmd.Done)
         elif replyStr == self.currExeDevCmd.cmdStr:
             # command echo

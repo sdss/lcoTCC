@@ -15,6 +15,7 @@ from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUs
 # maybe we don't want this behavior in the case of the rotator, because we always want it
 # to clamp!!!
 
+SEC_TIMEOUT = 1.0
 
 def tai():
     return time.time() - 36.
@@ -652,6 +653,9 @@ class TCSDevice(TCPDevice):
         # could change the default behavior in CommandQueue?
         devCmd.cmdVerb = devCmd.cmdStr
         def queueFunc(devCmd):
+            # all tcs commands return immediately so set a short timeout
+            devCmd.setTimeLimit(SEC_TIMEOUT)
+            devCmd.setState(devCmd.Running)
             self.startDevCmd(devCmd.cmdStr)
         self.devCmdQueue.addCmd(devCmd, queueFunc)
 
