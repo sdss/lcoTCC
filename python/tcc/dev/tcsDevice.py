@@ -219,7 +219,9 @@ class Status(object):
         """@ LCOHACK: i think coords are always fk5?
         can only query tcs for epoch
         """
-        return "ObjSys=FK5, %.2f"%self.statusFieldDict["epoch"].value
+        epoch = self.statusFieldDict["epoch"].value
+        epochStr = "%.2f"%epoch if epoch is not None else "NaN"
+        return "ObjSys=FK5, %s"%epochStr
 
     def axePos(self):
         """Format the AxePos keyword (alt az rot)
@@ -295,7 +297,8 @@ class Status(object):
         for kw in self.tccKWDict.iterkeys():
             oldOutput = self.tccKWDict[kw]
             newOutput = getattr(self, kw)()
-            if oldOutput != newOutput:
+            # if oldOutput != newOutput:
+            if True:
                 self.tccKWDict[kw] = newOutput
                 kwOutputList.append(newOutput)
         return "; ".join(kwOutputList)
@@ -421,7 +424,7 @@ class TCSDevice(TCPDevice):
         wait commands need to be set done
         """
         # print("tcs status callback", cmd)
-        if cmd.isDone:
+        if cmd.isDone and not cmd.didFail:
             # do we want status output so frequently? probabaly not.
             # perhaps only write status if it has changed...
             statusStr = self.status.getStatusStr()
