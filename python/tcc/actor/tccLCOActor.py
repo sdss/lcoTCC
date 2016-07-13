@@ -141,9 +141,9 @@ class TCCLCOActor(BaseActor):
         """
         cmd = expandUserCmd(cmd)
             # print "updateCollimation"
-            if not self.collimationModel.doCollimate:
-                cmd.setState(cmd.Failed, "collimation is disabled")
-                return
+        if not self.collimationModel.doCollimate:
+            cmd.setState(cmd.Failed, "collimation is disabled")
+            return
         self.collimateTimer.cancel() # incase one is pending
         # query for current telescope coords
         statusCmd = self.tcsDev.getStatus()

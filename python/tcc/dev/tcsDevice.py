@@ -142,7 +142,9 @@ StatusFieldList = [
                 StatusField("telel", float), # I think degrees
                 StatusField("telaz", float), # I think degrees
                 StatusField("rot", float), # I think degrees
-                StatusField("had", float), # I think degrees
+                # StatusField("had", float), # I think degrees, only for input?
+                StatusField("epoch", float),
+                StatusField("zd", float),
                 StatusField("mrp", castClamp),
                 StatusField("axisstatus", castAxis)
             ]
@@ -175,6 +177,7 @@ class Status(object):
             "axePos": self.axePos(),
             "objNetPos": self.objNetPos(),
             "utc_tai": self.utc_tai(),
+            "objSys": self.objSys(),
             # "secFocus": self.secFocus(),
             # "currArcOff": self.currArcOff(), 0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # "objArcOff": self.objArcOff(), bjArcOff=0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
@@ -211,6 +214,12 @@ class Status(object):
         taiSecs = "%.6f"%(tai())
         v = "%.6f"%0 # velocity always zero
         return "ObjNetPos=%s"%(",".join([raStr, v, taiSecs, decStr, v, taiSecs]))
+
+    def objSys(self):
+        """@ LCOHACK: i think coords are always fk5?
+        can only query tcs for epoch
+        """
+        return "ObjSys=FK5, %.2f"%self.statusFieldDict["epoch"].value
 
     def axePos(self):
         """Format the AxePos keyword (alt az rot)

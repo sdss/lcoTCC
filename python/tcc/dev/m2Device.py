@@ -281,7 +281,7 @@ class M2Device(TCPDevice):
         # focusDir = -1 # use convention at APO
         return self.move(valueList=[focusValue], offset=offset, userCmd=userCmd)
 
-    def move(self, valueList, offset=False, userCmd=False):
+    def move(self, valueList, offset=False, userCmd=None):
         """Command an offset or absolute orientation move
 
         @param[in] valueList: list of 1 to 5 values specifying pistion(um), tiltx("), tilty("), transx(um), transy(um)

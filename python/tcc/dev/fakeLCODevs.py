@@ -277,6 +277,7 @@ class FakeTCS(FakeDev):
         self.targFocus = 0.
         self.ra = 0.
         self.dec = 0.
+        self.ha = 0.
         self.targRA = 0.
         self.targDec = 0.
         self.offDec = 0.
@@ -311,6 +312,12 @@ class FakeTCS(FakeDev):
                self.userSock.writeLine(dmsStrFromDeg(self.ra / 15.))
             elif tokens[0] ==  "DEC" and len(tokens) == 1:
                self.userSock.writeLine(dmsStrFromDeg(self.dec))
+            elif tokens[0] ==  "HAD" and len(tokens) == 1:
+               self.userSock.writeLine("%.4f"%(self.ha))
+            elif tokens[0] ==  "EPOCH" and len(tokens) == 1:
+               self.userSock.writeLine("%.2f"%(2000))
+            elif tokens[0] ==  "ZD" and len(tokens) == 1:
+               self.userSock.writeLine("%.2f"%(80))
             elif tokens[0] == "STATE" and len(tokens) == 1:
                self.userSock.writeLine(str(self.telState))
             elif tokens[0] == "INPRA" and len(tokens) == 1:
