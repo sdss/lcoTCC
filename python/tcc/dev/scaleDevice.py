@@ -429,7 +429,7 @@ class ScaleDevice(TCPDevice):
         #     # not sure this is necessary
         #     # but ensures we get a 100% fresh status
         #     self.status.flushStatus()
-        if statusCmd.isDone:
+        if statusCmd.isDone and not statusCmd.didFail:
             # write the status we have to users
             # if this was a status, write output to users
             # and set the current axis back to the thread ring
