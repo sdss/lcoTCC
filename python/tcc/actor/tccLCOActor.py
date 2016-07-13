@@ -5,11 +5,14 @@ import sys
 import traceback
 
 from RO.StringUtil import strFromException
+from RO.Comm.TwistedTimer import Timer
 
-from twistedActor import CommandError, BaseActor, DeviceCollection
+from twistedActor import CommandError, BaseActor, DeviceCollection, expandUserCmd
 
 from .tccLCOCmdParser import TCCLCOCmdParser
 from ..version import __version__
+
+from ..cmd.collimate import CollimationModel
 
 # tcsHost = "localhost"
 # tcsPort = 0
@@ -68,6 +71,8 @@ class TCCLCOActor(BaseActor):
         self.scaleDev.connect()
         self.secDev.connect()
         self.cmdParser = TCCLCOCmdParser()
+        self.collimationModel = CollimationModel()
+        self.collimateTimer = Timer(0, self.updateCollimation)
         BaseActor.__init__(self, userPort=userPort, maxUsers=1, name=name, version=__version__)
         # Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)
 
@@ -127,3 +132,35 @@ class TCCLCOActor(BaseActor):
                 cmd.setState("failed", textMsg=textMsg, hubMsg=hubMsg)
         else:
             raise RuntimeError("Command %r not yet implemented" % (cmd.parsedCmd.cmdVerb,))
+
+    def updateCollimation(self, cmd=None):
+        """Update collimation based on info in obj, inst, weath blocks, for all mirrors present
+
+        @param[in] cmd  command (twistedActor.BaseCmd) associated with this request;
+            state will be updated upon completion; None if no command is associated
+        """
+        cmd = expandUserCmd(cmd)
+            # print "updateCollimation"
+            if not self.collimationModel.doCollimate:
+                cmd.setState(cmd.Failed, "collimation is disabled")
+                return
+        self.collimateTimer.cancel() # incase one is pending
+        # query for current telescope coords
+        statusCmd = self.tcsDev.getStatus()
+        # when status returns determine current coords
+        def moveMirror(statusCmd):
+            if statusCmd.isDone:
+                ha = self.tcsDev.status.statusFieldDict["had"].value
+                dec = self.tcsDev.status.statusFieldDict["dec"].value
+                newOrient = self.collimateModel.apply(ha, dec, temp=None)
+                currentOrient = self.secDev.status.orientation
+                # dont mess with focus value, just tips and trans
+                newOrient[0] = currentOrient[0]
+                self.writeToUsers("i", "collimation update: %.2f, %.2f, %.2f, %.2f, %.2f"%tuple(newOrient), cmd=cmd)
+                self.secDev.move(newOrient, userCmd=cmd)
+        statusCmd.addCallback(moveMirror)
+
+        if self.collimationModel.doCollimate:
+            self.collimateTimer.start(self.collimationModel.collimateInterval, self.updateCollimation)
+        else:
+            self.collimateTimer.cancel()

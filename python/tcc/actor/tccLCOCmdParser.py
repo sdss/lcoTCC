@@ -4,7 +4,7 @@ from __future__ import division, absolute_import
 from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
 from ..cmd import setFocus, showFocus, setScaleFactor, showScaleFactor, showStatus, \
-                   showVersion, offset, device, ping, threadRing, sec, target #,track
+                   showVersion, offset, device, ping, threadRing, sec, target, collimate
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -294,6 +294,22 @@ TCCLCOCmdList = (
                 help = "get sec status",
             ),
         ],
+    ),
+    parseDefs.Command(
+        name = "collimate",
+        help = "adjust M2 collimation as a function of HA and Alt on a timer.",
+        callFunc = collimate,
+        minParAmt = 1,
+        paramList = [
+            parseDefs.KeywordParam(
+                name = 'type',
+                keywordDefList = [
+                    parseDefs.Keyword(name = "start", help = "start collimation updates"),
+                    parseDefs.Keyword(name = "stop", help = "stop collimation updates"),
+                    parseDefs.Keyword(name = "reload", help = "reload collimation grid from file"),
+                ],
+            )
+        ]
     ),
 )
 

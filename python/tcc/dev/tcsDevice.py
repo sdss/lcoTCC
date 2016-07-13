@@ -142,6 +142,7 @@ StatusFieldList = [
                 StatusField("telel", float), # I think degrees
                 StatusField("telaz", float), # I think degrees
                 StatusField("rot", float), # I think degrees
+                StatusField("had", float), # I think degrees
                 StatusField("mrp", castClamp),
                 StatusField("axisstatus", castAxis)
             ]
