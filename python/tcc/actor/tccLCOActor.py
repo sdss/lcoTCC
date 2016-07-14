@@ -152,12 +152,10 @@ class TCCLCOActor(BaseActor):
             if statusCmd.isDone:
                 ha = self.tcsDev.status.statusFieldDict["had"].value
                 dec = self.tcsDev.status.statusFieldDict["dec"].value
-                newOrient = self.collimateModel.apply(ha, dec, temp=None)
-                currentOrient = self.secDev.status.orientation
-                # dont mess with focus value, just tips and trans
-                newOrient[0] = currentOrient[0]
-                self.writeToUsers("i", "collimation update: %.2f, %.2f, %.2f, %.2f, %.2f"%tuple(newOrient), cmd=cmd)
-                self.secDev.move(newOrient, userCmd=cmd)
+                newOrient = self.collimateModel.getOrientation(ha, dec, temp=None)
+                self.writeToUsers("i", "collimation update: Y=%.2f, X=%.2f, Tip=%.2f, Tilt=%.2f"%tuple(newOrient), cmd=cmd)
+                # self.secDev.move(newOrient, userCmd=cmd)
+                cmd.setState(cmd.Done)
         statusCmd.addCallback(moveMirror)
 
         if self.collimationModel.doCollimate:

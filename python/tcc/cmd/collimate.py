@@ -10,6 +10,9 @@ class CollimationModel(object):
         self.doCollimate = False
         self.collimateInterval = 30.
         # trans y, trans x, tip, tilt
+        # for focus:
+        # 5.894 meters m2 vertex to focal plate
+        # 70.7 microns per degree C
         self.baseOrientation = numpy.asarray([0., 200., 45., 6.])
 
     def getOrientation(self, ha, dec, temp=None):
