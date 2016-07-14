@@ -13,6 +13,8 @@ class CollimationModel(object):
         # for focus:
         # 5.894 meters m2 vertex to focal plate
         # 70.7 microns per degree C
+        self.minTrans = 50. # microns
+        self.minTilt = 0.1 # arcseconds
         self.baseOrientation = numpy.asarray([0., 200., 45., 6.])
 
     def getOrientation(self, ha, dec, temp=None):
@@ -55,7 +57,7 @@ class CollimationModel(object):
         tiltAboutY = 6.45 + -13.56*sinDec + -4.28*cosDec + 4.84*sinHA + -1.09*cosHA
 
         # multiply by -1 (orentation to move to to remove the flex)
-        return self.baseOrientation - numpy.asarray([transY, transX, tipAboutX, tiltAboutY]) * -1
+        return self.baseOrientation - numpy.asarray([transY, transX, tipAboutX, tiltAboutY])
 
 
 
@@ -65,12 +67,12 @@ def collimate(tccActor, userCmd):
     """
     params = userCmd.parsedCmd.paramDict
     # quals = userCmd.parsedCmd.qualDict
-    parsedKeys = params.keys()
-    if "stop" in parsedKeys:
+    param = params["type"].valueList[0].keyword
+    if param == "stop":
         tccActor.collimationModel.doCollimate = False
         tccActor.collimateTimer.cancel()
         userCmd.setState(userCmd.Done)
-    elif "start" in parsedKeys:
+    elif param == "start":
         tccActor.collimationModel.doCollimate = True
         tccActor.updateCollimation(userCmd)
 

@@ -2,6 +2,7 @@ from __future__ import division, absolute_import
 
 import collections
 import time
+import numpy
 
 from RO.Comm.TwistedTimer import Timer
 from RO.StringUtil import strFromException, degFromDMSStr
@@ -62,6 +63,9 @@ def castTelState(tcsStateResponse):
 def castHoursToDeg(tcsHourStr):
     tcsHours = degFromDMSStr(tcsHourStr)
     return tcsHours * 15.
+
+def castPos(tcsPosStr):
+    return [numpy.degrees(float(x)) for x in tcsPosStr.split()]
 
 def castClamp(lcoReply):
     """MRP command output:
@@ -139,6 +143,8 @@ StatusFieldList = [
                 StatusField("inpdc", degFromDMSStr),
                 StatusField("state", castTelState),
                 StatusField("ha", castHoursToDeg),
+                StatusField("pos", castPos), #ha, dec to degrees
+                StatusField("mpos", castPos), #ra, dec to degrees
                 StatusField("telel", float), # I think degrees
                 StatusField("telaz", float), # I think degrees
                 StatusField("rot", float), # I think degrees

@@ -15,3 +15,4 @@ from .sec import *
 from .threadRing import *
 from .showStatus import *
 from .showVersion import *
+from .collimate import *

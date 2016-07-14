@@ -150,9 +150,12 @@ class TCCLCOActor(BaseActor):
         # when status returns determine current coords
         def moveMirror(statusCmd):
             if statusCmd.isDone:
-                ha = self.tcsDev.status.statusFieldDict["had"].value
+                ha = self.tcsDev.status.statusFieldDict["ha"].value
                 dec = self.tcsDev.status.statusFieldDict["dec"].value
-                newOrient = self.collimateModel.getOrientation(ha, dec, temp=None)
+                pos = self.tcsDev.status.statusFieldDict["pos"].value
+                self.writeToUsers("i", "collimate for ha=%.2f, dec=%.2f"%(ha, dec))
+                self.writeToUsers("i", "pos collimate for ha=%.2f, dec=%.2f"%(pos[0], pos[1]))
+                newOrient = self.collimationModel.getOrientation(ha, dec, temp=None)
                 self.writeToUsers("i", "collimation update: Y=%.2f, X=%.2f, Tip=%.2f, Tilt=%.2f"%tuple(newOrient), cmd=cmd)
                 # self.secDev.move(newOrient, userCmd=cmd)
                 cmd.setState(cmd.Done)

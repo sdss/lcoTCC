@@ -23,7 +23,7 @@ except KeyError:
 from tcc.actor import TCCLCOActor
 from tcc.dev import TCSDevice, ScaleDevice, M2Device, FakeScaleCtrl, FakeTCS, FakeM2Ctrl
 
-UserPort = 25000
+UserPort = 25001
 
 ScaleDevicePort = 26000
 TCSDevicePort = 27000
