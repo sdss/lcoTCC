@@ -9,7 +9,8 @@ class CollimationModel(object):
         self.file = "collimationFile"
         self.doCollimate = False
         self.collimateInterval = 30.
-        self.reload()
+        # trans y, trans x, tip, tilt
+        self.baseOrientation = numpy.asarray([0., 200., 45., 6.])
 
     def getOrientation(self, ha, dec, temp=None):
         """Return the desired M2
@@ -51,7 +52,7 @@ class CollimationModel(object):
         tiltAboutY = 6.45 + -13.56*sinDec + -4.28*cosDec + 4.84*sinHA + -1.09*cosHA
 
         # multiply by -1 (orentation to move to to remove the flex)
-        return numpy.asarray([tipAboutX, tiltAboutY, transX, transY]) * -1
+        return self.baseOrientation - numpy.asarray([transY, transX, tipAboutX, tiltAboutY]) * -1
 
 
 
