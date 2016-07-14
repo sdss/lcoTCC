@@ -138,7 +138,7 @@ StatusFieldList = [
                 StatusField("inpra", castHoursToDeg),
                 StatusField("inpdc", degFromDMSStr),
                 StatusField("state", castTelState),
-                # StatusField("ha", castHoursToDeg),
+                StatusField("ha", castHoursToDeg),
                 StatusField("telel", float), # I think degrees
                 StatusField("telaz", float), # I think degrees
                 StatusField("rot", float), # I think degrees
