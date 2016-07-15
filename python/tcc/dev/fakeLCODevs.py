@@ -3,6 +3,7 @@ from __future__ import division, absolute_import
 from RO.Comm.TwistedTimer import Timer
 from RO.Comm.TwistedSocket import TCPServer
 from RO.StringUtil import dmsStrFromDeg
+import numpy
 
 ArcsecPerDeg = 3600.
 AxisVelocity = 1.25 # deg / sec
@@ -168,12 +169,13 @@ class FakeScaleCtrl(FakeDev):
     #         self.userSock.writeLine(line)
 
     def sendStatusAndOK(self):
-        global munge
-        munge = munge*-1
-        if munge == 1:
-            pos = "%.7f"%self.position
-        else:
-            pos = "MUNGED"
+        # global munge
+        # munge = munge*-1
+        # if munge == 1:
+        #
+        # else:
+        #     pos = "MUNGED"
+        pos = "%.7f"%self.position
         statusLines = [
             "THREAD_RING_AXIS:",
             "__ACTUAL_POSITION %s"%pos,
@@ -312,8 +314,12 @@ class FakeTCS(FakeDev):
                self.userSock.writeLine(dmsStrFromDeg(self.ra / 15.))
             elif tokens[0] ==  "DEC" and len(tokens) == 1:
                self.userSock.writeLine(dmsStrFromDeg(self.dec))
-            elif tokens[0] ==  "HAD" and len(tokens) == 1:
-               self.userSock.writeLine("%.4f"%(self.ha))
+            elif tokens[0] ==  "HA" and len(tokens) == 1:
+               self.userSock.writeLine(dmsStrFromDeg(self.ha))
+            elif tokens[0] ==  "POS" and len(tokens) == 1:
+               self.userSock.writeLine("%.4f %.4f"%(numpy.radians(self.ha), numpy.radians(self.dec)))
+            elif tokens[0] ==  "MPOS" and len(tokens) == 1:
+               self.userSock.writeLine("%.4f %.4f"%(numpy.radians(self.ra), numpy.radians(self.dec)))
             elif tokens[0] ==  "EPOCH" and len(tokens) == 1:
                self.userSock.writeLine("%.2f"%(2000))
             elif tokens[0] ==  "ZD" and len(tokens) == 1:

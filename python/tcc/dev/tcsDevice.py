@@ -141,6 +141,7 @@ StatusFieldList = [
                 StatusField("dec", degFromDMSStr),
                 StatusField("inpra", castHoursToDeg),
                 StatusField("inpdc", degFromDMSStr),
+                StatusField("inpha", degFromDMSStr),
                 StatusField("state", castTelState),
                 StatusField("ha", castHoursToDeg),
                 StatusField("pos", castPos), #ha, dec to degrees
@@ -213,8 +214,11 @@ class Status(object):
     def objNetPos(self):
         """Format the AxePos keyword (ra, dec)
         """
-        raPos = self.statusFieldDict["mpos"].value[0]
-        decPos = self.statusFieldDict["mdec"].value[1]
+        if self.statusFieldDict["mpos"].value is None:
+            raPos, decPos = None, None
+        else:
+            raPos = self.statusFieldDict["mpos"].value[0]
+            decPos = self.statusFieldDict["mpos"].value[1]
         raStr = "%.6f"%raPos if raPos else "NaN"
         decStr = "%.6f"%decPos if decPos else "NaN"
         taiSecs = "%.6f"%(tai())
@@ -255,10 +259,10 @@ class Status(object):
             raOff = 0
         else:
             raOff = self.statusFieldDict["inpra"].value - self.statusFieldDict["mpos"].value[0]
-        if None in [self.statusFieldDict["inpdc"].value, self.statusFieldDict["mdec"].value[1]]:
+        if None in [self.statusFieldDict["inpdc"].value, self.statusFieldDict["mpos"].value[1]]:
             decOff = 0
         else:
-            decOff = self.statusFieldDict["inpdc"].value - self.statusFieldDict["mdec"].value[1]
+            decOff = self.statusFieldDict["inpdc"].value - self.statusFieldDict["mpos"].value[1]
         # return "%.6f, 0.0, 0.0, %.6f, 0.0, 0.0"%(raOff, decOff)
         return "%.6f, %.6f"%(raOff, decOff)
 
@@ -273,7 +277,7 @@ class Status(object):
         if self.previousDec == ForceSlew:
             decSlewing = True
         else:
-            decSlewing = abs(self.previousDec - self.statusFieldDict["mdec"].value[1]) > self.decOnTarg if self.previousDec is not None else False
+            decSlewing = abs(self.previousDec - self.statusFieldDict["mpos"].value[1]) > self.decOnTarg if self.previousDec is not None else False
         if self.previousRA == ForceSlew:
             raSlewing = True
         else:

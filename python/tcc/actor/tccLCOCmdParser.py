@@ -306,10 +306,16 @@ TCCLCOCmdList = (
                 keywordDefList = [
                     parseDefs.Keyword(name = "start", help = "start collimation updates"),
                     parseDefs.Keyword(name = "stop", help = "stop collimation updates"),
-                    parseDefs.Keyword(name = "reload", help = "reload collimation grid from file"),
+                    parseDefs.Keyword(name = "forceonce", help = "force one collimation update, don't trigger timer"),
                 ],
             )
-        ]
+        ],
+        qualifierList = [
+            parseDefs.Qualifier(
+                name = "target",
+                help = "collimate based on target coords rather than current coords.",
+            ),
+        ],
     ),
 )
 

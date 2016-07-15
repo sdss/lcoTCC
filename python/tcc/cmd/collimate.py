@@ -13,9 +13,13 @@ class CollimationModel(object):
         # for focus:
         # 5.894 meters m2 vertex to focal plate
         # 70.7 microns per degree C
-        self.minTrans = 50. # microns
-        self.minTilt = 0.1 # arcseconds
-        self.baseOrientation = numpy.asarray([0., 200., 45., 6.])
+        self.minTrans = 10. # microns
+        self.minTilt = 0.5 # arcseconds
+        transX = 200.
+        transY = 0.
+        tiltX = 45.
+        tiltY = 6.
+        self.baseOrientation = numpy.asarray([tiltX, tiltY, transX, transY])
 
     def getOrientation(self, ha, dec, temp=None):
         """Return the desired M2
@@ -42,6 +46,22 @@ class CollimationModel(object):
 
         -Povilas
 
+        # new model with updated CY
+
+        a cross term in y helps the fit and some systematics
+
+                vec          cy          cx         ctp         ctl
+
+                 ONE      -272.9      -300.8       1.143       6.453
+                  sd         679      -132.1       29.03      -13.56
+                  cd       407.8       182.3       9.868      -4.282
+                  sh      -39.71      -589.6     -0.4648        4.84
+                  ch      -334.7       141.1      -10.21      -1.095
+                sdch       833.6
+                cdch       153.1
+
+        rms                  58          63          4            3.
+
         """
         haRad = numpy.radians(ha)
         decRad = numpy.radians(dec+29)
@@ -50,14 +70,18 @@ class CollimationModel(object):
         cosDec = numpy.cos(decRad)
         sinHA = numpy.sin(haRad)
         cosHA = numpy.cos(haRad)
+        sinDecCosHA = numpy.sin(decRad)*numpy.cos(haRad)
+        cosDecSinHA = numpy.cos(decRad)*numpy.sin(haRad)
 
-        transY = -2.141 + 1413*sinDec + 386.7*cosDec + -49.3*sinHA + -487.1*cosHA
+        transY = -272.9 + 679*sinDec + 407.8*cosDec + -39.71*sinHA + -334.7*cosHA + 833.6*sinDecCosHA + 153.1*cosDecSinHA
+
+        # transY = -2.141 + 1413*sinDec + 386.7*cosDec + -49.3*sinHA + -487.1*cosHA
         transX = -300.8 + -132.1*sinDec + 182.3*cosDec + -589.6*sinHA + 141.1*cosHA
-        tipAboutX = 1.14 + 29.03*sinDec + 9.86*cosDec + -0.46*sinHA + -10.21*cosHA
-        tiltAboutY = 6.45 + -13.56*sinDec + -4.28*cosDec + 4.84*sinHA + -1.09*cosHA
+        tiltX = 1.14 + 29.03*sinDec + 9.86*cosDec + -0.46*sinHA + -10.21*cosHA
+        tiltY = 6.45 + -13.56*sinDec + -4.28*cosDec + 4.84*sinHA + -1.09*cosHA
 
         # multiply by -1 (orentation to move to to remove the flex)
-        return self.baseOrientation - numpy.asarray([transY, transX, tipAboutX, tiltAboutY])
+        return self.baseOrientation - numpy.asarray([tiltX, tiltY, transX, transY])
 
 
 
@@ -68,11 +92,14 @@ def collimate(tccActor, userCmd):
     params = userCmd.parsedCmd.paramDict
     # quals = userCmd.parsedCmd.qualDict
     param = params["type"].valueList[0].keyword
+    target = userCmd.parsedCmd.qualDict['target'].boolValue
     if param == "stop":
         tccActor.collimationModel.doCollimate = False
         tccActor.collimateTimer.cancel()
         userCmd.setState(userCmd.Done)
     elif param == "start":
         tccActor.collimationModel.doCollimate = True
-        tccActor.updateCollimation(userCmd)
+        tccActor.updateCollimation(userCmd, target=target)
+    elif param == "forceonce":
+        tccActor.updateCollimation(userCmd, force=True, target=target)
 

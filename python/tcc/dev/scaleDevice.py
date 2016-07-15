@@ -281,7 +281,7 @@ class Status(object):
         timeElapsed = time.time() - self._timeStamp
         # cannot have negative time remaining
         timeRemaining = max(0, self._totalTime - timeElapsed)
-        return "PrimState=%s, %i, %i, %.2f, %.2f"%(
+        return "ThreadringState=%s, %i, %i, %.2f, %.2f"%(
             self._state, currIter, maxIter, timeRemaining, self._totalTime
             )
         # return "ScaleState=%s, %.4f"%(self._state, timeRemaining)

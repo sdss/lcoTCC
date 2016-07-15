@@ -7,6 +7,8 @@ import traceback
 from RO.StringUtil import strFromException
 from RO.Comm.TwistedTimer import Timer
 
+import numpy
+
 from twistedActor import CommandError, BaseActor, DeviceCollection, expandUserCmd
 
 from .tccLCOCmdParser import TCCLCOCmdParser
@@ -133,7 +135,7 @@ class TCCLCOActor(BaseActor):
         else:
             raise RuntimeError("Command %r not yet implemented" % (cmd.parsedCmd.cmdVerb,))
 
-    def updateCollimation(self, cmd=None):
+    def updateCollimation(self, cmd=None, force=False, target=False):
         """Update collimation based on info in obj, inst, weath blocks, for all mirrors present
 
         @param[in] cmd  command (twistedActor.BaseCmd) associated with this request;
@@ -141,7 +143,7 @@ class TCCLCOActor(BaseActor):
         """
         cmd = expandUserCmd(cmd)
             # print "updateCollimation"
-        if not self.collimationModel.doCollimate:
+        if not self.collimationModel.doCollimate and not force:
             cmd.setState(cmd.Failed, "collimation is disabled")
             return
         self.collimateTimer.cancel() # incase one is pending
@@ -150,15 +152,34 @@ class TCCLCOActor(BaseActor):
         # when status returns determine current coords
         def moveMirror(statusCmd):
             if statusCmd.isDone:
-                ha = self.tcsDev.status.statusFieldDict["ha"].value
-                dec = self.tcsDev.status.statusFieldDict["dec"].value
-                pos = self.tcsDev.status.statusFieldDict["pos"].value
-                self.writeToUsers("i", "collimate for ha=%.2f, dec=%.2f"%(ha, dec))
-                self.writeToUsers("i", "pos collimate for ha=%.2f, dec=%.2f"%(pos[0], pos[1]))
+                # ha = self.tcsDev.status.statusFieldDict["ha"].value
+                # dec = self.tcsDev.status.statusFieldDict["dec"].value
+                if target:
+                    # get target coords
+                    ha = self.tcsDev.status.statusFieldDict["inpha"].value
+                    dec = self.tcsDev.status.statusFieldDict["inpdc"].value
+                    self.writeToUsers("i", "collimate for target ha=%.2f, dec=%.2f"%(ha, dec))
+                else:
+                    # get current coords
+                    ha, dec = self.tcsDev.status.statusFieldDict["pos"].value
+                    self.writeToUsers("i", "collimate for current ha=%.2f, dec=%.2f"%(ha, dec))
+                # self.writeToUsers("i", "pos collimate for ha=%.2f, dec=%.2f"%(pos[0], pos[1]))
                 newOrient = self.collimationModel.getOrientation(ha, dec, temp=None)
-                self.writeToUsers("i", "collimation update: Y=%.2f, X=%.2f, Tip=%.2f, Tilt=%.2f"%tuple(newOrient), cmd=cmd)
-                # self.secDev.move(newOrient, userCmd=cmd)
-                cmd.setState(cmd.Done)
+                currentOrient = self.secDev.status.orientation
+                # check if mirror move is wanted based on tolerances
+                dtiltX = numpy.abs(newOrient[0]-currentOrient[1])
+                dtiltY = numpy.abs(newOrient[1]-currentOrient[2])
+                dtransX = numpy.abs(newOrient[2]-currentOrient[3])
+                dtransY = numpy.abs(newOrient[3]-currentOrient[4])
+                if numpy.max([dtiltX, dtiltY]) > self.collimationModel.minTilt or numpy.max([dtransX, dtransY]) > self.collimationModel.minTrans:
+                    self.writeToUsers("i", "collimation update: TiltX=%.2f, TiltY=%.2f, TransX=%.2f, TransY=%.2f"%tuple(newOrient), cmd=cmd)
+                    focus = self.secDev.status.secFocus
+                    newOrient = [focus] + list(newOrient)
+                    self.secDev.move(newOrient, userCmd=cmd)
+                else:
+                    # collimation not wanted
+                    self.writeToUsers("i", "collimation update too small")
+                    cmd.setState(cmd.Done)
         statusCmd.addCallback(moveMirror)
 
         if self.collimationModel.doCollimate:
