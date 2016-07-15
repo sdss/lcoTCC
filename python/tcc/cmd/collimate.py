@@ -85,7 +85,6 @@ class CollimationModel(object):
 
 
 
-
 def collimate(tccActor, userCmd):
     """adjust collimation parameters
     """
@@ -102,4 +101,5 @@ def collimate(tccActor, userCmd):
         tccActor.updateCollimation(userCmd, target=target)
     elif param == "forceonce":
         tccActor.updateCollimation(userCmd, force=True, target=target)
+
 

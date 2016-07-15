@@ -156,7 +156,10 @@ class TCCLCOActor(BaseActor):
                 # dec = self.tcsDev.status.statusFieldDict["dec"].value
                 if target:
                     # get target coords
-                    ha = self.tcsDev.status.statusFieldDict["inpha"].value
+                    # st and ra in degrees
+                    st = self.tcsDev.status.statusFieldDict["st"].value
+                    ra = self.tcsDev.status.statusFieldDict["inpra"].value
+                    ha = st - ra
                     dec = self.tcsDev.status.statusFieldDict["inpdc"].value
                     self.writeToUsers("i", "collimate for target ha=%.2f, dec=%.2f"%(ha, dec))
                 else:
