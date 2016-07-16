@@ -15,11 +15,35 @@ class CollimationModel(object):
         # 70.7 microns per degree C
         self.minTrans = 10. # microns
         self.minTilt = 0.5 # arcseconds
+        self.minFocus = 10 # microns
         transX = 200.
         transY = 0.
         tiltX = 45.
         tiltY = 6.
         self.baseOrientation = numpy.asarray([tiltX, tiltY, transX, transY])
+        self.baseFocus = None
+        self.baseTrussTemp = None
+
+    def getFocus(self, trussTemp):
+        """Return the desired focus value from trussTemp
+
+        @raise runtime error if no focus baseline has been set
+        """
+        if None in [self.baseFocus, self.baseTrussTemp]:
+            raise RuntimeError("No baseline set for focus-collimation model")
+        # temperature decreases, dist between m2 and m1 shrinks,
+        # correct by moving them apart.
+        dtemp = self.baseTrussTemp - trussTemp
+        # if dtemp is positive, temperature has lowered
+        # focal length is longer than self.baseFocus
+        # command m2 to a higher focus value than self.baseFocus
+        # focus model is 70 microns/degC
+        return self.baseFocus + dtemp*70.
+
+    def setFocus(self, focusVal, trussTemp):
+        self.baseFocus = focusVal
+        self.trussTemp = trussTemp
+
 
     def getOrientation(self, ha, dec, temp=None):
         """Return the desired M2
@@ -80,9 +104,10 @@ class CollimationModel(object):
         tiltX = 1.14 + 29.03*sinDec + 9.86*cosDec + -0.46*sinHA + -10.21*cosHA
         tiltY = 6.45 + -13.56*sinDec + -4.28*cosDec + 4.84*sinHA + -1.09*cosHA
 
+        flexTerms = self.baseOrientation - numpy.asarray([tiltX, tiltY, transX, transY])
+        focus = None if temp is None else self.getFocus(temp)
         # multiply by -1 (orentation to move to to remove the flex)
-        return self.baseOrientation - numpy.asarray([tiltX, tiltY, transX, transY])
-
+        return [focus] + list(flexTerms)
 
 
 def collimate(tccActor, userCmd):
@@ -92,14 +117,17 @@ def collimate(tccActor, userCmd):
     # quals = userCmd.parsedCmd.qualDict
     param = params["type"].valueList[0].keyword
     target = userCmd.parsedCmd.qualDict['target'].boolValue
+    dofocus = userCmd.parsedCmd.qualDict['dofocus'].boolValue
     if param == "stop":
         tccActor.collimationModel.doCollimate = False
         tccActor.collimateTimer.cancel()
         userCmd.setState(userCmd.Done)
     elif param == "start":
         tccActor.collimationModel.doCollimate = True
-        tccActor.updateCollimation(userCmd, target=target)
+        tccActor.updateCollimation(userCmd, target=target, doFocus=dofocus)
     elif param == "forceonce":
         tccActor.updateCollimation(userCmd, force=True, target=target)
+    elif param == "setfocus":
+        tccActor.collimationModel.updateCollimation(userCmd, setFocus=True)
 
 

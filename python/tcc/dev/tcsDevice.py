@@ -131,6 +131,20 @@ def castAxis(lcoReply):
     }
     return axisDict
 
+def castTemps(lcoReply):
+    """Temps output
+    reply.sprintf("%0.1f %0.1f %0.1f %0.1f %0.1f %0.1f %0.1f %0.1f",
+                  status.outsidetemp, status.insidetemp, status.primarytemp, status.celltemp,
+                  status.floortemp, status.xyztemp, status.trusstemp, status.reservedtemp);
+    """
+    keys = [
+        "outsidetemp", "insidetemp", "primarytemp", "celltemp",
+        "floortemp", "xyztemp", "trusstemp", "reservedtemp"
+        ]
+
+    values = [float(temp) for temp in lcoReply.split()]
+
+    return dict(zip(keys,values))
 
 
 class StatusField(object):
@@ -172,7 +186,8 @@ StatusFieldList = [
                 StatusField("epoch", float),
                 StatusField("zd", float),
                 StatusField("mrp", castClamp),
-                StatusField("axisstatus", castAxis)
+                StatusField("axisstatus", castAxis),
+                StatusField("temps", castTemps),
             ]
 
 class Status(object):
