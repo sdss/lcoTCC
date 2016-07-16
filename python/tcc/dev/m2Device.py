@@ -272,11 +272,13 @@ class M2Device(TCPDevice):
             deltaFocus = focusValue
         else:
             deltaFocus = self.status.secFocus - focusValue
-        if abs(deltaFocus) < MIN_FOCUS_MOVE:
-            # should focus be cancelled or just set to done?
-            self.writeToUsers("w", "Focus offset below threshold of < %.2f, not moving."%MIN_FOCUS_MOVE, userCmd)
-            userCmd.setState(userCmd.Done)
-            return userCmd
+
+        # if abs(deltaFocus) < MIN_FOCUS_MOVE:
+        #     # should focus be cancelled or just set to done?
+        #     self.writeToUsers("w", "Focus offset below threshold of < %.2f, not moving."%MIN_FOCUS_MOVE, userCmd)
+        #     userCmd.setState(userCmd.Done)
+        #     return userCmd
+
         # focusDir = 1 # use M2's natural coordinates
         # focusDir = -1 # use convention at APO
         return self.move(valueList=[focusValue], offset=offset, userCmd=userCmd)

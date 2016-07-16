@@ -24,6 +24,24 @@ def tai():
 __all__ = ["TCSDevice"]
 ForceSlew = "ForceSlew"
 
+#### telescope parameters found in c100.ini file in tcs source code #####
+# Hour angle encoder scale (encoder counts / degree)
+HASCALE=89978
+# Hour angle maximum speed (motor encoder counts / sec)
+HASP=175000
+# Declination encoder scale (encoder counts / degree)
+DECSCALE=-89909
+# Declination maximum speed (motor encoder counts / sec)
+DECSP=225000
+# IR Scale - encoder counts per degree
+IRSCALE = -0.00015263375
+
+def SlewTimeRA(deg):
+    return deg * HASCALE / float(HASP)
+
+def SlewTimeDec(deg):
+    return deg * DECSCALE / float(DECSP)
+
 PollTimeRot = 0.5 # if rotator is slewing query frequently
 PollTimeSlew = 2 #seconds, LCO says status is updated no more frequently that 5 times a second
 PollTimeTrack = 5
