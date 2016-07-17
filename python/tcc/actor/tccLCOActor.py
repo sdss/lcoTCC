@@ -140,18 +140,22 @@ class TCCLCOActor(BaseActor):
 
         @param[in] cmd  command (twistedActor.BaseCmd) associated with this request;
             state will be updated upon completion; None if no command is associated
+
+        LCO HACK!!! clean this stuff up!!!!
         """
         cmd = expandUserCmd(cmd)
-            # print "updateCollimation"
-        if not self.collimationModel.doCollimate and not force:
+        if not self.collimationModel.doCollimate and not force and not setFocus:
             cmd.setState(cmd.Failed, "collimation is disabled")
             return
         self.collimateTimer.cancel() # incase one is pending
         # query for current telescope coords
         statusCmd = self.tcsDev.getStatus()
         # when status returns determine current coords
-        def moveMirror(statusCmd):
-            global doFocus
+
+        # HACK!!!!
+        statusCmd.doFocus = doFocus
+        def moveMirrorCallback(statusCmd):
+            doFocus = statusCmd.doFocus
             if statusCmd.didFail:
                 cmd.setState(cmd.Failed, "status command failed")
             if statusCmd.isDone:
@@ -172,50 +176,57 @@ class TCCLCOActor(BaseActor):
                 # self.writeToUsers("i", "pos collimate for ha=%.2f, dec=%.2f"%(pos[0], pos[1]))
                 temp = None
                 if doFocus:
-                    temp = self.tcsDev.status.statusFieldDict["temps"].value["trusstemp"]
+                    if None in [self.collimationModel.baseFocus, self.collimationModel.baseTrussTemp]:
+                        cmd.setState(cmd.Failed, "Must specify focus baseline first: collimate setFocus")
+                        return
+                    temp = self.tcsDev.status.trussTemp
                 newOrient = self.collimationModel.getOrientation(ha, dec, temp=temp)
                 orient = self.secDev.status.orientation[:]
                 # check if mirror move is wanted based on tolerances
-                dFocus = numpy.abs(newOrient[0]-orient[0])
-                dtiltX = numpy.abs(newOrient[1]-orient[1])
-                dtiltY = numpy.abs(newOrient[2]-orient[2])
-                dtransX = numpy.abs(newOrient[4]-orient[3])
-                dtransY = numpy.abs(newOrient[5]-orient[4])
-                doFlex = numpy.max([dtiltX, dtiltY]) > self.collimationModel.minTilt or numpy.max([dtransX, dtransY]) > self.collimationModel.minTrans
+                dFocus = None if newOrient[0] is None else newOrient[0]-orient[0]
+                dtiltX = newOrient[1]-orient[1]
+                dtiltY = newOrient[2]-orient[2]
+                dtransX = newOrient[3]-orient[3]
+                dtransY = newOrient[4]-orient[4]
+                doFlex = numpy.max(numpy.abs([dtiltX, dtiltY])) > self.collimationModel.minTilt or numpy.max(numpy.abs([dtransX, dtransY])) > self.collimationModel.minTrans
                 if doFocus:
                     # check focus bounds
-                    doFocus = dFocus > self.collimationModel.minFocus
+                    doFocus = numpy.abs(dFocus) > self.collimationModel.minFocus
                     if doFocus:
-                        self.writeToUsers("i", "collimation deltaFocus too small : %.1f"%dFocus)
-                    else:
                         # do new focus value
-                        self.writeToUsers("i", "collimation focus update: %.1f"%newOrient[0])
+                        self.writeToUsers("i", "collimation focus update: %.1f  (delta focus: %.2f)"%(newOrient[0], dFocus))
                         orient[0] = newOrient[0]
+                    else:
+                        self.writeToUsers("i", "collimation deltaFocus too small : %.1f"%dFocus)
                 if not doFlex:
-                    self.writeToUsers("i", "collimation flex update too small: dTiltX=%.2f, dTiltY=%.2f, dTransX=%.2f, dTransY=%.2f"%tuple(dtiltX, dtiltY, dtransX, dtransY))
+                    self.writeToUsers("i", "collimation flex update too small: dTiltX=%.2f, dTiltY=%.2f, dTransX=%.2f, dTransY=%.2f"%(dtiltX, dtiltY, dtransX, dtransY))
                 else:
                     # update flex values
                     orient[1:] = newOrient[1:]
                 if doFlex or doFocus:
-                    self.writeToUsers("i", "collimation update: TiltX=%.2f, TiltY=%.2f, TransX=%.2f, TransY=%.2f"%tuple(newOrient), cmd=cmd)
-                    self.secDev.move(newOrient, userCmd=cmd)
+                    self.writeToUsers("i", "collimation update: Focus=%.2f, TiltX=%.2f, TiltY=%.2f, TransX=%.2f, TransY=%.2f"%tuple(newOrient), cmd=cmd)
+                    # self.secDev.move(newOrient, userCmd=cmd)
+                    self.writeToUsers("i", "lco hack dont move!")
+                    cmd.setState(cmd.Done)
                 else:
                     # collimation not wanted
                     self.writeToUsers("i", "collimation update too small")
                     cmd.setState(cmd.Done)
 
-        def setFocus(statusCmd):
+        def setFocusCallback(statusCmd):
             if statusCmd.didFail:
                 cmd.setState(cmd.Failed, "status command failed")
+                return
             if statusCmd.isDone:
-                baseTemp = self.tcsDev.status.statusFieldDict["temps"].value["trusstemp"]
+                baseTemp = self.tcsDev.status.trussTemp
                 baseFocus = self.secDev.status.secFocus
                 self.collimationModel.setFocus(baseFocus, baseTemp)
                 cmd.setState(cmd.Done)
+
         if setFocus:
-            statusCmd.addCallback(setFocus)
+            statusCmd.addCallback(setFocusCallback)
         else:
-            statusCmd.addCallback(moveMirror)
+            statusCmd.addCallback(moveMirrorCallback)
 
         # remove timer for now
         # if self.collimationModel.doCollimate:

@@ -20,7 +20,7 @@ if not os.path.exists(logPath):
 
 startFileLogging(os.path.join(logPath, "tcc"))
 
-UserPort = 25000
+UserPort = 25001
 
 ScaleDeviceHost = "10.1.1.30"
 ScaleDevicePort = 15000

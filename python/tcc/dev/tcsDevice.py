@@ -188,6 +188,7 @@ StatusFieldList = [
                 StatusField("mrp", castClamp),
                 StatusField("axisstatus", castAxis),
                 StatusField("temps", castTemps),
+                StatusField("ttruss", float),
             ]
 
 class Status(object):
@@ -317,6 +318,10 @@ class Status(object):
         else:
             raSlewing = abs(self.previousRA - self.statusFieldDict["mpos"].value[0]) > self.raOnTarg if self.previousRA is not None else False
         return [raSlewing, decSlewing]
+
+    @property
+    def trussTemp(self):
+        return self.statusFieldDict["ttruss"].value
 
     @property
     def isClamped(self):

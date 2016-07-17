@@ -42,7 +42,7 @@ class CollimationModel(object):
 
     def setFocus(self, focusVal, trussTemp):
         self.baseFocus = focusVal
-        self.trussTemp = trussTemp
+        self.baseTrussTemp = trussTemp
 
 
     def getOrientation(self, ha, dec, temp=None):
@@ -128,6 +128,6 @@ def collimate(tccActor, userCmd):
     elif param == "forceonce":
         tccActor.updateCollimation(userCmd, force=True, target=target)
     elif param == "setfocus":
-        tccActor.collimationModel.updateCollimation(userCmd, setFocus=True)
+        tccActor.updateCollimation(userCmd, setFocus=True)
 
 
