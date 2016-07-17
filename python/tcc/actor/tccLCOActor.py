@@ -204,8 +204,8 @@ class TCCLCOActor(BaseActor):
                     # update flex values
                     orient[1:] = newOrient[1:]
                 if doFlex or doFocus:
-                    self.writeToUsers("i", "collimation update: Focus=%.2f, TiltX=%.2f, TiltY=%.2f, TransX=%.2f, TransY=%.2f"%tuple(newOrient), cmd=cmd)
-                    self.secDev.move(newOrient, userCmd=cmd)
+                    self.writeToUsers("i", "collimation update: Focus=%.2f, TiltX=%.2f, TiltY=%.2f, TransX=%.2f, TransY=%.2f"%tuple(orient), cmd=cmd)
+                    self.secDev.move(orient, userCmd=cmd)
                 else:
                     # collimation not wanted
                     self.writeToUsers("i", "collimation update too small")
