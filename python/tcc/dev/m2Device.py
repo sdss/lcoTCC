@@ -47,8 +47,9 @@ class Status(object):
         if self.state == Done:
             return 0
         else:
-            if not None in [self.desFocus, self.secFocus, self.speed]:
-                return max(0, (self.desFocus - self.secFocus)/self.speed)
+            if not None in self.orientation and not None in self.desOrientation and self.speed is not None:
+                maxDist = numpy.max(numpy.abs(numpy.subtract(self.desOrientation, self.orientation)))
+                return maxDist/self.speed
             else:
                 return 0
 
@@ -75,6 +76,20 @@ class Status(object):
         galil = "?" if self.galil is None else "%s"%self.galil
         return "Galil=%s"%galil
 
+    def _getOrientStr(self, orientation):
+        orientStrs = []
+        for orient in orientation:
+            orientStr = "NaN" if orient is None else "%.2f"%orient
+            orientStrs.append(orientStr)
+        return ", ".join(orientStrs)
+
+    def secOrientStr(self):
+        return "secOrient=%s"%self._getOrientStr(self.orientation)
+
+    def secDesOrientStr(self):
+        return "secDesOrient=%s"%self._getOrientStr(self.desOrientation)
+
+
     def secStateStr(self):
         # secState [Moving, Done, Homing, Failed, NotHomed]
         #   current iteration
@@ -90,7 +105,9 @@ class Status(object):
     def getStatusStr(self):
         """Grab and format tcc keywords, only output those which have changed
         """
-        kwOutputList = [self.secStateStr(), self.secFocusStr(), self.galilStr()]
+        kwOutputList = [self.secStateStr(), self.secFocusStr(), self.galilStr(),
+            self.secOrientStr(), self.secDesOrientStr()
+            ]
         # add mirror moving times, and actuator positions?
         # eg colimation
         return "; ".join(kwOutputList)
@@ -327,7 +344,7 @@ class M2Device(TCPDevice):
         return userCmd
 
     def getTimeForMove(self):
-        dist2Move = numpy.abs(self.status.desOrientation[0] - self.status.orientation[0])
+        dist2Move = numpy.max(numpy.abs(numpy.subtract(self.status.desOrientation, self.status.orientation)))
         time4Move = dist2Move / self.status.speed
         return time4Move
 

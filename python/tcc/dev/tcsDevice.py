@@ -69,6 +69,11 @@ TelStateEnumNameDict = collections.OrderedDict((
     (3, Slewing),
 ))
 
+tempKeys = [
+        "outsidetemp", "insidetemp", "primarytemp", "celltemp",
+        "floortemp", "xyztemp", "trusstemp", "reservedtemp"
+        ]
+
 def castTelState(tcsStateResponse):
     """Convert the enumerated telescope state into a string
     """
@@ -137,14 +142,8 @@ def castTemps(lcoReply):
                   status.outsidetemp, status.insidetemp, status.primarytemp, status.celltemp,
                   status.floortemp, status.xyztemp, status.trusstemp, status.reservedtemp);
     """
-    keys = [
-        "outsidetemp", "insidetemp", "primarytemp", "celltemp",
-        "floortemp", "xyztemp", "trusstemp", "reservedtemp"
-        ]
-
     values = [float(temp) for temp in lcoReply.split()]
-
-    return dict(zip(keys,values))
+    return dict(zip(tempKeys,values))
 
 
 class StatusField(object):
@@ -217,14 +216,52 @@ class Status(object):
         self.tccKWDict = {
             "axisCmdState": self.axisCmdState(),
             "axePos": self.axePos(),
+            "tccPos": self.tccPos(),
             "objNetPos": self.objNetPos(),
             "utc_tai": self.utc_tai(),
             "objSys": self.objSys(),
+            "secTrussTemp": self.secTrussTemp(),
+            "tccHA": self.tccHA(),
+            "tccTemps": self.tccTemps(),
+            # LCO HACK!!!!
+            "instrumentNum": self.instrumentNum(),
             # "secFocus": self.secFocus(),
             # "currArcOff": self.currArcOff(), 0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # "objArcOff": self.objArcOff(), bjArcOff=0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # TCCPos=68.361673,63.141087,nan; AxePos=68.393020,63.138022
         }
+
+    def tccHA(self):
+        ha = self.statusFieldDict["ha"].value
+        if ha is None:
+            haStr = "NaN"
+        else:
+            haStr = "%.6f"%ha
+        return "tccHA=%s"%haStr
+
+    def instrumentNum(self):
+        return "instrumentNum=20; text='HACKED into TCS Device!!!'"
+
+    def tccPos(self):
+        raPos = self.statusFieldDict["inpra"].value
+        decPos = self.statusFieldDict["inpdc"].value
+        rotPos = self.statusFieldDict["rot"].value
+        raStr = "%.4f"%raPos if raPos else "NaN"
+        decStr = "%.4f"%decPos if decPos else "NaN"
+        rotStr = "%.4f"%rotPos if decPos else "NaN"
+        return "TCCPos=%s"%(", ".join([raStr, decStr, rotStr]))
+
+    def tccTemps(self):
+        tempsDict = self.statusFieldDict["temps"].value
+        if tempsDict is None:
+            tempsStr = ",".join(["NaN"]*len(tempKeys))
+        else:
+            tempsStr = ",".join(["%.2f"%tempsDict[temp] for temp in tempKeys])
+        return "TCCTemps=%s"%tempsStr
+
+    def secTrussTemp(self):
+        trussTempStr = "%.2f"%self.trussTemp if self.trussTemp is not None else "NaN"
+        return "SecTrussTemp=%s"%(trussTempStr)
 
     def axisCmdStateList(self):
         axisCmdState = self.statusFieldDict["state"].value or "?"
@@ -271,13 +308,13 @@ class Status(object):
     def axePos(self):
         """Format the AxePos keyword (alt az rot)
         """
-        azPos = self.statusFieldDict["telaz"].value
-        altPos = self.statusFieldDict["telel"].value
+        raPos = self.statusFieldDict["ra"].value
+        decPos = self.statusFieldDict["dec"].value
         rotPos = self.statusFieldDict["rot"].value
-        azStr = "%.4f"%azPos if azPos else "NaN"
-        altStr = "%.4f"%altPos if altPos else "NaN"
-        rotStr = "%.4f"%rotPos if altPos else "NaN"
-        axePosStr = "AxePos=%s"%(", ".join([azStr, altStr, rotStr]))
+        raStr = "%.4f"%raPos if raPos else "NaN"
+        decStr = "%.4f"%decPos if decPos else "NaN"
+        rotStr = "%.4f"%rotPos if decPos else "NaN"
+        axePosStr = "AxePos=%s"%(", ".join([raStr, decStr, rotStr]))
         return axePosStr
 
     def utc_tai(self):
