@@ -633,8 +633,8 @@ class TCSDevice(TCPDevice):
         if not self.waitOffsetCmd.isDone:
             self.waitOffsetCmd.setState(self.waitOffsetCmd.Cancelled, "Superseded by new offset")
         self.waitOffsetCmd = UserCmd()
-        enterRa = "OFRA %.8f"%(-1.0*ra*ArcSecPerDeg) #LCO: HACK
-        enterDec = "OFDC %.8f"%(-1.0*dec*ArcSecPerDeg)
+        enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg) #LCO: HACK
+        enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg)
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
@@ -653,8 +653,13 @@ class TCSDevice(TCPDevice):
         @param[in] rot: in decimal degrees
         @param[in] userCmd a twistedActor BaseCommand
         """
-        log.info("%s.rotOffset(userCmd=%s, ra=%.6f)" % (self, userCmd, rot))
-        userCmd = expandUserCmd(userCmd)
+        if True:
+            # Lupton!
+            userCmd = expandUserCmd(userCmd)
+            self.writeToUsers("w", "Rotator currently bypassed")
+            userCmd.setState(userCmd.Done)
+            log.info("%s.rotOffset(userCmd=%s, ra=%.6f)" % (self, userCmd, rot))
+            return userCmd
         # zero the delta computation so the offset isn't marked done immediately
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
