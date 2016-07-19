@@ -120,6 +120,12 @@ TCCLCOCmdList = (
                 omit = ("Instrument", "GProbe", "GImage", "PtCorr", "Rotator"),
             ),
         ],
+        qualifierList = [
+            parseDefs.Qualifier(
+                name = "ha",
+                help = "use hour angle rather than ra as target input.",
+            ),
+            ],
         minParAmt = 0,
     ),
     parseDefs.CommandWrapper(

@@ -418,7 +418,7 @@ class M2Device(TCPDevice):
                 #     self.waitGalilCmd.setState(self.waitGalilCmd.Running)
                 self.conn.writeLine(devCmdStr)
             else:
-                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected")
+                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected to M2")
         except Exception as e:
             self.currExeDevCmd.setState(self.currExeDevCmd.Failed, textMsg=strFromException(e))
 

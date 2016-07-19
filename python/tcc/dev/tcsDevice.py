@@ -35,6 +35,18 @@ DECSCALE=-89909
 DECSP=225000
 # IR Scale - encoder counts per degree
 IRSCALE = -0.00015263375
+# IR Offset - encoder counts, to match mechanical readout
+IROFFSET =277
+# IR motor steps per encoder count
+IRMOTORSCALE=0.3052
+# IR acceleration (motor encoder counts / sec2)
+IRAC=1000
+# IR deceleration (motor encoder counts / sec2)
+IRDC=1000
+# IR fast speed (motor encoder counts / sec)
+IRFASTSP=2000
+# IR slow speed (motor encoder counts / sec)
+IRSLOWSP=53
 
 def SlewTimeRA(deg):
     return deg * HASCALE / float(HASP)
@@ -367,7 +379,6 @@ class Status(object):
     @property
     def rotMoving(self):
         rotMoving = self.statusFieldDict["axisstatus"].value["rot"].isMoving
-        print('rotMoving', rotMoving)
         return rotMoving
 
     def currArcOff(self):
@@ -520,7 +531,7 @@ class TCSDevice(TCPDevice):
             if self.waitOffsetCmd.isActive and not True in self.status.axesSlewing():
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
-            if self.waitRotCmd.isActive and self.status.rotOnTarget and not self.status.rotMoving:
+            if self.waitRotCmd.isActive and not self.status.rotMoving: #and self.status.rotOnTarget :
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
 
     # focus will come back if focus functionality ever gets ported back to the TCS
@@ -569,11 +580,12 @@ class TCSDevice(TCPDevice):
     #         self.queueDevCmd(devCmd)
     #     return userCmd
 
-    def target(self, ra, dec, userCmd=None):
+    def target(self, ra, dec, doHA, userCmd=None):
         """Set coordinates for a slew.
 
         @param[in] ra: right ascension decimal degrees
         @param[in] dec: declination decimal degrees
+        @param[in] doHA: if True, use degrees in hour angle rather than ra.
         @param[in] userCmd: a twistedActor BaseCommand.
         """
         log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
@@ -581,7 +593,10 @@ class TCSDevice(TCPDevice):
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
-        enterRa = "RAD %.8f"%ra
+        if doHA:
+            enterRa = "HAD %.8f"%ra
+        else:
+            enterRa = "RAD %.8f"%ra
         enterDec = "DECD %.8f"%dec
         enterEpoch = "MP %.2f"%2000 # LCO: HACK should coords always be 2000?
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]#, cmdSlew]]
@@ -632,6 +647,52 @@ class TCSDevice(TCPDevice):
         return userCmd
 
     def rotOffset(self, rot, userCmd=None):
+        """Offset telescope rotator.  USE APGCIR cmd
+        which holds current
+
+        @param[in] rot: in decimal degrees
+        @param[in] userCmd a twistedActor BaseCommand
+        """
+        log.info("%s.rotOffset(userCmd=%s, ra=%.6f)" % (self, userCmd, rot))
+        userCmd = expandUserCmd(userCmd)
+        # zero the delta computation so the offset isn't marked done immediately
+        if not self.conn.isConnected:
+            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+            return userCmd
+        if not self.waitRotCmd.isDone:
+            # rotator is unclamped, a move is in progress
+            userCmd.setState(userCmd.Failed, "Rotator is unclamped (already moving)")
+            return userCmd
+        if abs(rot) < MinRotOffset:
+            # set command done, rotator offset is miniscule
+            self.writeToUsers("w", "Rot offset less than min threshold, proceeding", userCmd)
+            # userCmd.setState(userCmd.Done)
+            # return userCmd
+        if abs(rot) > MaxRotOffset:
+            # set command failed, rotator offset is too big
+            self.writeToUsers("w", "Rot offset greater than max threshold", userCmd)
+            userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
+            return userCmd
+        # apgcir requires absolute position, calculate it
+        # first get status
+        newPos = self.status.statusFieldDict["rot"].value + rot
+        rotStart = time.time()
+        def printRotSlewTime(aCmd):
+            if aCmd.isDone:
+                rotTime = time.time() - rotStart
+                print("rot: off, time, speed: %.5f %.5f %5f"%(newPos, rotTime, newPos/rotTime))
+        self.waitRotCmd = UserCmd()
+        self.status.setRotOffsetTarg(rot)
+        enterAPGCIR = DevCmd(cmdStr="APGCIR %.8f"%(newPos))
+        LinkCommands(userCmd, [enterAPGCIR, self.waitRotCmd])
+        # begin the dominos game
+        self.queueDevCmd(enterAPGCIR)
+        statusStr = self.status.getStatusStr()
+        if statusStr:
+            self.writeToUsers("i", statusStr, userCmd)
+        return userCmd
+
+    def _rotOffset(self, rot, userCmd=None):
         """Offset telescope rotator.
 
         @param[in] rot: in decimal degrees
@@ -770,11 +831,11 @@ class TCSDevice(TCPDevice):
                 log.info("%s writing %r" % (self, devCmdStr))
                 if CMDOFF.upper() == devCmdStr:
                     self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
-                elif "DCIR" in devCmdStr:
+                elif "CIR" in devCmdStr:
                     self.waitRotCmd.setState(self.waitRotCmd.Running)
                 self.conn.writeLine(devCmdStr)
             else:
-                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected")
+                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected to TCS")
         except Exception as e:
             self.currExeDevCmd.setState(self.currExeDevCmd.Failed, textMsg=strFromException(e))
 

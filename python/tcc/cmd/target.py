@@ -18,6 +18,7 @@ def target(tccActor, userCmd):
     coordSysParam = parsedCmd.paramDict["coordsys"]
     val = coordSysParam.valueList[0]
     name = val.keyword
+    doHA = userCmd.parsedCmd.qualDict['ha'].boolValue
     if not name == "icrs":
         raise CommandError("%s coordSys not supported at LCO"%name)
     if val.valueList:
@@ -30,5 +31,5 @@ def target(tccActor, userCmd):
     if len(coordPair) != 2:
         raise CommandError("Must specify coordPair of solely ra, dec")
     ra, dec = coordPair
-    tccActor.tcsDev.target(float(ra), float(dec), userCmd)
+    tccActor.tcsDev.target(float(ra), float(dec), doHA, userCmd)
 
