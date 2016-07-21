@@ -16,3 +16,4 @@ from .threadRing import *
 from .showStatus import *
 from .showVersion import *
 from .collimate import *
+from .aph import *

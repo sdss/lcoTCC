@@ -1,6 +1,8 @@
 from __future__ import division, absolute_import
 
 import time
+import sys
+import traceback
 
 # from RO.StringUtil import strFromException
 import numpy
@@ -308,9 +310,9 @@ class Status(object):
         kwList.append("ThreadRingSpeed=%.4f"%self.speed)
         kwList.append("ThreadRingMaxSpeed=%.4f"%self.maxSpeed)
         kwList.append("DesThreadRingPos=%.4f"%self.desPosition)
-        kwList.append("instrumentNum=%i"%self.cartID)
-        kwList.append("CartLocked=%s"%(str(self.locked)))
-        kwList.append("CartLoaded=%s"%(str(self.loaded)))
+        kwList.append("instrumentNum=%i; text='LCOHACK, cartNum is hardcoded in scaleDevice'"%20)#self.cartID) #LCOHACK hardcode to match cart info in db
+        kwList.append("CartLocked=%s"%"T" if self.locked else "F")
+        kwList.append("CartLoaded=%s"%"T" if self.loaded else "F")
         return "; ".join(kwList)
 
 class ScaleDevice(TCPDevice):
@@ -413,6 +415,8 @@ class ScaleDevice(TCPDevice):
         periodically output and thus updated in the status
         """
         userCmd = expandUserCmd(userCmd)
+        if timeLim is None:
+            timeLim = 2
         if self.isMoving:
             self.writeToUsers("i", "text=showing cached status", userCmd)
             self.writeStatusToUsers(userCmd)
@@ -421,6 +425,7 @@ class ScaleDevice(TCPDevice):
             # get a completely fresh status from the device
             statusDevCmd = self.queueDevCmd("status", userCmd)
             statusDevCmd.addCallback(self._statusCallback)
+            statusDevCmd.setTimeLimit(timeLim)
             LinkCommands(userCmd, [statusDevCmd])
         return userCmd
 
@@ -526,6 +531,7 @@ class ScaleDevice(TCPDevice):
         # status output from move corresponds to threadring
         # after a status command the winch axis is the current axis
         self.targetPos = position
+        self.writeToUsers("i", "DesThreadRingPos=%.4f"%self.targetPos)
         moveDevCmd = self.queueDevCmd(moveCmdStr, userCmd)
         moveDevCmd.addCallback(self._moveCallback)
         statusDevCmd = self.queueDevCmd("status", userCmd)
@@ -615,6 +621,7 @@ class ScaleDevice(TCPDevice):
                 parsed = self.status.parseStatusLine(replyStr)
             except Exception as e:
                 errMsg = "Scale Device failed to parse: %s"%str(replyStr)
+                print(traceback.print_exc(file=sys.stdout))
                 log.error(errMsg)
                 self.writeToUsers("w", errMsg)
             # if not parsed:

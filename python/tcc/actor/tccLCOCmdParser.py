@@ -4,7 +4,7 @@ from __future__ import division, absolute_import
 from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
 from ..cmd import setFocus, showFocus, setScaleFactor, showScaleFactor, showStatus, \
-                   showVersion, offset, device, ping, threadRing, sec, target, collimate
+                   showVersion, offset, device, ping, threadRing, sec, target, collimate, aph
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -327,6 +327,12 @@ TCCLCOCmdList = (
                 help = "include focus in collimation.",
             ),
         ],
+    ),
+    parseDefs.Command(
+        name = "aph",
+        help = "apagar prende huevon",
+        callFunc = aph,
+        paramList = []
     ),
 )
 

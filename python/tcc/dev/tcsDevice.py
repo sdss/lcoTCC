@@ -235,8 +235,6 @@ class Status(object):
             "secTrussTemp": self.secTrussTemp(),
             "tccHA": self.tccHA(),
             "tccTemps": self.tccTemps(),
-            # LCO HACK!!!!
-            "instrumentNum": self.instrumentNum(),
             # "secFocus": self.secFocus(),
             # "currArcOff": self.currArcOff(), 0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # "objArcOff": self.objArcOff(), bjArcOff=0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
@@ -250,9 +248,6 @@ class Status(object):
         else:
             haStr = "%.6f"%ha
         return "tccHA=%s"%haStr
-
-    def instrumentNum(self):
-        return "instrumentNum=20; text='HACKED into TCS Device!!!'"
 
     def tccPos(self):
         raPos = self.statusFieldDict["inpra"].value
@@ -633,8 +628,8 @@ class TCSDevice(TCPDevice):
         if not self.waitOffsetCmd.isDone:
             self.waitOffsetCmd.setState(self.waitOffsetCmd.Cancelled, "Superseded by new offset")
         self.waitOffsetCmd = UserCmd()
-        enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg) #LCO: HACK
-        enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg)
+        enterRa = "OFRA %.8f"%(-1*ra*ArcSecPerDeg) #LCO: HACK
+        enterDec = "OFDC %.8f"%(-1*dec*ArcSecPerDeg)
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
