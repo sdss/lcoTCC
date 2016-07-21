@@ -50,6 +50,7 @@ def setScaleFactor(tccActor, userCmd):
         if tccActor.secDev.isBusy:
             userCmd.setState(userCmd.Failed, "Cannot set scale, M2 is moving.")
             return
+
         # did scale increase or decrease?
         # careful with conventions
         # newScale = tccActor.mm2scale(absPosMM)
@@ -68,7 +69,7 @@ def setScaleFactor(tccActor, userCmd):
         # convert to microns
         # apply scaling ratio
         # command M2 move
-        focusOffset = (absPosMM - tccActor.scaleDev.status.position) * UM_PER_MM * tccActor.SCALE_RATIO
+        focusOffset = (absPosMM - tccActor.scaleDev.status.position) * UM_PER_MM * tccActor.SCALE_RATIO * -1
         focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
         scaleCmd = tccActor.scaleDev.move(absPosMM)
         scaleCmd.addCallback(showScaleWhenDone) # showScale command sets done showScaleCmd
