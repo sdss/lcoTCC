@@ -197,7 +197,7 @@ StatusFieldList = [
                 StatusField("epoch", float),
                 StatusField("zd", float),
                 StatusField("mrp", castClamp),
-                StatusField("axisstatus", castAxis),
+                StatusField("axisstatus", castAxis), #unhack this!
                 StatusField("temps", castTemps),
                 StatusField("ttruss", float),
             ]
@@ -633,6 +633,7 @@ class TCSDevice(TCPDevice):
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
+        self.waitOffsetCmd.setTimeLimit(6)
         LinkCommands(userCmd, devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
@@ -654,6 +655,8 @@ class TCSDevice(TCPDevice):
             self.writeToUsers("w", "Rotator currently bypassed")
             userCmd.setState(userCmd.Done)
             log.info("%s.rotOffset(userCmd=%s, ra=%.6f)" % (self, userCmd, rot))
+            rot = self.status.statusFieldDict["rot"].value - rot
+            print("abs rot wanted: ", rot)
             return userCmd
         # zero the delta computation so the offset isn't marked done immediately
         if not self.conn.isConnected:
@@ -675,7 +678,7 @@ class TCSDevice(TCPDevice):
             return userCmd
         # apgcir requires absolute position, calculate it
         # first get status
-        newPos = self.status.statusFieldDict["rot"].value + rot
+        newPos = self.status.statusFieldDict["rot"].value - rot
         rotStart = time.time()
         def printRotSlewTime(aCmd):
             if aCmd.isDone:
