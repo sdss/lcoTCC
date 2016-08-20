@@ -217,7 +217,7 @@ TCCLCOCmdList = (
             parseDefs.KeywordParam(
                 name = 'device',
                 keywordDefList = [parseDefs.Keyword(name = item) for item in [
-                    "tcs", "scale", "sec"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
+                    "tcs", "scale", "sec", "measScale"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
                 numParamRange = [0, None],
                 help = "Which controller? If omitted then all devices.",
             ),
@@ -269,6 +269,11 @@ TCCLCOCmdList = (
                 parseDefs.Keyword(name="status"),
                 callFunc = threadRing,
                 help = "get threadring status",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="home"),
+                callFunc = threadRing,
+                help = "set mitutoyo into counting state and reset encoder values",
             ),
         ],
     ),

@@ -52,6 +52,7 @@ MAX_SPEED = 0.1
 NOM_SPEED = 0.1
 SEC_TIMEOUT = 2.0
 SCALE_ZERO = 27.5 #mm
+HOME_POS = 30 #mm
 
 class MungedStatusError(Exception):
     """The scaling ring occassionally returns a Munged status
@@ -90,6 +91,11 @@ class Status(object):
     def maxSpeed(self):
         # in mm / sec
         return MAX_SPEED
+
+    @property
+    def homePosition(self):
+        # in mm
+        return HOME_POS
 
     @property
     def scaleZero(self):
@@ -408,7 +414,7 @@ class ScaleDevice(TCPDevice):
         #     userCmd.setState(userCmd.Done)
         #     return userCmd
 
-    def getStatus(self, userCmd=None, timeLim=None):
+    def getStatus(self, userCmd=None, timeLim=None, linkState=True):
         """!Get status of the device.  If the device is
         busy (eg moving), send the cached status
         note that during moves the thread_ring_axis actual_position gets
@@ -426,8 +432,12 @@ class ScaleDevice(TCPDevice):
             statusDevCmd = self.queueDevCmd("status", userCmd)
             statusDevCmd.addCallback(self._statusCallback)
             statusDevCmd.setTimeLimit(timeLim)
-            LinkCommands(userCmd, [statusDevCmd])
-        return userCmd
+            if linkState:
+                LinkCommands(userCmd, [statusDevCmd])
+                return userCmd
+            else:
+                # return the device command to be linked outside
+                return statusDevCmd
 
     def _statusCallback(self, statusCmd):
         # if statusCmd.isActive:
@@ -510,6 +520,9 @@ class ScaleDevice(TCPDevice):
             statusDevCmd.addCallback(self._statusCallback)
             LinkCommands(userCmd, [speedDevCmd, statusDevCmd])
         return userCmd
+
+    def home(self, userCmd=None):
+        return self.move(HOME_POS, userCmd)
 
     def move(self, position, userCmd=None):
         """!Move to a position

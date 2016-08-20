@@ -18,7 +18,9 @@ ScaleStepSize = ScaleVelocity * TimerDelay # deg
 
 munge = 1
 
-__all__ = ["FakeScaleCtrl", "FakeTCS", "FakeM2Ctrl"]
+GlobalScalePosition = 20 # global variable for sharing scaling ring position between fake ScaleCtrl and fake ScaleMeas
+
+__all__ = ["FakeScaleCtrl", "FakeTCS", "FakeM2Ctrl", "FakeMeasScaleCtrl"]
 
 class FakeDev(TCPServer):
     """!A server that emulates an echoing device for testing
@@ -83,10 +85,11 @@ class FakeScaleCtrl(FakeDev):
         @param[in] name  name of scale controller
         @param[in] port  port on which to command scale controller
         """
+        global GlobalScalePosition
         self.isMoving = False
         self.moveRange = [0., 40.]
-        self.desPosition = 20 # wake up in mid travel
-        self.position = 20
+        self.desPosition = GlobalScalePosition # wake up in mid travel
+        self.position = GlobalScalePosition
         self.speed = 0.5
         self.moveTimer = Timer()
         self.posSw1, self.posSw2, self.posSw3 = (1, 1, 1)
@@ -109,7 +112,9 @@ class FakeScaleCtrl(FakeDev):
 
     def moveLoop(self):
         # loops always
+        global GlobalScalePosition
         self.position = self.incrementPosition(self.desPosition, self.position, self.speed*TimerDelay)
+        GlobalScalePosition = self.position
         if self.position == self.desPosition:
             # move is done, send OK
             self.userSock.writeLine("OK")
@@ -338,7 +343,15 @@ class FakeTCS(FakeDev):
                 self.userSock.writeLine(str(30.6)) #placeholder
             elif tokens[0] == "MRP" and len(tokens) == 1:
                 mrpLine = "%i 0 0 1 3"%(self.isClamped)
-                self.userSock.writeLine(mrpLine) #placeholder
+                self.userSock.writeLine(mrpLine)
+            elif tokens[0] == "TEMPS" and len(tokens) == 1:
+                self.userSock.writeLine("18.8 10.8 12.0 11.5 8.8 13.1 -273.1 -273.1")
+            elif tokens[0] == "ST" and len(tokens) == 1:
+                self.userSock.writeLine("06:59:29")
+            elif tokens[0] == "TTRUSS" and len(tokens) == 1:
+                self.userSock.writeLine("10.979")
+            elif tokens[0] == "INPHA" and len(tokens) == 1:
+                self.userSock.writeLine("0")
             elif tokens[0] == "AXISSTATUS" and len(tokens) == 1:
                 axisLine = "%i %i %i %i %i %i %i %i %i %i %i" % (
                     self.rstop, self.ractive, self.rmoving, self.rtracking,
@@ -594,3 +607,48 @@ class FakeM2Ctrl(FakeDev):
             errMsg = "Fake M2 controller %s failed to start on port %s" % (self.name, self.port)
             print(errMsg)
             # self.readyDeferred.errback(failure.Failure(RuntimeError(errMsg)))
+
+
+class FakeMeasScaleCtrl(FakeDev):
+    """!A server that emulates the Mitutoyo EV-Counter Serial interface
+    """
+    def __init__(self, name, port):
+        """!Construct a fake MeasController
+
+        @param[in] name  name of M2 controller
+        @param[in] port  port on which to command M2
+        """
+
+        FakeDev.__init__(self,
+            name = name,
+            port = port,
+        )
+
+    def measResponse(self):
+        # get mig position with some noise
+        measPosStr = ""
+        for ii in range(6):
+            meas = GlobalScalePosition + numpy.random.uniform(-1,1)/1000 #+/- 1 micron
+            if meas > 0:
+                sign = "+"
+            else:
+                sign = "-"
+            measPosStr += "G0%i,%s%.3f\n"%(ii+1, sign, meas)
+        return measPosStr
+
+    def parseCmdStr(self, cmdStr):
+        """Parse an incoming command
+        """
+        cmdStr = cmdStr.strip()
+        if not cmdStr:
+            return
+        try:
+            if cmdStr == "GAOO":
+                self.userSock.writeLine(self.measResponse())
+            else:
+                # unknown command?
+                raise RuntimeError("Unknown Command: %s"%cmdStr)
+        except Exception as e:
+            self.userSock.writeLine("ERROR") # error!
+            print("Error: ", e)
+

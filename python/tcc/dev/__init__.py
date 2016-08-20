@@ -8,3 +8,5 @@ from .tcsDeviceWrapper import *
 from .scaleDeviceWrapper import *
 from .m2Device import *
 from .m2DeviceWrapper import *
+from .measScaleDevice import *
+from .measScaleDeviceWrapper import *

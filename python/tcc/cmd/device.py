@@ -26,6 +26,7 @@ def device(tccActor, userCmd):
         "tcs": tccActor.tcsDev,
         "scale": tccActor.scaleDev,
         "sec": tccActor.secDev,
+        "measscale": tccActor.measScaleDev,
     }
     if "all" in devNameList:
         devNameList = devDict.keys()

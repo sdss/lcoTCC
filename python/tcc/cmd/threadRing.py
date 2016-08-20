@@ -1,5 +1,6 @@
 from __future__ import division, absolute_import
 
+from twistedActor import LinkCommands
 
 __all__ = ["threadRing"]
 
@@ -35,5 +36,30 @@ def threadRing(tccActor, userCmd):
             value = None
         tccActor.scaleDev.setScaleZeroPoint(value, userCmd)
     elif "status" in parsedKeys:
-        tccActor.scaleDev.getStatus(userCmd)
+        # what do do here? both write to users should get same
+        # user command but I don't want the command to be set done!
+        threadCmd = tccActor.scaleDev.getStatus()
+        encCmd = tccActor.measScaleDev.getStatus()
+        LinkCommands(userCmd, [threadCmd, encCmd])
+    elif "home" in parsedKeys:
+        setCountCmd = tccActor.measScaleDev.setCountState()
+        def zeroEncoders(_homeCmd):
+            if _homeCmd.isDone:
+                if _homeCmd.didFail:
+                    userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
+                else:
+                    # set/get encoder readings
+                    tccActor.measScaleDev.setHome(homePos=tccActor.scaleDev.status.homePosition, userCmd=userCmd)
+        def homeThreadRing(_setCountCmd):
+            if _setCountCmd.isDone:
+                if _setCountCmd.didFail:
+                    userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
+                else:
+                    homeCmd = tccActor.scaleDev.home()
+                    homeCmd.addCallback(zeroEncoders)
+        setCountCmd.addCallback(homeThreadRing)
+
+
+
+
 

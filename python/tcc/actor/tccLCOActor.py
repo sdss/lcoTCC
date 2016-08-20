@@ -51,6 +51,7 @@ class TCCLCOActor(BaseActor):
         tcsDev,
         scaleDev,
         m2Dev,
+        measScaleDev,
         name = "tcc",
     ):
         """Construct a TCCActor
@@ -59,6 +60,7 @@ class TCCLCOActor(BaseActor):
         @param[in] tcsDev a TCSDevice instance
         @param[in] scaleDev  a ScaleDevice instance
         @param[in] m2Dev a M2Device instance
+        @param[in] m2Dev a MeasScaleDevice instance
         @param[in] name  actor name; used for logging
         """
         self.tcsDev = tcsDev
@@ -67,12 +69,15 @@ class TCCLCOActor(BaseActor):
         self.scaleDev.writeToUsers = self.writeToUsers
         self.secDev = m2Dev
         self.secDev.writeToUsers = self.writeToUsers
+        self.measScaleDev = measScaleDev
+        self.measScaleDev.writeToUsers = self.writeToUsers
         # auto connection looks for self.dev
-        self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.secDev])
+        self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.secDev, self.measScaleDev])
         # connect devices
         self.tcsDev.connect()
         self.scaleDev.connect()
         self.secDev.connect()
+        self.measScaleDev.connect()
         self.cmdParser = TCCLCOCmdParser()
         self.collimationModel = CollimationModel()
         self.collimateTimer = Timer(0, self.updateCollimation)
@@ -137,10 +142,7 @@ class TCCLCOActor(BaseActor):
             raise RuntimeError("Command %r not yet implemented" % (cmd.parsedCmd.cmdVerb,))
 
     def updateCollimation(self, cmd=None, force=False, target=False, doFocus=False, setFocus=False):
-        """Update collimation based on info in obj, inst, weath blocks, for all mirrors present
-
-        @param[in] cmd  command (twistedActor.BaseCmd) associated with this request;
-            state will be updated upon completion; None if no command is associated
+        """
 
         LCO HACK!!! clean this stuff up!!!!
         """
