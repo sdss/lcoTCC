@@ -11,7 +11,7 @@ from twisted.internet import reactor
 from twistedActor import startFileLogging
 
 from tcc.actor.tccLCOActor import TCCLCOActor
-from tcc.dev import TCSDevice, ScaleDevice, M2Device
+from tcc.dev import TCSDevice, ScaleDevice, M2Device, MeasScaleDevice
 
 # log to directory $HOME/tcclogs/
 logPath = "/data/logs/actors/tcc"
@@ -28,6 +28,8 @@ TCSHost = "c100tcs"#.lco.cl
 TCSDevicePort = 4242
 M2DeviceHost = "vinchuca"
 M2DevicePort = 52001
+MeasScaleDeviceHost = "10.1.1.41"
+MeasScaleDevicePort = 10001
 
 def startTCCLCO(*args):
     try:
@@ -37,6 +39,7 @@ def startTCCLCO(*args):
             tcsDev = TCSDevice("tcsDev", TCSHost, TCSDevicePort),
             scaleDev = ScaleDevice("scaleDev", ScaleDeviceHost, ScaleDevicePort),
             m2Dev = M2Device("m2Dev", M2DeviceHost, M2DevicePort),
+            measScaleDev = MeasScaleDevice("measScaleDev", MeasScaleDeviceHost, MeasScaleDevicePort)
             )
     except Exception:
         print >>sys.stderr, "Error lcoTCC"
