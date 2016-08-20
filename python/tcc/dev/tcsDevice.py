@@ -628,8 +628,8 @@ class TCSDevice(TCPDevice):
         if not self.waitOffsetCmd.isDone:
             self.waitOffsetCmd.setState(self.waitOffsetCmd.Cancelled, "Superseded by new offset")
         self.waitOffsetCmd = UserCmd()
-        enterRa = "OFRA %.8f"%(-1*ra*ArcSecPerDeg) #LCO: HACK
-        enterDec = "OFDC %.8f"%(-1*dec*ArcSecPerDeg)
+        enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg)
+        enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg)
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
