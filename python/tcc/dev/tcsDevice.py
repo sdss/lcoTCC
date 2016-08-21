@@ -36,9 +36,9 @@ DECSP=225000
 # IR Scale - encoder counts per degree
 IRSCALE = -0.00015263375
 # IR Offset - encoder counts, to match mechanical readout
-IROFFSET =277
+IROFFSET = 405.447
 # IR motor steps per encoder count
-IRMOTORSCALE=0.3052
+IRSCALE = -0.00015263375
 # IR acceleration (motor encoder counts / sec2)
 IRAC=1000
 # IR deceleration (motor encoder counts / sec2)
@@ -47,6 +47,13 @@ IRDC=1000
 IRFASTSP=2000
 # IR slow speed (motor encoder counts / sec)
 IRSLOWSP=53
+
+def encCounts2Deg(encCounts):
+    """
+    for converting rotator enc counts to degree position.
+    this is more accurate than the TCS reported rot pos
+    """
+    return IROFFSET + IRSCALE * encCounts
 
 def SlewTimeRA(deg):
     return deg * HASCALE / float(HASP)
@@ -64,7 +71,7 @@ MinRotOffset = 5 / ArcSecPerDeg # minimum commandable rotator offset
 MaxRotOffset = 60 / ArcSecPerDeg # max commandable rotator offset
 UnclampWaitTime = 7 # measured with a stopwatch to be 5 seconds listening to motors, add 2 extra secs buffer
 ClampFudgeTime = 0.5 #seconds.  Time delay between perceived end of rotation and issuing "clamp"
-RotSpeed = 1 # in degrees/second for setting timeout.
+# RotSpeed = 1 # in degrees/second for setting timeout.
 
 # DuPontLat = -1*(29 + 52.56 / float(ArcSecPerDeg))
 # DuPontLong = 70 + 41.0 / 60. + 33.36 / float(ArcSecPerDeg)
@@ -157,6 +164,13 @@ def castTemps(lcoReply):
     values = [float(temp) for temp in lcoReply.split()]
     return dict(zip(tempKeys,values))
 
+def castRawPos(lcoReply):
+    items = lcoReply.split()
+    # rotator encoder counts is the last element
+    # in this list
+    encCounts = int(items[-1])
+    return encCounts2Deg(encCounts)
+
 
 class StatusField(object):
     def __init__(self, cmdVerb, castFunc):
@@ -200,6 +214,7 @@ StatusFieldList = [
                 StatusField("axisstatus", castAxis), #unhack this!
                 StatusField("temps", castTemps),
                 StatusField("ttruss", float),
+                StatusField("rawpos", castRawPos),
             ]
 
 class Status(object):
@@ -250,13 +265,21 @@ class Status(object):
         return "tccHA=%s"%haStr
 
     def tccPos(self):
-        raPos = self.statusFieldDict["inpra"].value
-        decPos = self.statusFieldDict["inpdc"].value
-        rotPos = self.statusFieldDict["rot"].value
-        raStr = "%.4f"%raPos if raPos else "NaN"
-        decStr = "%.4f"%decPos if decPos else "NaN"
-        rotStr = "%.4f"%rotPos if decPos else "NaN"
-        return "TCCPos=%s"%(", ".join([raStr, decStr, rotStr]))
+        # raPos = self.statusFieldDict["inpra"].value
+        # decPos = self.statusFieldDict["inpdc"].value
+        # rotPos = self.rotPos
+        # raStr = "%.4f"%raPos if raPos else "NaN"
+        # decStr = "%.4f"%decPos if decPos else "NaN"
+        # rotStr = "%.4f"%rotPos if decPos else "NaN"
+        # return "TCCPos=%s"%(", ".join([raStr, decStr, rotStr]))
+
+        elPos = self.statusFieldDict["telel"].value
+        azPos = self.statusFieldDict["telaz"].value
+        rotPos = self.rotPos
+        elStr = "%.4f"%elPos if elPos else "NaN"
+        azStr = "%.4f"%azPos if azPos else "NaN"
+        rotStr = "%.4f"%rotPos if rotPos else "NaN"
+        return "TCCPos=%s"%(", ".join([azStr, elStr, rotStr]))
 
     def tccTemps(self):
         tempsDict = self.statusFieldDict["temps"].value
@@ -317,7 +340,7 @@ class Status(object):
         """
         raPos = self.statusFieldDict["ra"].value
         decPos = self.statusFieldDict["dec"].value
-        rotPos = self.statusFieldDict["rot"].value
+        rotPos = self.rotPos
         raStr = "%.4f"%raPos if raPos else "NaN"
         decStr = "%.4f"%decPos if decPos else "NaN"
         rotStr = "%.4f"%rotPos if decPos else "NaN"
@@ -331,6 +354,10 @@ class Status(object):
     #     secFocus = self.statusFieldDict["focus"].value
     #     secFocus = "NaN" if secFocus is None else "%.4f"%secFocus
     #     return "SecFocus=%s"%secFocus
+
+    @property
+    def rotPos(self):
+        return self.rotPos
 
     @property
     def arcOff(self):
@@ -347,10 +374,10 @@ class Status(object):
 
     @property
     def rotOnTarget(self):
-        return abs(self.targRot - self.statusFieldDict["rot"].value)<self.rotOnTarg
+        return abs(self.targRot - self.rotPos)<self.rotOnTarg
 
     def setRotOffsetTarg(self, rotOffset):
-        self.targRot = self.statusFieldDict["rot"].value + rotOffset
+        self.targRot = self.rotPos + rotOffset
 
     def axesSlewing(self):
         if self.previousDec == ForceSlew:
@@ -420,6 +447,8 @@ class TCSDevice(TCPDevice):
 
         self.waitOffsetCmd = UserCmd()
         self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
+        self.waitOffsetTimer = Timer()
+
         self.devCmdQueue = CommandQueue({}) # all commands of equal priority
 
         TCPDevice.__init__(self,
@@ -454,7 +483,6 @@ class TCSDevice(TCPDevice):
 
     @property
     def isSlewing(self):
-
         if not self.waitOffsetCmd.isDone or not self.status.isClamped:
             # if clamp is not on, then we are moving the rotator
             return True
@@ -627,13 +655,21 @@ class TCSDevice(TCPDevice):
             return userCmd
         if not self.waitOffsetCmd.isDone:
             self.waitOffsetCmd.setState(self.waitOffsetCmd.Cancelled, "Superseded by new offset")
-        self.waitOffsetCmd = UserCmd()
+        waitOffsetCmd = UserCmd()
+        self.waitOffsetCmd = waitOffsetCmd
         enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg)
-        enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg)
+        enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
-        self.waitOffsetCmd.setTimeLimit(6)
+        # set an offset done after 6 seconds no matter what
+        def setWaitOffsetCmdDone(aWaitingOffsetCmd):
+            if not aWaitingOffsetCmd.isDone:
+                print("Wait offset timed out!!!!")
+                self.writeToUsers("w", "Text=OFFSET SET DONE ON TIMER.")
+                aWaitingOffsetCmd.setState(aWaitingOffsetCmd.Done, "offset set done on a timer")
+        self.waitOffsetTimer.start(8, setWaitOffsetCmdDone, waitOffsetCmd)
+        # self.waitOffsetCmd.setTimeLimit(6)
         LinkCommands(userCmd, devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
@@ -649,10 +685,10 @@ class TCSDevice(TCPDevice):
         @param[in] rot: in decimal degrees
         @param[in] userCmd a twistedActor BaseCommand
         """
-        if True:
-            # Lupton!
+        # LCOHACK: allow offsets only if over 5 arcseconds!
+        if False:
             userCmd = expandUserCmd(userCmd)
-            self.writeToUsers("w", "Rotator currently bypassed")
+            self.writeToUsers("w", "Rotator offset too small")
             userCmd.setState(userCmd.Done)
             log.info("%s.rotOffset(userCmd=%s, ra=%.6f)" % (self, userCmd, rot))
             rot = self.status.statusFieldDict["rot"].value - rot
@@ -678,13 +714,17 @@ class TCSDevice(TCPDevice):
             return userCmd
         # apgcir requires absolute position, calculate it
         # first get status
-        newPos = self.status.statusFieldDict["rot"].value - rot
+        newPos = self.status.rotPos - rot
         rotStart = time.time()
         def printRotSlewTime(aCmd):
             if aCmd.isDone:
                 rotTime = time.time() - rotStart
                 print("rot: off, time, speed: %.5f %.5f %5f"%(newPos, rotTime, newPos/rotTime))
         self.waitRotCmd = UserCmd()
+        # calculate time limit for rot move:
+        rotMoveTimeLim = rot / IRSCALE / IRSLOWSP
+        self.writeToUsers("w", "time for rotator move: %.2f"%rotMoveTimeLim)
+        self.waitOffsetCmd.setTimeLimit(rotMoveTimeLim)
         self.status.setRotOffsetTarg(rot)
         enterAPGCIR = DevCmd(cmdStr="APGCIR %.8f"%(newPos))
         LinkCommands(userCmd, [enterAPGCIR, self.waitRotCmd])
@@ -695,77 +735,77 @@ class TCSDevice(TCPDevice):
             self.writeToUsers("i", statusStr, userCmd)
         return userCmd
 
-    def _rotOffset(self, rot, userCmd=None):
-        """Offset telescope rotator.
+    # def _rotOffset(self, rot, userCmd=None):
+    #     """Offset telescope rotator.
 
-        @param[in] rot: in decimal degrees
-        @param[in] userCmd a twistedActor BaseCommand
-        """
-        log.info("%s.rotOffset(userCmd=%s, ra=%.6f)" % (self, userCmd, rot))
-        userCmd = expandUserCmd(userCmd)
-        # zero the delta computation so the offset isn't marked done immediately
-        if not self.conn.isConnected:
-            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
-            return userCmd
-        if not self.waitRotCmd.isDone:
-            # rotator is unclamped, a move is in progress
-            userCmd.setState(userCmd.Failed, "Rotator is unclamped (already moving)")
-            return userCmd
-        if abs(rot) < MinRotOffset:
-            # set command done, rotator offset is miniscule
-            self.writeToUsers("w", "Rot offset less than min threshold", userCmd)
-            userCmd.setState(userCmd.Done)
-            return userCmd
-        if abs(rot) > MaxRotOffset:
-            # set command failed, rotator offset is too big
-            self.writeToUsers("w", "Rot offset less than min threshold", userCmd)
-            userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
-            return userCmd
-        self.waitRotCmd = UserCmd()
-        self.waitClampCmd = UserCmd()
-        self.status.setRotOffsetTarg(rot)
-        clamp = DevCmd(cmdStr="CLAMP")
-        # unclamp done is finished on a 7 second timer
-        # it will cause the queue to wait this long before
-        # sending the dcir command.
-        # this 'unclamp time' was measured with a stop watch
-        # and listening to the motor...
-        waitUnclampCmd = UserCmd()
-        enterDCIR = DevCmd(cmdStr="DCIR %.8f"%(rot))
-        unclamp = DevCmd(cmdStr="UNCLAMP")
+    #     @param[in] rot: in decimal degrees
+    #     @param[in] userCmd a twistedActor BaseCommand
+    #     """
+    #     log.info("%s.rotOffset(userCmd=%s, ra=%.6f)" % (self, userCmd, rot))
+    #     userCmd = expandUserCmd(userCmd)
+    #     # zero the delta computation so the offset isn't marked done immediately
+    #     if not self.conn.isConnected:
+    #         userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+    #         return userCmd
+    #     if not self.waitRotCmd.isDone:
+    #         # rotator is unclamped, a move is in progress
+    #         userCmd.setState(userCmd.Failed, "Rotator is unclamped (already moving)")
+    #         return userCmd
+    #     if abs(rot) < MinRotOffset:
+    #         # set command done, rotator offset is miniscule
+    #         self.writeToUsers("w", "Rot offset less than min threshold", userCmd)
+    #         userCmd.setState(userCmd.Done)
+    #         return userCmd
+    #     if abs(rot) > MaxRotOffset:
+    #         # set command failed, rotator offset is too big
+    #         self.writeToUsers("w", "Rot offset less than min threshold", userCmd)
+    #         userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
+    #         return userCmd
+    #     self.waitRotCmd = UserCmd()
+    #     self.waitClampCmd = UserCmd()
+    #     self.status.setRotOffsetTarg(rot)
+    #     clamp = DevCmd(cmdStr="CLAMP")
+    #     # unclamp done is finished on a 7 second timer
+    #     # it will cause the queue to wait this long before
+    #     # sending the dcir command.
+    #     # this 'unclamp time' was measured with a stop watch
+    #     # and listening to the motor...
+    #     waitUnclampCmd = UserCmd()
+    #     enterDCIR = DevCmd(cmdStr="DCIR %.8f"%(rot))
+    #     unclamp = DevCmd(cmdStr="UNCLAMP")
 
-        LinkCommands(userCmd, [unclamp, waitUnclampCmd, enterDCIR, self.waitRotCmd, clamp])
-        def waitForUnclamp(unclampCmdVar):
-            # when unclamp returns successfull
-            # set the wait unclamp command done on a 7 second
-            # timer.
-            if unclampCmdVar.isDone:
-                Timer(UnclampWaitTime, waitUnclampCmd.setState, waitUnclampCmd.Done)
+    #     LinkCommands(userCmd, [unclamp, waitUnclampCmd, enterDCIR, self.waitRotCmd, clamp])
+    #     def waitForUnclamp(unclampCmdVar):
+    #         # when unclamp returns successfull
+    #         # set the wait unclamp command done on a 7 second
+    #         # timer.
+    #         if unclampCmdVar.isDone:
+    #             Timer(UnclampWaitTime, waitUnclampCmd.setState, waitUnclampCmd.Done)
 
-        def sendRotOffset(waitUnclampCmdVar):
-            # when we're done waiting for the unclamp, send the
-            # delta rot
-            if waitUnclampCmdVar.isDone:
-                # self.waitRotCmd is set running when dcir is sent
-                self.queueDevCmd(enterDCIR)
-                self.writeToUsers("i", "text=Rotator DCIR %.4f sent"%rot)
+    #     def sendRotOffset(waitUnclampCmdVar):
+    #         # when we're done waiting for the unclamp, send the
+    #         # delta rot
+    #         if waitUnclampCmdVar.isDone:
+    #             # self.waitRotCmd is set running when dcir is sent
+    #             self.queueDevCmd(enterDCIR)
+    #             self.writeToUsers("i", "text=Rotator DCIR %.4f sent"%rot)
 
-        def sendClamp(waitRotCmdVar):
-            if waitRotCmdVar.isDone:
-                self.queueDevCmd(clamp)
-                self.writeToUsers("i", "text=Rot move done, sending CLAMP")
+    #     def sendClamp(waitRotCmdVar):
+    #         if waitRotCmdVar.isDone:
+    #             self.queueDevCmd(clamp)
+    #             self.writeToUsers("i", "text=Rot move done, sending CLAMP")
 
 
-        unclamp.addCallback(waitForUnclamp)
-        waitUnclampCmd.addCallback(sendRotOffset)
-        self.waitRotCmd.addCallback(sendClamp)
-        # begin the dominos game
-        self.queueDevCmd(unclamp)
-        self.writeToUsers("i", "text=UNCLAMP sent, waiting %i seconds to open"%UnclampWaitTime)
-        statusStr = self.status.getStatusStr()
-        if statusStr:
-            self.writeToUsers("i", statusStr, userCmd)
-        return userCmd
+    #     unclamp.addCallback(waitForUnclamp)
+    #     waitUnclampCmd.addCallback(sendRotOffset)
+    #     self.waitRotCmd.addCallback(sendClamp)
+    #     # begin the dominos game
+    #     self.queueDevCmd(unclamp)
+    #     self.writeToUsers("i", "text=UNCLAMP sent, waiting %i seconds to open"%UnclampWaitTime)
+    #     statusStr = self.status.getStatusStr()
+    #     if statusStr:
+    #         self.writeToUsers("i", statusStr, userCmd)
+    #     return userCmd
 
 
     def handleReply(self, replyStr):

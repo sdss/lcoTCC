@@ -51,8 +51,8 @@ __all__ = ["ScaleDevice"]
 MAX_SPEED = 0.1
 NOM_SPEED = 0.1
 SEC_TIMEOUT = 2.0
-SCALE_ZERO = 27.5 #mm
-HOME_POS = 30 #mm
+SCALE_ZERO = 20 #mm
+HOME_POS = 20 #mm
 
 class MungedStatusError(Exception):
     """The scaling ring occassionally returns a Munged status
