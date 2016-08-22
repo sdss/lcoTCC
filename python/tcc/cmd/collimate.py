@@ -116,18 +116,15 @@ def collimate(tccActor, userCmd):
     params = userCmd.parsedCmd.paramDict
     # quals = userCmd.parsedCmd.qualDict
     param = params["type"].valueList[0].keyword
-    target = userCmd.parsedCmd.qualDict['target'].boolValue
-    dofocus = userCmd.parsedCmd.qualDict['dofocus'].boolValue
-    if param == "stop":
+    if param == "stopTimer":
         tccActor.collimationModel.doCollimate = False
         tccActor.collimateTimer.cancel()
         userCmd.setState(userCmd.Done)
-    elif param == "start":
+    elif param == "startTimer":
         tccActor.collimationModel.doCollimate = True
-        tccActor.updateCollimation(userCmd, target=target, doFocus=dofocus)
-    elif param == "forceonce":
-        tccActor.updateCollimation(userCmd, force=True, target=target)
-    elif param == "setfocus":
-        tccActor.updateCollimation(userCmd, setFocus=True)
+        tccActor.updateCollimation(userCmd)
+    elif param == "force":
+        tccActor.collimationModel.doCollimate = True
+        tccActor.updateCollimation(userCmd, force=True)
 
 
