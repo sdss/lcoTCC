@@ -9,8 +9,9 @@ __all__ = ["MeasScaleDevice"]
 
 READ_ENC = "GA00"
 COUNTING_STATE = "CS00"
-ZERO_SET_PREFIX = "CR0"
-SUCESS_PREFIX = "CH0"
+DISPLAY_CURR = "CN00" # all axes to display current value (not max, etc)
+ZERO_SET = "CR00"
+SUCESS = "CH00"
 ENCVAL_PREFIX = "GN0"
 
 class MeasScaleDevice(TCPDevice):
@@ -97,22 +98,20 @@ class MeasScaleDevice(TCPDevice):
         """
         userCmd = expandUserCmd(userCmd)
         countDevCmd = self.queueDevCmd(COUNTING_STATE, userCmd)
-        countDevCmd.addCallback(self._statusCallback)
+        currValDevCmd = self.queueDevCmd(DISPLAY_CURR, userCmd)
+        currValDevCmd.addCallback(self._statusCallback)
         countDevCmd.setTimeLimit(timeLim)
-        LinkCommands(userCmd, [countDevCmd])
+        currValDevCmd.setTimeLimit(timeLim)
+        LinkCommands(userCmd, [countDevCmd, currValDevCmd])
         return userCmd
 
     def setHome(self, homePos, userCmd=None, timeLim=3):
         self.homePos = homePos
         userCmd = expandUserCmd(userCmd)
-        devCmdList = [self.queueDevCmd(ZERO_SET_PREFIX + "%i"%(ii+1), userCmd) for ii in range(3)]
-        devCmdList.append(self.queueDevCmd(READ_ENC, userCmd))
-        # send status after last dev cmd is done (the enc read)
+        devCmdList = [self.queueDevCmd(evCMD, userCmd) for evCMD in [ZERO_SET, READ_ENC]]
         devCmdList[-1].addCallback(self._statusCallback)
         LinkCommands(userCmd, devCmdList)
         return userCmd
-
-
 
     def _statusCallback(self, statusCmd):
         # if statusCmd.isActive:
@@ -133,17 +132,13 @@ class MeasScaleDevice(TCPDevice):
     @property
     def encPosKWStr(self):
         encPosStr = []
-        for ii, encPos in enumerate(self.encPos):
+        for encPos in self.encPos[:3]:
             if encPos is None:
                 encPosStr.append("?")
             else:
-                if ii < 3:
-                    # add the home position
-                    # to these values
-                    encPos += self.homePos
+                encPos += self.homePos
                 encPosStr.append("%.3f"%encPos)
-        return "ScaleEncHomedPos=" + ", ".join(encPosStr[:3]) \
-                + "; ScaleEncRawPos=" + ", ".join(encPosStr[3:])
+        return "ScaleEncPos=" + ", ".join(encPosStr[:3])
 
     @property
     def encHomedKWStr(self):
@@ -192,9 +187,8 @@ class MeasScaleDevice(TCPDevice):
             # was this the 6th value read? if so we are done
             if replyStr.startswith(ENCVAL_PREFIX+"%i"%6):
                 self.currExeDevCmd.setState(self.currExeDevCmd.Done)
-        if self.currExeDevCmd.cmdStr == COUNTING_STATE or \
-            self.currExeDevCmd.cmdStr.startswith(ZERO_SET_PREFIX):
-            if replyStr.startswith(SUCESS_PREFIX):
+        if self.currExeDevCmd.cmdStr in [COUNTING_STATE, ZERO_SET, DISPLAY_CURR]:
+            if replyStr == SUCESS:
                 # successful set into counting state
                 self.currExeDevCmd.setState(self.currExeDevCmd.Done)
 

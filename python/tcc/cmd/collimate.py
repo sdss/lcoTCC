@@ -124,7 +124,6 @@ def collimate(tccActor, userCmd):
         tccActor.collimationModel.doCollimate = True
         tccActor.updateCollimation(userCmd)
     elif param == "force":
-        tccActor.collimationModel.doCollimate = True
         tccActor.updateCollimation(userCmd, force=True)
 
 

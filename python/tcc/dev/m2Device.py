@@ -242,7 +242,7 @@ class M2Device(TCPDevice):
             userCmd = self.currExeDevCmd.userCmd
             if self.waitMoveCmd.isActive:
                 userCmd = self.waitMoveCmd
-            self.writeToUsers("i", statusStr, userCmd)
+            self.writeToUsers("d", statusStr, userCmd)
 
         if self.waitMoveCmd.isActive:
             if not self.isBusy:

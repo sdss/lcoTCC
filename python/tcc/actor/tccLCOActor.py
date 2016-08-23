@@ -147,7 +147,7 @@ class TCCLCOActor(BaseActor):
         LCO HACK!!! clean this stuff up!!!!
         """
         cmd = expandUserCmd(cmd)
-        if not self.collimationModel.doCollimate and not force and not setFocus:
+        if not self.collimationModel.doCollimate and not force:
             cmd.setState(cmd.Failed, "collimation is disabled")
             return
         self.collimateTimer.cancel() # incase one is pending
@@ -155,13 +155,13 @@ class TCCLCOActor(BaseActor):
         statusCmd = self.tcsDev.getStatus()
         # when status returns determine current coords
         def moveMirrorCallback(statusCmd):
-            doFocus = statusCmd.doFocus
             if statusCmd.didFail:
                 cmd.setState(cmd.Failed, "status command failed")
             elif statusCmd.isDone:
                 # ha = self.tcsDev.status.statusFieldDict["ha"].value
                 # dec = self.tcsDev.status.statusFieldDict["dec"].value
-                if target:
+                # if an axis is slewing collimate to the target
+                if True in self.tcsDev.status.axesSlewing():
                     # get target coords
                     # st and ra in degrees
                     st = self.tcsDev.status.statusFieldDict["st"].value
@@ -185,33 +185,22 @@ class TCCLCOActor(BaseActor):
                 dtransY = newOrient[4]-orient[4]
                 doFlex = numpy.max(numpy.abs([dtiltX, dtiltY])) > self.collimationModel.minTilt or numpy.max(numpy.abs([dtransX, dtransY])) > self.collimationModel.minTrans
 
-                if not doFlex:
+                if force:
+                    self.writeToUsers("i", "collimation update forced")
+                if not doFlex and not force:
                     self.writeToUsers("i", "collimation flex update too small: dTiltX=%.2f, dTiltY=%.2f, dTransX=%.2f, dTransY=%.2f"%(dtiltX, dtiltY, dtransX, dtransY))
                     cmd.setState(cmd.Done)
                 else:
                     # update flex values
-                    orient[1:] = newOrient[1:]
+                    orient[1:] = newOrient[1:] # keep existing focus
                     self.writeToUsers("i", "collimation update: Focus=%.2f, TiltX=%.2f, TiltY=%.2f, TransX=%.2f, TransY=%.2f"%tuple(orient), cmd=cmd)
                     self.secDev.move(orient, userCmd=cmd)
 
 
-        def setFocusCallback(statusCmd):
-            if statusCmd.didFail:
-                cmd.setState(cmd.Failed, "status command failed")
-                return
-            if statusCmd.isDone:
-                baseTemp = self.tcsDev.status.trussTemp
-                baseFocus = self.secDev.status.secFocus
-                self.collimationModel.setFocus(baseFocus, baseTemp)
-                cmd.setState(cmd.Done)
-
-        if setFocus:
-            statusCmd.addCallback(setFocusCallback)
-        else:
-            statusCmd.addCallback(moveMirrorCallback)
+        statusCmd.addCallback(moveMirrorCallback)
 
         # remove timer for now
-        # if self.collimationModel.doCollimate:
-        #     self.collimateTimer.start(self.collimationModel.collimateInterval, self.updateCollimation)
-        # else:
-        #     self.collimateTimer.cancel()
+        if self.collimationModel.doCollimate:
+            self.collimateTimer.start(self.collimationModel.collimateInterval, self.updateCollimation)
+        else:
+            self.collimateTimer.cancel()
