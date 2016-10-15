@@ -170,7 +170,6 @@ def castRawPos(lcoReply):
     # in this list
     encCounts = int(items[-1])
     deg = encCounts2Deg(encCounts)
-    print("Rotator Degrees: %.6f"%deg)
     return deg
 
 
@@ -230,7 +229,7 @@ class Status(object):
         # 0:0:0.2 seconds ra
         self.raOnTarg = castHoursToDeg("0:0:0.2")
         self.decOnTarg = degFromDMSStr("0:0:01")
-        self.rotOnTarg = 1 * ArcSecPerDeg # within 1 arcsec rot move is considered done
+        # self.rotOnTarg = 1 * ArcSecPerDeg # within 1 arcsec rot move is considered done
         self.statusFieldDict = collections.OrderedDict(( (x.cmdVerb, x) for x in StatusFieldList ))
         # self.focus = None
         # self.targFocus = None
@@ -374,9 +373,9 @@ class Status(object):
         # return "%.6f, 0.0, 0.0, %.6f, 0.0, 0.0"%(raOff, decOff)
         return "%.6f, %.6f"%(raOff, decOff)
 
-    @property
-    def rotOnTarget(self):
-        return abs(self.targRot - self.rotPos)<self.rotOnTarg
+    # @property
+    # def rotOnTarget(self):
+    #     return abs(self.targRot - self.rotPos)<self.rotOnTarg
 
     def setRotOffsetTarg(self, rotOffset):
         self.targRot = self.rotPos + rotOffset
@@ -521,8 +520,13 @@ class TCSDevice(TCPDevice):
         userCmd = expandUserCmd(userCmd)
         userCmd.addCallback(self._statusCallback)
         # record the present RA, DEC (for determining when offsets are done)
-        self.status.previousRA = self.status.statusFieldDict["ra"].value
-        self.status.previousDec = self.status.statusFieldDict["dec"].value
+        # self.status.previousRA = self.status.statusFieldDict["ra"].value
+        # self.status.previousDec = self.status.statusFieldDict["dec"].value
+        if self.status.statusFieldDict["mpos"].value is None:
+            self.status.previousRA, self.status.previousDec = None, None
+        else:
+            self.status.previousRA = self.status.statusFieldDict["mpos"].value[0]
+            self.status.previousDec = self.status.statusFieldDict["mpos"].value[1]
         # gather list of status elements to get
         devCmdList = [DevCmd(cmdStr=cmdVerb) for cmdVerb in self.status.statusFieldDict.keys()]
         LinkCommands(userCmd, devCmdList)
@@ -623,6 +627,7 @@ class TCSDevice(TCPDevice):
         # AND the pending slew is also done.
         # set an offset done after 6 seconds no matter what
         def setWaitOffsetCmdDone(aWaitingOffsetCmd):
+            print("wait offset command state", aWaitingOffsetCmd.state)
             if not aWaitingOffsetCmd.isDone:
                 print("Wait offset timed out!!!!")
                 self.writeToUsers("w", "Text=OFFSET SET DONE ON TIMER.")

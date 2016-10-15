@@ -352,6 +352,8 @@ class FakeTCS(FakeDev):
                 self.userSock.writeLine("10.979")
             elif tokens[0] == "INPHA" and len(tokens) == 1:
                 self.userSock.writeLine("0")
+            elif tokens[0] == "RAWPOS" and len(tokens) == 1:
+                self.userSock.writeLine("1 1 1 1 1")
             elif tokens[0] == "AXISSTATUS" and len(tokens) == 1:
                 axisLine = "%i %i %i %i %i %i %i %i %i %i %i" % (
                     self.rstop, self.ractive, self.rmoving, self.rtracking,
@@ -391,6 +393,11 @@ class FakeTCS(FakeDev):
                 self.userSock.writeLine("0")
             elif tokens[0] == "CLAMP":
                 self.isClamped = 1
+                self.userSock.writeLine("0")
+            elif tokens[0] == "APGCIR":
+                assert len(tokens) == 2, "Error Parsising APGCIR Execute"
+                self.targRot = float(tokens[1])
+                self.doRot()
                 self.userSock.writeLine("0")
             elif tokens[0] == "DCIR":
                 assert len(tokens) == 2, "Error Parsising DCIR Execute"
@@ -633,7 +640,7 @@ class FakeMeasScaleCtrl(FakeDev):
                 sign = "+"
             else:
                 sign = "-"
-            measPosStr += "G0%i,%s%.3f\n"%(ii+1, sign, meas)
+            measPosStr += "GN0%i,%s%.3f\n"%(ii+1, sign, meas)
         return measPosStr
 
     def parseCmdStr(self, cmdStr):
@@ -642,13 +649,24 @@ class FakeMeasScaleCtrl(FakeDev):
         cmdStr = cmdStr.strip()
         if not cmdStr:
             return
-        try:
-            if cmdStr == "GAOO":
-                self.userSock.writeLine(self.measResponse())
-            else:
-                # unknown command?
-                raise RuntimeError("Unknown Command: %s"%cmdStr)
-        except Exception as e:
+        if cmdStr == "GA00":
+            self.userSock.writeLine(self.measResponse())
+        elif cmdStr == "CS00":
+            pass
+        elif cmdStr == "CN00":
+            pass
+        elif cmdStr == "CR00":
+            pass
+        else:
+            # unknown command?
             self.userSock.writeLine("ERROR") # error!
-            print("Error: ", e)
+
+    def stateCallback(self, server=None):
+        if self.isReady:
+            # self.readyDeferred.callback(None)
+            print("Fake Meas Scale controller %s running on port %s" % (self.name, self.port))
+        elif self.didFail and not self.readyDeferred.called:
+            errMsg = "Fake Meas Scale controller %s failed to start on port %s" % (self.name, self.port)
+            print(errMsg)
+            # self.readyDeferred.errback(failure.Failure(RuntimeError(errMsg)))
 

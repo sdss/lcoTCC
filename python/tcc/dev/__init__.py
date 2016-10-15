@@ -5,7 +5,6 @@ from .scaleDevice import *
 from .scaleDeviceWrapper import *
 from .tcsDevice import *
 from .tcsDeviceWrapper import *
-from .scaleDeviceWrapper import *
 from .m2Device import *
 from .m2DeviceWrapper import *
 from .measScaleDevice import *

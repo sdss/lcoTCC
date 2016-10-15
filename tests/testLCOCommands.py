@@ -173,7 +173,7 @@ class TestLCOCommands(TestCase):
     def checkOffsetDone(self, raVal, decVal):
         # how to verify position is correct?
         self.checkAxesState(["Tracking"]*2 + ["Halted"])
-        self.checkAxesPosition(-1*raVal, -1*decVal) # offsets are applied negatively (Du Pont TCS convention)
+        self.checkAxesPosition(raVal, decVal) # Undo negative offsets!
 
     def testFocus(self):
         focusVal = 70
@@ -182,6 +182,7 @@ class TestLCOCommands(TestCase):
             callFunc = functools.partial(self.checkFocus, focusVal=focusVal)
             )
 
+
     def testFocusList(self):
         focusCmdList = ["set focus=70", "set focus=100/incr", "set focus=-50/incr", "set focus=30.4", "set focus"]
         focusValList = [70, 170, 120, 30.4, 30.4]
@@ -189,24 +190,26 @@ class TestLCOCommands(TestCase):
         deferredList = [self.queueCmd(cmdStr, callFunc) for cmdStr, callFunc in itertools.izip(focusCmdList, callFuncList)]
         return gatherResults(deferredList)
 
-    def testFocusSmall1(self):
-        focusVal = self.actor.secDev.status.secFocus + 20
-        # focus delta's less than 50 will return successfully
-        # immediately
-        return self.queueCmd(
-            cmdStr = "set focus=%i"%focusVal,
-            callFunc = functools.partial(self.checkFocus, focusVal=focusVal-20)
-            )
+   # LCO HACK: small focus moves are allowed, uncomment and rewrite tests when min threshold is implemented.
 
-    def testFocusSmall2(self):
-        focusValInc = 20
-        # focus delta's less than 50 will return successfully
-        # immediately
-        focusVal = self.actor.secDev.status.secFocus
-        return self.queueCmd(
-            cmdStr = "set focus=%i/incr"%focusValInc,
-            callFunc = functools.partial(self.checkFocus, focusVal=focusVal)
-            )
+    # def testFocusSmall1(self):
+    #     focusVal = self.actor.secDev.status.secFocus + 20
+    #     # focus delta's less than 50 will return successfully
+    #     # immediately
+    #     return self.queueCmd(
+    #         cmdStr = "set focus=%i"%focusVal,
+    #         callFunc = functools.partial(self.checkFocus, focusVal=focusVal-20)
+    #         )
+
+    # def testFocusSmall2(self):
+    #     focusValInc = 20
+    #     # focus delta's less than 50 will return successfully
+    #     # immediately
+    #     focusVal = self.actor.secDev.status.secFocus
+    #     return self.queueCmd(
+    #         cmdStr = "set focus=%i/incr"%focusValInc,
+    #         callFunc = functools.partial(self.checkFocus, focusVal=focusVal)
+    #         )
 
     def testOffset(self):
         # self.checkAxesState("Idle")
@@ -308,7 +311,7 @@ class TestLCOCommands(TestCase):
         return self.queueCmd("threadring stop", cb)
 
     def testThreadRingMove(self):
-        position = self.actor.scaleDev.status.position + 5
+        position = 20 #self.actor.scaleDev.status.position + 5
         def cb(cmdVar):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
             self.assertEqual(self.actor.scaleDev.status.position, position)

@@ -14,7 +14,7 @@ class MeasScaleDeviceWrapper(DeviceWrapper):
         name,
         stateCallback = None,
         port = 0,
-        debug = False,
+        debug = True,
         logReplies = False,
     ):
         """!Construct a MeasScaleDeviceWrapper that manages its fake axis controller
@@ -45,6 +45,9 @@ class MeasScaleDeviceWrapper(DeviceWrapper):
     def _basicClose(self):
         """Explicitly kill all timers
         """
-        self.controller.moveTimer.cancel()
-        self.controller.positionTimer.cancel()
         return DeviceWrapper._basicClose(self)
+
+if __name__ == "__main__":
+    mcdw = MeasScaleDeviceWrapper()
+    from twisted.internet import reactor
+    reactor.run()

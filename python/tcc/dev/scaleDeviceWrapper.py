@@ -14,7 +14,7 @@ class ScaleDeviceWrapper(DeviceWrapper):
         name,
         stateCallback = None,
         port = 0,
-        debug = False,
+        debug = True,
         logReplies = False,
     ):
         """!Construct a ScaleDeviceWrapper that manages its fake axis controller

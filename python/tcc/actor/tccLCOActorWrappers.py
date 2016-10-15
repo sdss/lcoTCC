@@ -3,7 +3,7 @@ from __future__ import division, absolute_import
 from twistedActor import ActorWrapper, DispatcherWrapper
 
 from .tccLCOActor import TCCLCOActor
-from ..dev import TCSDeviceWrapper, ScaleDeviceWrapper, M2DeviceWrapper
+from ..dev import TCSDeviceWrapper, ScaleDeviceWrapper, M2DeviceWrapper, MeasScaleDeviceWrapper
 
 __all__ = ["TCCLCOActorWrapper", "TCCLCODispatcherWrapper"]
 
@@ -24,7 +24,8 @@ class TCCLCOActorWrapper(ActorWrapper):
         self.tcsWrapper = TCSDeviceWrapper(name="tcsWrapper", debug=debug)
         self.scaleWrapper = ScaleDeviceWrapper(name="scaleWrapper", debug=debug)
         self.m2Wrapper = M2DeviceWrapper(name="m2Wrapper", debug=debug)
-        deviceWrapperList = [self.tcsWrapper, self.scaleWrapper, self.m2Wrapper]
+        self.measScaleWrapper = MeasScaleDeviceWrapper(name="measScaleWrapper", debug=debug)
+        deviceWrapperList = [self.tcsWrapper, self.scaleWrapper, self.m2Wrapper, self.measScaleWrapper]
         ActorWrapper.__init__(self,
             deviceWrapperList = deviceWrapperList,
             name = name,
@@ -39,6 +40,7 @@ class TCCLCOActorWrapper(ActorWrapper):
             tcsDev = self.tcsWrapper.device,
             scaleDev = self.scaleWrapper.device,
             m2Dev = self.m2Wrapper.device,
+            measScaleDev = self.measScaleWrapper.device,
             userPort = self._userPort,
         )
 

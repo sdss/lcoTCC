@@ -158,7 +158,17 @@ class M2Device(TCPDevice):
         self.waitMoveCmd.setState(self.waitMoveCmd.Done)
         # self.waitGalilCmd = UserCmd()
         # self.waitGalilCmd.setState(self.waitGalilCmd.Done)
-        self.devCmdQueue = CommandQueue({}) # all commands of equal priority
+        # give status commands equal priority so they don't kill eachother
+        priorityDict = {
+            "status": 1,
+            "speed": 1,
+            "stop": 1,
+            "move": 1,
+            "galil": 1,
+            "offset": 1,
+        }
+
+        self.devCmdQueue = CommandQueue(priorityDict) # all commands of equal priority
 
         TCPDevice.__init__(self,
             name = name,
@@ -324,11 +334,14 @@ class M2Device(TCPDevice):
             return userCmd
         self.waitMoveCmd = UserCmd()
         self.waitMoveCmd.userCmd = userCmd # for write to users
+        self.status.desOrientation = self.status.orientation[:]
         if offset:
-            self.status.desOrientation = self.status.orientation[:]
+            # if offset is specified, offset from current value
             for ii, value in enumerate(valueList):
                 self.status.desOrientation[ii] += value
         else:
+            # if absolute is wanted, overwrite all those
+            # specified
             for ii, value in enumerate(valueList):
                 self.status.desOrientation[ii] = value
         cmdType = "offset" if offset else "move"
@@ -394,7 +407,7 @@ class M2Device(TCPDevice):
         # could change the default behavior in CommandQueue?
         userCmd = expandUserCmd(userCmd)
         devCmd = DevCmd(cmdStr)
-        devCmd.cmdVerb = cmdStr
+        devCmd.cmdVerb = cmdStr.split()[0]
         devCmd.userCmd = userCmd
         def queueFunc(devCmd):
             self.startDevCmd(devCmd)

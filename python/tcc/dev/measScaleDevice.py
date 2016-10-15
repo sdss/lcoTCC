@@ -202,6 +202,7 @@ class MeasScaleDevice(TCPDevice):
                                 reference.
         """
         log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
+        print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd = DevCmd(cmdStr=devCmdStr)
@@ -216,6 +217,7 @@ class MeasScaleDevice(TCPDevice):
         @param[in] devCmd a dev command
         """
         log.info("%s.startDevCmd(%r)" % (self, devCmd.cmdStr))
+        print("%s.startDevCmd(%r)" % (self, devCmd.cmdStr))
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmd.cmdStr))
