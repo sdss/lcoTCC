@@ -140,6 +140,7 @@ class MeasScaleDevice(TCPDevice):
                 zeroCmd.userCmd.setState(zeroCmd.userCmd.failed, "zeros failed to set")
 
     def writeStatusToUsers(self, userCmd=None):
+        self.writeToUsers("i", "ScaleZeroPos=%.4f"%self.zeroPoint)
         self.writeToUsers("i", self.encPosKWStr, userCmd)
         severity = "i"
         if not self.isHomed:

@@ -635,12 +635,13 @@ class FakeMeasScaleCtrl(FakeDev):
         # get mig position with some noise
         measPosStr = ""
         for ii in range(6):
-            meas = GlobalScalePosition + numpy.random.uniform(-1,1)/1000 #+/- 1 micron
+            meas = GlobalScalePosition - 20.0
             if meas > 0:
                 sign = "+"
             else:
                 sign = "-"
-            measPosStr += "GN0%i,%s%.3f\n"%(ii+1, sign, meas)
+            measPosStr += "GN0%i,%s%.3f\n"%(ii+1, sign, abs(meas))
+            print("meas pos str", measPosStr)
         return measPosStr
 
     def parseCmdStr(self, cmdStr):

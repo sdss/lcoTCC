@@ -16,6 +16,7 @@ def threadRing(tccActor, userCmd):
     parsedKeys = params.keys()
     if "stop" in parsedKeys:
         tccActor.scaleDev.stop(userCmd)
+
     elif "move" in parsedKeys:
         value = params["movevalue"].valueList[0]
         offset = quals["incremental"].boolValue

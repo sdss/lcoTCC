@@ -61,6 +61,7 @@ class TestLCOCommands(TestCase):
         """!Set up a test
         """
         self.dw = TCCLCODispatcherWrapper()
+        # reset the global threadring position
         return self.dw.readyDeferred
 
     def tearDown(self):
@@ -143,6 +144,9 @@ class TestLCOCommands(TestCase):
         @param[in] scaleVal, the expected scale value
         """
         if cmdVar.isDone:
+            print("threadpos", self.actor.scaleDev.status.position)
+            print("measScale pos", self.actor.measScaleDev.position)
+            print("measScale encs", self.actor.measScaleDev.encPos)
             # self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.currentScaleFactor), msg="actor-current: %.6f, %.6f"%(float(scaleVal), float(self.actor.scaleDev.currentScaleFactor)))
             # self.assertAlmostEqual(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor), msg="actor-target: %.6f, %.6f"%(float(scaleVal), float(self.actor.scaleDev.targetScaleFactor)))
             self.assertAlmostEqual(float(scaleVal), float(self.model.scaleFac.valueList[0]), msg="model: %.6f, %.6f"%(float(scaleVal), float(self.model.scaleFac.valueList[0])))
@@ -252,8 +256,8 @@ class TestLCOCommands(TestCase):
         scaleVal = 1
         def checkScaleAndMotorPos(cmdVar):
             self.checkScale(cmdVar, scaleVal=scaleVal)
-            pos = self.actor.scaleDev.status.position
-            zeropoint = self.actor.scaleDev.status.scaleZero
+            pos = self.actor.measScaleDev.position
+            zeropoint = self.actor.measScaleDev.zeroPoint
             self.assertAlmostEqual(float(pos), float(zeropoint), msg="pos: %.4f, zeropoint: %.4f"%(pos, zeropoint))
         return self.queueCmd(
             cmdStr = "set scale=%.6f"%scaleVal,
@@ -311,10 +315,10 @@ class TestLCOCommands(TestCase):
         return self.queueCmd("threadring stop", cb)
 
     def testThreadRingMove(self):
-        position = 20 #self.actor.scaleDev.status.position + 5
+        position = 20 #self.actor.measScaleDev.position + 5
         def cb(cmdVar):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
-            self.assertEqual(self.actor.scaleDev.status.position, position)
+            self.assertEqual(self.actor.measScaleDev.position, position)
         return self.queueCmd("threadring move %.4f"%position, cb)
 
     # def testThreadRingMoveOutOfRange(self):
@@ -325,11 +329,11 @@ class TestLCOCommands(TestCase):
     #     return self.queueCmd("threadring move %.4f"%position, cb)
 
     def testThreadRingMoveInc(self):
-        posStart = self.actor.scaleDev.status.position
+        posStart = self.actor.measScaleDev.position
         incr = 5
         def cb(cmdVar):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
-            self.assertEqual(self.actor.scaleDev.status.position, posStart+incr)
+            self.assertEqual(self.actor.measScaleDev.position, posStart+incr)
         return self.queueCmd("threadring move %.2f/incr"%incr, cb)
 
     def testThreadRingMoveStop(self):
@@ -339,7 +343,7 @@ class TestLCOCommands(TestCase):
         def stopCB(cmdVar):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
             d.callback(None)
-        position = self.actor.scaleDev.status.position + 5
+        position = self.actor.measScaleDev.position + 5
         self.queueCmd("threadring move %.4f"%position, moveCB)
         cmd = self.actor.scaleDev.stop()
         cmd.addCallback(stopCB)
@@ -353,7 +357,7 @@ class TestLCOCommands(TestCase):
         def stopCB(cmdVar):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
             d.callback(None)
-        position = self.actor.scaleDev.status.position + 5
+        position = self.actor.measScaleDev.position + 5
         self.queueCmd("threadring move %.4f"%position, moveCB)
         def callLater():
             cmd = self.actor.scaleDev.stop()
@@ -384,29 +388,6 @@ class TestLCOCommands(TestCase):
     #         self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
     #         self.assertEqual(self.actor.scaleDev.status.speed, speed)
     #     return self.queueCmd("threadring speed %.4f"%speed, cb)
-
-    def testThreadRingZero(self):
-        zeropoint = 15
-        self.actor.scaleDev._scaleZero = zeropoint
-        def cb(cmdVar):
-            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
-            self.assertEqual(self.actor.scaleDev.status.scaleZero, self.actor.scaleDev.status.position)
-        return self.queueCmd("threadring zero", cb)
-
-    def testThreadRingZero2(self):
-        zeropoint = 15
-        def cb(cmdVar):
-            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
-            self.assertEqual(self.actor.scaleDev.status.scaleZero, zeropoint)
-        return self.queueCmd("threadring zero %.4f"%zeropoint, cb)
-
-    # same out of range error
-    # def testThreadRingZeroOutOfRange(self):
-    #     zeropoint = 1000
-    #     def cb(cmdVar):
-    #         self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
-    #         self.assertEqual(self.actor.scaleDev.status.scaleZero, zeropoint)
-    #     return self.queueCmd("threadring zero %.4f"%zeropoint, cb)
 
     def testSecStatus(self):
         def cb(cmdVar):

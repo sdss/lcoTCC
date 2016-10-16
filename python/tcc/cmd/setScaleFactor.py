@@ -21,14 +21,24 @@ def setScaleFactor(tccActor, userCmd):
     same direction
     """
     showScaleCmd = UserCmd() # to be set done when scale is shown
-    def showScaleWhenDone(scaleCmd):
+    def showScaleWhenDone(encCmd):
         """@param[in] scaleCmd, a twistedActor.UserCmd instance passed automatically via callback
 
         when the scale is done show the current value to users
         then set the user command done.
         """
-        if scaleCmd.isDone:
+        if encCmd.isDone:
             showScaleFactor(tccActor, showScaleCmd, setDone=True)
+
+    def readEncoders(scaleCmd):
+        """@param[in] scaleCmd, a twistedActor.UserCmd instance passed automatically via callback
+
+        when the scale is done get the encoder values users
+        then set the user command done.
+        """
+        if scaleCmd.isDone:
+            encCmd = tccActor.measScaleDev.getStatus()
+            encCmd.addCallback(showScaleWhenDone)
 
     valueList = userCmd.parsedCmd.paramDict["scalefactor"].valueList[0].valueList
     if valueList:
@@ -72,7 +82,7 @@ def setScaleFactor(tccActor, userCmd):
         focusOffset = (absPosMM - tccActor.measScaleDev.position) * UM_PER_MM * tccActor.SCALE_RATIO * -1
         focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
         scaleCmd = tccActor.scaleDev.move(absPosMM)
-        scaleCmd.addCallback(showScaleWhenDone) # showScale command sets done showScaleCmd
+        scaleCmd.addCallback(readEncoders)
         # user cmd is not done until all three of the
         # commands below have finshied
         LinkCommands(userCmd, [scaleCmd, focusCmd, showScaleCmd])

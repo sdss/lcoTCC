@@ -296,7 +296,6 @@ class Status(object):
     def statusStr(self):
         kwList = []
         kwList.append("ThreadRingPos=%.4f"%self.position)
-        kwList.append("ScaleZeroPos=%.4f"%self.scaleZero)
         kwList.append("ThreadRingSpeed=%.4f"%self.speed)
         kwList.append("ThreadRingMaxSpeed=%.4f"%self.maxSpeed)
         kwList.append("DesThreadRingPos=%.4f"%self.desPosition)
