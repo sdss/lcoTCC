@@ -29,13 +29,6 @@ def threadRing(tccActor, userCmd):
             value *= tccActor.scaleDev.status.speed
         tccActor.scaleDev.speed(value, userCmd)
 
-    # elif "zero" in parsedKeys:
-    #     if "zerovalue" in parsedKeys and params["zerovalue"].valueList:
-    #         value = params["zerovalue"].valueList[0]
-    #     else:
-    #         # set current position as zero point
-    #         value = None
-    #     tccActor.scaleDev.setScaleZeroPoint(value, userCmd)
 
     elif "status" in parsedKeys:
         # what do do here? both write to users should get same
@@ -57,8 +50,8 @@ def threadRing(tccActor, userCmd):
                 if _setCountCmd.didFail:
                     userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
                 else:
-                    homeCmd = tccActor.scaleDev.home()
-                    homeCmd.addCallback(zeroEncoders)
+                    moveCmd = tccActor.scaleDev.move(tccActor.measScaleDev.zeroPoint)
+                    moveCmd.addCallback(zeroEncoders)
         setCountCmd.addCallback(homeThreadRing)
 
 

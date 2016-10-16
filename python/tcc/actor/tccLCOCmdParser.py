@@ -255,12 +255,6 @@ TCCLCOCmdList = (
                 help = "directly move the scaling ring in mm",
             ),
             parseDefs.SubCommand(
-                parseDefs.Keyword(name="zero"),
-                paramList = [parseDefs.ValueParam("zerovalue", numValueRange=[0,1], castVals=float)],
-                callFunc = threadRing,
-                help = "set the scale zero point on the scaling ring in mm",
-            ),
-            parseDefs.SubCommand(
                 parseDefs.Keyword(name="stop"),
                 callFunc = threadRing,
                 help = "stop the scaling ring",

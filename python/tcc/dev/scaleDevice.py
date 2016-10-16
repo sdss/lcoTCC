@@ -51,8 +51,6 @@ __all__ = ["ScaleDevice"]
 MAX_SPEED = 0.1
 NOM_SPEED = 0.1
 SEC_TIMEOUT = 2.0
-SCALE_ZERO = 20 #mm
-HOME_POS = 20 #mm
 
 class MungedStatusError(Exception):
     """The scaling ring occassionally returns a Munged status
@@ -66,7 +64,6 @@ class Status(object):
     Done = "Done"
     def __init__(self):
         self.flushStatus() # sets self.dict and a few other attrs
-        self._scaleZero = SCALE_ZERO
         self._state = self.Done
         self._totalTime = 0
         self._timeStamp = 0
@@ -91,19 +88,6 @@ class Status(object):
     def maxSpeed(self):
         # in mm / sec
         return MAX_SPEED
-
-    @property
-    def homePosition(self):
-        # in mm
-        return HOME_POS
-
-    @property
-    def scaleZero(self):
-        # defines the scale zeropoint in mm
-        if self._scaleZero is not None:
-            return self._scaleZero
-        else:
-            return numpy.mean(self.moveRange)
 
     @property
     def speed(self):
@@ -340,10 +324,6 @@ class ScaleDevice(TCPDevice):
         self.nomSpeed = nomSpeed
         self.status = Status()
 
-        # self.currCmd = UserCmd()
-        # self.currCmd.setState(self.currCmd.Done)
-        # self.currDevCmdStr = ""
-
         # all commands of equal priority
         # except stop kills a running (or pending move) move
         # priorityDict = {"stop": CommandQueue.Immediate}
@@ -379,18 +359,6 @@ class ScaleDevice(TCPDevice):
     @property
     def currDevCmdStr(self):
         return self.currExeDevCmd.cmdStr
-
-    # @property
-    # def currCmdVerb(self):
-    #     return self.currDevCmdStr.split()[0]
-
-    # @property
-    # def targetScaleFactor(self):
-    #     return self.mm2scale(self.targetPos)
-
-    # @property
-    # def currentScaleFactor(self):
-    #     return self.mm2scale(self.status.position)
 
     @property
     def isMoving(self):
@@ -476,30 +444,6 @@ class ScaleDevice(TCPDevice):
         stateKW = self.status.getStateKW()
         self.writeToUsers("i", stateKW, userCmd)
 
-    # def setScaleZeroPoint(self, zeroPoint=None, userCmd=None):
-    #     """Set the scale zero point (in mm)
-
-    #     @param[in] zeroPoint: the value in mm to set as scale zero point, if None, use current position
-    #     @param[in] userCmd: a twistedActor BaseCommand
-    #     """
-    #     userCmd = expandUserCmd(userCmd)
-    #     if self.isMoving:
-    #         userCmd.setState(userCmd.Failed, "Cannot set zero point, device is busy moving")
-    #         return userCmd
-    #     if zeroPoint is None:
-    #         # note status should be fresh
-    #         # because it is commanded after
-    #         # any move or stop
-    #         zeroPoint = self.status.position
-    #     zeroPoint = float(zeroPoint)
-    #     minScale, maxScale = self.status.moveRange
-    #     if not (minScale<=zeroPoint<=maxScale):
-    #         # zero point is outside the vaild move range
-    #         userCmd.setState(userCmd.Failed, "%.4f is outside vaild thread ring range: [%.2f, %.2f]"%(zeroPoint, minScale, maxScale))
-    #     # else:
-    #     self.status._scaleZero = zeroPoint
-    #     userCmd.setState(userCmd.Done)
-    #     return userCmd
 
     def speed(self, speedValue, userCmd=None):
         """Set the desired move speed for the thread ring
@@ -520,9 +464,6 @@ class ScaleDevice(TCPDevice):
             statusDevCmd.addCallback(self._statusCallback)
             LinkCommands(userCmd, [speedDevCmd, statusDevCmd])
         return userCmd
-
-    def home(self, userCmd=None):
-        return self.move(HOME_POS, userCmd)
 
     def move(self, position, userCmd=None):
         """!Move to a position
