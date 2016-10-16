@@ -23,6 +23,7 @@ def threadRing(tccActor, userCmd):
         if offset:
             value += tccActor.measScaleDev.position
         tccActor.scaleDev.move(value, userCmd)
+
     elif "speed" in parsedKeys:
         value = params["speedvalue"].valueList[0]
         mult = quals["multiplicative"].boolValue
