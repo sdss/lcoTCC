@@ -36,14 +36,15 @@ def threadRing(tccActor, userCmd):
         threadCmd = tccActor.scaleDev.getStatus()
         encCmd = tccActor.measScaleDev.getStatus()
         LinkCommands(userCmd, [threadCmd, encCmd])
+
     elif "home" in parsedKeys:
         setCountCmd = tccActor.measScaleDev.setCountState()
-        def zeroEncoders(_homeCmd):
-            if _homeCmd.isDone:
-                if _homeCmd.didFail:
+        def zeroEncoders(_moveCmd):
+            if _moveCmd.isDone:
+                if _moveCmd.didFail:
                     userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
                 else:
-                    # set/get encoder readings
+                    # zero the encoders
                     tccActor.measScaleDev.setHome(homePos=tccActor.scaleDev.status.homePosition, userCmd=userCmd)
         def homeThreadRing(_setCountCmd):
             if _setCountCmd.isDone:
