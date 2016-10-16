@@ -35,6 +35,8 @@ class TCCLCOActorWrapper(ActorWrapper):
 
     def _makeActor(self):
         self.debugMsg("_makeActor()")
+        # give scaleDevice access to the measScaleDevice
+        self.scaleWrapper.device._addMeasScaleDev(self.measScaleWrapper.device)
         self.actor = TCCLCOActor(
             name = self.name,
             tcsDev = self.tcsWrapper.device,

@@ -307,13 +307,14 @@ class Status(object):
 class ScaleDevice(TCPDevice):
     """!A Device for communicating with the LCO Scaling ring."""
     validCmdVerbs = ["move", "stop", "status", "speed"]
-    def __init__(self, name, host, port, nomSpeed=NOM_SPEED, callFunc=None):
+    def __init__(self, name, host, port, measScaleDevice=None, nomSpeed=NOM_SPEED, callFunc=None):
         """!Construct a ScaleDevice
 
         Inputs:
         @param[in] name  name of device
         @param[in] host  host address of scaling ring controller
         @param[in] port  port of scaling ring controller
+        @param[in] measScaleDevice  instance of a MeasScaleDevice (access to the mitutoyos for servoing)
         @param[in] nom_speed nominal speed at which to move (this can be modified via the speed command)
         @param[in] callFunc  function to call when state of device changes;
                 note that it is NOT called when the connection state changes;
@@ -321,6 +322,7 @@ class ScaleDevice(TCPDevice):
         """
         self.targetPos = None
         self.nomSpeed = nomSpeed
+        self.measScaleDevice = measScaleDevice
         self.status = Status()
 
         # all commands of equal priority
@@ -347,6 +349,13 @@ class ScaleDevice(TCPDevice):
             callFunc = callFunc,
             cmdInfo = (),
         )
+
+    def _addMeasScaleDev(self, measScaleDevice):
+        """Add a way to add a measScaleDevice exposfacto,
+        really this is only for use with the device wrappers.
+        Any real use should specify measScaleDevice in __init__
+        """
+        self.measScaleDevice = measScaleDevice
 
     def killFunc(self, doomedCmd, killerCmd):
         doomedCmd.setState(doomedCmd.Failed, "Killed by %s"%(str(killerCmd)))

@@ -31,15 +31,18 @@ M2DevicePort = 52001
 MeasScaleDeviceHost = "10.1.1.41"
 MeasScaleDevicePort = 10001
 
+measScaleDevice = MeasScaleDevice("measScaleDev", MeasScaleDeviceHost, MeasScaleDevicePort)
+scaleDevice = ScaleDevice("scaleDev", ScaleDeviceHost, ScaleDevicePort, measScaleDevice)
+
 def startTCCLCO(*args):
     try:
         tccActor = TCCLCOActor(
             name = "tcc",
             userPort = UserPort,
             tcsDev = TCSDevice("tcsDev", TCSHost, TCSDevicePort),
-            scaleDev = ScaleDevice("scaleDev", ScaleDeviceHost, ScaleDevicePort),
+            scaleDev = scaleDevice,
             m2Dev = M2Device("m2Dev", M2DeviceHost, M2DevicePort),
-            measScaleDev = MeasScaleDevice("measScaleDev", MeasScaleDeviceHost, MeasScaleDevicePort)
+            measScaleDev = measScaleDevice,
             )
     except Exception:
         print >>sys.stderr, "Error lcoTCC"
