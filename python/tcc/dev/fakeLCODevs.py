@@ -641,7 +641,6 @@ class FakeMeasScaleCtrl(FakeDev):
             else:
                 sign = "-"
             measPosStr += "GN0%i,%s%.3f\n"%(ii+1, sign, abs(meas))
-            print("meas pos str", measPosStr)
         return measPosStr
 
     def parseCmdStr(self, cmdStr):

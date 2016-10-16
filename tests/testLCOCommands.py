@@ -315,7 +315,7 @@ class TestLCOCommands(TestCase):
         return self.queueCmd("threadring stop", cb)
 
     def testThreadRingMove(self):
-        position = 20 #self.actor.measScaleDev.position + 5
+        position = self.actor.measScaleDev.position + 5
         def cb(cmdVar):
             self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
             self.assertEqual(self.actor.measScaleDev.position, position)
