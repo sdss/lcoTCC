@@ -110,12 +110,34 @@ class MeasScaleDevice(TCPDevice):
         LinkCommands(userCmd, [countDevCmd, currValDevCmd])
         return userCmd
 
+    def setZero(self, userCmd=None, timeLim=1):
+        """!Set the Mitutoyo EV counter into the counting state,
+        this is required after a power cycle
+        """
+        userCmd = expandUserCmd(userCmd)
+        zeroDevCmd = self.queueDevCmd(ZERO_SET, userCmd)
+        readDevCmd = self.queueDevCmd(READ_ENC, userCmd)
+        readDevCmd.addCallback(self._zeroCallback)
+        zeroDevCmd.setTimeLimit(timeLim)
+        readDevCmd.setTimeLimit(timeLim)
+        LinkCommands(userCmd, [zeroDevCmd, readDevCmd])
+        return userCmd
+
     def _statusCallback(self, statusCmd):
         # if statusCmd.isActive:
         #     # not sure this is necessary
         #     # but ensures we get a 100% fresh status
         #     self.status.flushStatus()
         if statusCmd.isDone and not statusCmd.didFail:
+            self.writeStatusToUsers(statusCmd.userCmd)
+
+    def _readCallback(self, statusCmd):
+        # if statusCmd.isActive:
+        #     # not sure this is necessary
+        #     # but ensures we get a 100% fresh status
+        #     self.status.flushStatus()
+        if statusCmd.isDone and not statusCmd.didFail:
+
             self.writeStatusToUsers(statusCmd.userCmd)
 
     def writeStatusToUsers(self, userCmd=None):
