@@ -1,5 +1,7 @@
 from __future__ import division, absolute_import
 
+import numpy
+
 from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue, LinkCommands
 
 from RO.StringUtil import strFromException
@@ -31,7 +33,7 @@ class MeasScaleDevice(TCPDevice):
         # so this zero point keep track fo the offset.
         # if I could preset the mitutoyo's this would be unnecessary
         # the preset command "CP**" doesn't seem to work.
-        self.zeroPoint = 20.0
+        self.zeroPoint = 20.0 # mm.  Position where scale = 1
         self.encPos = [None]*6
 
         self.devCmdQueue = CommandQueue({})
@@ -43,6 +45,13 @@ class MeasScaleDevice(TCPDevice):
             callFunc = callFunc,
             cmdInfo = (),
         )
+
+    @property
+    def position(self):
+        # return the average value of all encoder positions
+        # with respect to the zeroPoint
+        # this is used for servoing the scaling ring
+        return numpy.mean(self.encPos) + self.zeroPoint
 
     @property
     def isHomed(self):
@@ -134,8 +143,7 @@ class MeasScaleDevice(TCPDevice):
         return "ScaleEncHomed=%i"%homedInt
 
     def setEncValue(self, serialStr):
-        """Figure out which gauge this line corresponds to
-        Gauges 1-3 are ignored, 4-6 are read and correspond to enc 1-3
+        """Figure out which gauge this line corresponds to and set the value
         """
         gaugeStr, gaugeVal = serialStr.split(",")
         if "error" in gaugeVal.lower():

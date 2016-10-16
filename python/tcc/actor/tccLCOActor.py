@@ -86,14 +86,14 @@ class TCCLCOActor(BaseActor):
 
     @property
     def currentScaleFactor(self):
-        return self.mm2scale(self.scaleDev.status.position)
+        return self.mm2scale(self.measScaleDev.position)
 
     def scale2mm(self, scaleValue):
         # scale=1 device is at zero point
-        return (scaleValue - 1.0) / self.SCALE_PER_MM + self.scaleDev.status.scaleZero
+        return (scaleValue - 1.0) / self.SCALE_PER_MM + self.measScaleDev.zeroPoint
 
     def mm2scale(self, mm):
-        return (mm - self.scaleDev.status.scaleZero) * self.SCALE_PER_MM + 1.0
+        return (mm - self.measScaleDev.zeroPoint) * self.SCALE_PER_MM + 1.0
 
     def scaleMult2mm(self, multiplier):
         return self.scale2mm(self.currentScaleFactor*multiplier)
@@ -103,8 +103,8 @@ class TCCLCOActor(BaseActor):
         # according to unittests self.scaleMult2mm
         # works just fine, and it is simpler
         m = multiplier
-        z = self.scaleDev.status.scaleZero
-        p = self.scaleDev.status.position
+        z = self.measScaleDev.zeroPoint
+        p = self.measScaleDev.position
         alpha = self.SCALE_PER_MM
         return m*(p-z)+(1.0/alpha)*(m-1.0)+z
 

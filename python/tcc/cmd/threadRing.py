@@ -20,7 +20,7 @@ def threadRing(tccActor, userCmd):
         value = params["movevalue"].valueList[0]
         offset = quals["incremental"].boolValue
         if offset:
-            value += tccActor.scaleDev.status.position
+            value += tccActor.measScaleDev.position
         tccActor.scaleDev.move(value, userCmd)
     elif "speed" in parsedKeys:
         value = params["speedvalue"].valueList[0]
@@ -28,13 +28,15 @@ def threadRing(tccActor, userCmd):
         if mult:
             value *= tccActor.scaleDev.status.speed
         tccActor.scaleDev.speed(value, userCmd)
-    elif "zero" in parsedKeys:
-        if "zerovalue" in parsedKeys and params["zerovalue"].valueList:
-            value = params["zerovalue"].valueList[0]
-        else:
-            # set current position as zero point
-            value = None
-        tccActor.scaleDev.setScaleZeroPoint(value, userCmd)
+
+    # elif "zero" in parsedKeys:
+    #     if "zerovalue" in parsedKeys and params["zerovalue"].valueList:
+    #         value = params["zerovalue"].valueList[0]
+    #     else:
+    #         # set current position as zero point
+    #         value = None
+    #     tccActor.scaleDev.setScaleZeroPoint(value, userCmd)
+
     elif "status" in parsedKeys:
         # what do do here? both write to users should get same
         # user command but I don't want the command to be set done!

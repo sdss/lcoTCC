@@ -69,7 +69,7 @@ def setScaleFactor(tccActor, userCmd):
         # convert to microns
         # apply scaling ratio
         # command M2 move
-        focusOffset = (absPosMM - tccActor.scaleDev.status.position) * UM_PER_MM * tccActor.SCALE_RATIO * -1
+        focusOffset = (absPosMM - tccActor.measScaleDev.position) * UM_PER_MM * tccActor.SCALE_RATIO * -1
         focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
         scaleCmd = tccActor.scaleDev.move(absPosMM)
         scaleCmd.addCallback(showScaleWhenDone) # showScale command sets done showScaleCmd

@@ -476,30 +476,30 @@ class ScaleDevice(TCPDevice):
         stateKW = self.status.getStateKW()
         self.writeToUsers("i", stateKW, userCmd)
 
-    def setScaleZeroPoint(self, zeroPoint=None, userCmd=None):
-        """Set the scale zero point (in mm)
+    # def setScaleZeroPoint(self, zeroPoint=None, userCmd=None):
+    #     """Set the scale zero point (in mm)
 
-        @param[in] zeroPoint: the value in mm to set as scale zero point, if None, use current position
-        @param[in] userCmd: a twistedActor BaseCommand
-        """
-        userCmd = expandUserCmd(userCmd)
-        if self.isMoving:
-            userCmd.setState(userCmd.Failed, "Cannot set zero point, device is busy moving")
-            return userCmd
-        if zeroPoint is None:
-            # note status should be fresh
-            # because it is commanded after
-            # any move or stop
-            zeroPoint = self.status.position
-        zeroPoint = float(zeroPoint)
-        minScale, maxScale = self.status.moveRange
-        if not (minScale<=zeroPoint<=maxScale):
-            # zero point is outside the vaild move range
-            userCmd.setState(userCmd.Failed, "%.4f is outside vaild thread ring range: [%.2f, %.2f]"%(zeroPoint, minScale, maxScale))
-        # else:
-        self.status._scaleZero = zeroPoint
-        userCmd.setState(userCmd.Done)
-        return userCmd
+    #     @param[in] zeroPoint: the value in mm to set as scale zero point, if None, use current position
+    #     @param[in] userCmd: a twistedActor BaseCommand
+    #     """
+    #     userCmd = expandUserCmd(userCmd)
+    #     if self.isMoving:
+    #         userCmd.setState(userCmd.Failed, "Cannot set zero point, device is busy moving")
+    #         return userCmd
+    #     if zeroPoint is None:
+    #         # note status should be fresh
+    #         # because it is commanded after
+    #         # any move or stop
+    #         zeroPoint = self.status.position
+    #     zeroPoint = float(zeroPoint)
+    #     minScale, maxScale = self.status.moveRange
+    #     if not (minScale<=zeroPoint<=maxScale):
+    #         # zero point is outside the vaild move range
+    #         userCmd.setState(userCmd.Failed, "%.4f is outside vaild thread ring range: [%.2f, %.2f]"%(zeroPoint, minScale, maxScale))
+    #     # else:
+    #     self.status._scaleZero = zeroPoint
+    #     userCmd.setState(userCmd.Done)
+    #     return userCmd
 
     def speed(self, speedValue, userCmd=None):
         """Set the desired move speed for the thread ring
