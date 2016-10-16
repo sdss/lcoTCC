@@ -27,17 +27,13 @@ class MeasScaleDevice(TCPDevice):
                 note that it is NOT called when the connection state changes;
                 register a callback with "conn" for that task.
         """
-        self.encPos = [None]*6 # first 3 values are zero set, last 3 are raw
-        self.homePos = True
-        # all commands of equal priority
-        # except stop kills a running (or pending move) move
-        # priorityDict = {"stop": CommandQueue.Immediate}
-        # priorityDict = {
-        #     "stop":1,
-        #     "status":1,
-        #     "move":1,
-        #     "speed":1,
-        # }
+        # the mitutoyos will be zeroed when the scaling ring is moved to 20
+        # so this zero point keep track fo the offset.
+        # if I could preset the mitutoyo's this would be unnecessary
+        # the preset command "CP**" doesn't seem to work.
+        self.zeroPoint = 20.0
+        self.encPos = [None]*6
+
         self.devCmdQueue = CommandQueue({})
 
         TCPDevice.__init__(self,
@@ -105,14 +101,6 @@ class MeasScaleDevice(TCPDevice):
         LinkCommands(userCmd, [countDevCmd, currValDevCmd])
         return userCmd
 
-    def setHome(self, homePos, userCmd=None, timeLim=3):
-        self.homePos = homePos
-        userCmd = expandUserCmd(userCmd)
-        devCmdList = [self.queueDevCmd(evCMD, userCmd) for evCMD in [ZERO_SET, READ_ENC]]
-        devCmdList[-1].addCallback(self._statusCallback)
-        LinkCommands(userCmd, devCmdList)
-        return userCmd
-
     def _statusCallback(self, statusCmd):
         # if statusCmd.isActive:
         #     # not sure this is necessary
@@ -136,7 +124,7 @@ class MeasScaleDevice(TCPDevice):
             if encPos is None:
                 encPosStr.append("?")
             else:
-                encPos += self.homePos
+                encPos += self.zeroPoint
                 encPosStr.append("%.3f"%encPos)
         return "ScaleEncPos=" + ", ".join(encPosStr[:3])
 
@@ -175,6 +163,7 @@ class MeasScaleDevice(TCPDevice):
 
         if "error 15" in replyStr.lower():
             self.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing necessary.")
+            self.encPos = [None]*6
 
         elif "error" in replyStr.lower():
             # some other error?
