@@ -85,6 +85,7 @@ class MeasScaleDevice(TCPDevice):
         """
         # first flush the current status to ensure we don't
         # have stale values
+        print("reading migs!")
         userCmd = expandUserCmd(userCmd)
         self.encPos = [None]*6
         statusDevCmd = self.queueDevCmd(READ_ENC, userCmd)
@@ -131,6 +132,7 @@ class MeasScaleDevice(TCPDevice):
         #     self.status.flushStatus()
         if statusCmd.isDone and not statusCmd.didFail:
             self.writeStatusToUsers(statusCmd.userCmd)
+            print("done reading migs")
 
     def _zeroCallback(self, zeroCmd):
         if zeroCmd.isDone and not zeroCmd.didFail:

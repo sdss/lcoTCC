@@ -406,10 +406,12 @@ class ScaleDevice(TCPDevice):
         else:
             # get a completely fresh status from the device
             statusDevCmd = self.queueDevCmd("status", userCmd)
+            # get encoder values too
+            encStatusDevCmd = self.getStatus()
             statusDevCmd.addCallback(self._statusCallback)
             statusDevCmd.setTimeLimit(timeLim)
             if linkState:
-                LinkCommands(userCmd, [statusDevCmd])
+                LinkCommands(userCmd, [statusDevCmd, encStatusDevCmd])
                 return userCmd
             else:
                 # return the device command to be linked outside
