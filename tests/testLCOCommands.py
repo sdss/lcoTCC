@@ -321,12 +321,10 @@ class TestLCOCommands(TestCase):
             self.assertEqual(self.actor.measScaleDev.position, position)
         return self.queueCmd("threadring move %.4f"%position, cb)
 
-    # def testThreadRingMoveOutOfRange(self):
-    # output looks right, but unit test fails?
-    #     position = 10000
-    #     def cb(cmdVar):
-    #         self.assertTrue(cmdVar.didFail)
-    #     return self.queueCmd("threadring move %.4f"%position, cb)
+    def testThreadRingHome(self):
+        def cb(cmdVar):
+            self.assertTrue(not cmdVar.didFail)
+        return self.queueCmd("threadring home", cb)
 
     def testThreadRingMoveInc(self):
         posStart = self.actor.measScaleDev.position

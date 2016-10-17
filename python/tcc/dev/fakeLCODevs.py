@@ -652,11 +652,11 @@ class FakeMeasScaleCtrl(FakeDev):
         if cmdStr == "GA00":
             self.userSock.writeLine(self.measResponse())
         elif cmdStr == "CS00":
-            pass
+            self.userSock.writeLine("CH00")
         elif cmdStr == "CN00":
-            pass
+            self.userSock.writeLine("CH00")
         elif cmdStr == "CR00":
-            pass
+            self.userSock.writeLine("CH00")
         else:
             # unknown command?
             self.userSock.writeLine("ERROR") # error!

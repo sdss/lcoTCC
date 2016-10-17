@@ -51,6 +51,8 @@ __all__ = ["ScaleDevice"]
 MAX_SPEED = 0.1
 NOM_SPEED = 0.1
 SEC_TIMEOUT = 2.0
+MAX_ITER = 3
+MOVE_TOL = 5 / 1000.0 # move tolerance (5 microns)
 
 class MungedStatusError(Exception):
     """The scaling ring occassionally returns a Munged status
@@ -67,14 +69,19 @@ class Status(object):
         self._state = self.Done
         self._totalTime = 0
         self._timeStamp = 0
+        self.maxIter = MAX_ITER
+        self.moveTol = MOVE_TOL
+        self.maxSpeed = MAX_SPEED
+        self.currIter = 0
 
-    def setState(self, state, totalTime=0):
+    def setState(self, state, currIter, totalTime=0):
         """Set the state
 
         @param[in] state: one of self.Moving or self.Done
         @param[in] totalTime: total time for this state, 0 for indefinite
         """
         assert state in [self.Moving, self.Done]
+        self.currIter = currIter
         self._state = state
         self._totalTime = totalTime
         self._timeStamp = time.time()
@@ -83,11 +90,6 @@ class Status(object):
     def moveRange(self):
         # in mm
         return self.dict["thread_ring_axis"]["move_range"]
-
-    @property
-    def maxSpeed(self):
-        # in mm / sec
-        return MAX_SPEED
 
     @property
     def speed(self):
@@ -261,22 +263,13 @@ class Status(object):
         return True
 
     def getStateKW(self):
-        # secState [Moving, Done, Homing, Failed, NotHomed]
-        #   current iteration
-        #   max iterations
-        #   remaining time
-        #   total time
-        currIter = 1 # no meaning at LCO
-        maxIter = 1 # no meaning at LCO
-
         # determine time remaining in this state
         timeElapsed = time.time() - self._timeStamp
         # cannot have negative time remaining
         timeRemaining = max(0, self._totalTime - timeElapsed)
         return "ThreadringState=%s, %i, %i, %.2f, %.2f"%(
-            self._state, currIter, maxIter, timeRemaining, self._totalTime
+            self._state, self.currIter, self.maxIter, timeRemaining, self._totalTime
             )
-        # return "ScaleState=%s, %.4f"%(self._state, timeRemaining)
 
     def getFaultStr(self):
         faultList = []
@@ -321,6 +314,12 @@ class ScaleDevice(TCPDevice):
                 register a callback with "conn" for that task.
         """
         self.targetPos = None
+        # holds a userCommand for "move"
+        # set done only when move has reached maxIter
+        # or is within tolerance
+        self.iter = 0
+        self.moveUserCmd = expandUserCmd(None)
+        self.moveUserCmd
         self.nomSpeed = nomSpeed
         self.measScaleDevice = measScaleDevice
         self.status = Status()
@@ -370,7 +369,7 @@ class ScaleDevice(TCPDevice):
 
     @property
     def isMoving(self):
-        return self.status._state == self.status.Moving
+        return self.moveUserCmd.isActive
 
     def init(self, userCmd=None, timeLim=None, getStatus=False):
         """Called automatically on startup after the connection is established.
@@ -473,6 +472,19 @@ class ScaleDevice(TCPDevice):
             LinkCommands(userCmd, [speedDevCmd, statusDevCmd])
         return userCmd
 
+    def getMoveCmdStr(self):
+        """Determine difference between current and
+        desired position and send move command as an
+        offset.
+
+        This is hacky.  I'm only allowed to command absolute positions
+        on the scaling ring so i need to determine the absolute position wanted
+        based on the offset I measure...gah.
+        """
+        offset = self.targetPos - self.measScaleDevice.position
+        absMovePos = self.status.position + offset
+        return "move %.6f"%(absMovePos)
+
     def move(self, position, userCmd=None):
         """!Move to a position
 
@@ -489,20 +501,41 @@ class ScaleDevice(TCPDevice):
         if not minPos<=position<=maxPos:
             userCmd.setState(userCmd.Failed, "Move %.6f not in range [%.4f, %.4f]"%(position, minPos, maxPos))
             return userCmd
-        moveCmdStr = "move %.6f"%(position)
-        # status output from move corresponds to threadring
-        # after a status command the winch axis is the current axis
+        self.iter = 1
         self.targetPos = position
+        self.moveUserCmd = userCmd
+        if not self.moveUserCmd.isActive:
+            self.moveUserCmd.setState(self.moveUserCmd.Running)
         self.writeToUsers("i", "DesThreadRingPos=%.4f"%self.targetPos)
-        moveDevCmd = self.queueDevCmd(moveCmdStr, userCmd)
+        moveDevCmd = self.queueDevCmd(self.getMoveCmdStr(), self.moveUserCmd)
         moveDevCmd.addCallback(self._moveCallback)
-        statusDevCmd = self.queueDevCmd("status", userCmd)
-        statusDevCmd.addCallback(self._statusCallback)
-        # note userCmd-move will not be done until status is done
-        # this is good because it ensures we have the
-        # correct status before returning
-        LinkCommands(userCmd, [moveDevCmd, statusDevCmd])
         return userCmd
+
+    def home(self, userCmd=None):
+        log.info("%s.home(userCmd=%s)" % (self, userCmd))
+        setCountCmd = self.measScaleDevice.setCountState()
+
+        def finishHome(_zeroEncCmd):
+            if _zeroEncCmd.didFail:
+                userCmd.setState(userCmd.Failed, "Encoder zero failed.")
+            elif _zeroEncCmd.isDone:
+                userCmd.setState(userCmd.Done)
+
+        def zeroEncoders(_moveCmd):
+            if _moveCmd.didFail:
+                userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
+            elif _moveCmd.isDone:
+                # zero the encoders
+                zeroEncCmd = self.measScaleDevice.setZero()
+                zeroEncCmd.addCallback(finishHome)
+
+        def moveThreadRing(_setCountCmd):
+            if _setCountCmd.didFail:
+                userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
+            elif _setCountCmd.isDone:
+                moveCmd = self.queueDevCmd("move %.6f"%self.measScaleDevice.zeroPoint, userCmd)
+                moveCmd.addCallback(zeroEncoders)
+        setCountCmd.addCallback(moveThreadRing)
 
     def _moveCallback(self, moveCmd):
         if moveCmd.isActive:
@@ -511,12 +544,49 @@ class ScaleDevice(TCPDevice):
             time4move = abs(self.targetPos-self.status.position)/float(self.status.speed)
             # update command timeout
             moveCmd.setTimeLimit(time4move+2)
-            self.status.setState(self.status.Moving, time4move)
-            self.writeState(moveCmd.userCmd)
-        if moveCmd.isDone:
-            # set state
-            self.status.setState(self.status.Done)
-            self.writeState(moveCmd.userCmd)
+            self.status.setState(self.status.Moving, self.iter, time4move)
+            self.writeState(self.moveUserCmd)
+        if moveCmd.didFail:
+            self.moveUserCmd.setState(self.moveUserCmd.Failed, "Failed to move scaling ring.")
+        elif moveCmd.isDone:
+            # get the status of the scaling ring
+            moveStatusCmd = self.queueDevCmd("status", self.moveUserCmd)
+            moveStatusCmd.addCallback(self._statusCallback)
+            moveStatusCmd.addCallback(self._readEncs)
+
+    def _readEncs(self, moveStatusCmd):
+        if moveStatusCmd.didFail:
+            self.moveUserCmd.setState(self.moveUserCmd.Failed, "Failed to get scaling ring status after move.")
+        elif moveStatusCmd.isDone:
+            # move's done, read the encoders
+            # and get scaling ring status
+            readEncCmd = self.measScaleDevice.getStatus()
+            readEncCmd.addCallback(self._moveIter)
+
+    def _moveIter(self, readEncCmd):
+        """Encoders have been read, decide to move again or finish the user
+        commanded move
+        """
+        if readEncCmd.didFail:
+            self.moveUserCmd.setState(self.moveUserCmd.Failed, "Failed to read encoders after scaling ring move.")
+        elif readEncCmd.isDone:
+            atMaxIter = self.iter > self.status.maxIter
+            withinTol = numpy.abs(self.targetPos - self.measScaleDevice.position) < self.status.moveTol
+            if atMaxIter:
+                self.writeToUsers("i", "text='Max iter reached for scaling ring move.'")
+            if atMaxIter or withinTol:
+                # the move is done
+                self.iter = 0
+                self.status.setState(self.status.Done, self.iter)
+                self.writeState(self.moveUserCmd)
+                self.moveUserCmd.setState(self.moveUserCmd.Done)
+            else:
+                # command another move iteration
+                self.iter += 1
+                self.writeToUsers("i", "text='Begining scaling ring move iteration %i'"%self.iter)
+                moveDevCmd = self.queueDevCmd(self.getMoveCmdStr(), self.moveUserCmd)
+                moveDevCmd.addCallback(self._moveCallback)
+
 
     def stop(self, userCmd=None):
         """Stop any scaling movement, cancelling any currently executing
@@ -529,6 +599,8 @@ class ScaleDevice(TCPDevice):
         # nicely kill move command if it's running
         # if not self.currExeDevCmd.userCmd.isDone:
         #     self.currExeDevCmd.userCmd.setState(self.currExeDevCmd.userCmd.Failed, "Killed by stop")
+        if self.moveUserCmd.isActive:
+            self.moveUserCmd.setState(self.moveUserCmd.Cancelled, "Scaling ring move cancelled by stop command.")
         stopDevCmd = self.queueDevCmd("stop", userCmd)
         statusDevCmd = self.queueDevCmd("status", userCmd)
         statusDevCmd.addCallback(self._statusCallback)

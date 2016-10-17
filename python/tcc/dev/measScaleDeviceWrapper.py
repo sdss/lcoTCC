@@ -14,7 +14,7 @@ class MeasScaleDeviceWrapper(DeviceWrapper):
         name,
         stateCallback = None,
         port = 0,
-        debug = True,
+        debug = False,
         logReplies = False,
     ):
         """!Construct a MeasScaleDeviceWrapper that manages its fake axis controller
