@@ -21,7 +21,7 @@ def threadRing(tccActor, userCmd):
         value = params["movevalue"].valueList[0]
         offset = quals["incremental"].boolValue
         if offset:
-            value += tccActor.measScaleDev.position
+            value += tccActor.scaleDev.encPos
         tccActor.scaleDev.move(value, userCmd)
 
     elif "speed" in parsedKeys:
@@ -35,9 +35,7 @@ def threadRing(tccActor, userCmd):
     elif "status" in parsedKeys:
         # what do do here? both write to users should get same
         # user command but I don't want the command to be set done!
-        threadCmd = tccActor.scaleDev.getStatus()
-        encCmd = tccActor.measScaleDev.getStatus()
-        LinkCommands(userCmd, [threadCmd, encCmd])
+        threadCmd = tccActor.scaleDev.getStatus(userCmd)
 
     elif "home" in parsedKeys:
         tccActor.scaleDev.home(userCmd)

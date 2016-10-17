@@ -263,52 +263,17 @@ class Status(object):
             return False
         return True
 
-    def getStateKW(self):
-        # determine time remaining in this state
-        timeElapsed = time.time() - self._timeStamp
-        # cannot have negative time remaining
-        timeRemaining = max(0, self._totalTime - timeElapsed)
-        return "ThreadringState=%s, %i, %i, %.2f, %.2f"%(
-            self._state, self.currIter, self.maxIter, timeRemaining, self._totalTime
-            )
-
-    def getFaultStr(self):
-        faultList = []
-        for axis, val in self.dict.iteritems():
-            if hasattr(val, "iteritems"):
-                for key, value in val.iteritems():
-                    if "_fault" in key and bool(value):
-                        # fault value is non zero or not None
-                        faultList.append("%s %s %i"%(axis, key, val))
-        if not faultList:
-            # no faults
-            return None
-        else:
-            faultStr = ",".join(faultList)
-            return "ScaleRingFaults=%s"%faultStr
-
-    def statusStr(self):
-        kwList = []
-        kwList.append("ThreadRingPos=%.4f"%self.position)
-        kwList.append("ThreadRingSpeed=%.4f"%self.speed)
-        kwList.append("ThreadRingMaxSpeed=%.4f"%self.maxSpeed)
-        kwList.append("DesThreadRingPos=%.4f"%self.desPosition)
-        kwList.append("instrumentNum=%i; text='LCOHACK, cartNum is hardcoded in scaleDevice'"%20)#self.cartID) #LCOHACK hardcode to match cart info in db
-        kwList.append("CartLocked=%s"%"T" if self.locked else "F")
-        kwList.append("CartLoaded=%s"%"T" if self.loaded else "F")
-        return "; ".join(kwList)
-
 class ScaleDevice(TCPDevice):
     """!A Device for communicating with the LCO Scaling ring."""
     validCmdVerbs = ["move", "stop", "status", "speed"]
-    def __init__(self, name, host, port, measScaleDevice=None, nomSpeed=NOM_SPEED, callFunc=None):
+    def __init__(self, name, host, port, measScaleDev=None, nomSpeed=NOM_SPEED, callFunc=None):
         """!Construct a ScaleDevice
 
         Inputs:
         @param[in] name  name of device
         @param[in] host  host address of scaling ring controller
         @param[in] port  port of scaling ring controller
-        @param[in] measScaleDevice  instance of a MeasScaleDevice (access to the mitutoyos for servoing)
+        @param[in] measScaleDev  instance of a MeasScaleDev (access to the mitutoyos for servoing)
         @param[in] nom_speed nominal speed at which to move (this can be modified via the speed command)
         @param[in] callFunc  function to call when state of device changes;
                 note that it is NOT called when the connection state changes;
@@ -322,7 +287,7 @@ class ScaleDevice(TCPDevice):
         self.moveUserCmd = expandUserCmd(None)
         self.moveUserCmd
         self.nomSpeed = nomSpeed
-        self.measScaleDevice = measScaleDevice
+        self.measScaleDev = measScaleDev
         self.status = Status()
 
         # all commands of equal priority
@@ -350,15 +315,31 @@ class ScaleDevice(TCPDevice):
             cmdInfo = (),
         )
 
-    def _addMeasScaleDev(self, measScaleDevice):
-        """Add a way to add a measScaleDevice exposfacto,
+    def _addMeasScaleDev(self, measScaleDev):
+        """Add a way to add a measScaleDev exposfacto,
         really this is only for use with the device wrappers.
-        Any real use should specify measScaleDevice in __init__
+        Any real use should specify measScaleDev in __init__
         """
-        self.measScaleDevice = measScaleDevice
+        self.measScaleDev = measScaleDev
 
     def killFunc(self, doomedCmd, killerCmd):
         doomedCmd.setState(doomedCmd.Failed, "Killed by %s"%(str(killerCmd)))
+
+    @property
+    def motorPos(self):
+        """Position reported by the motor (Keithly)
+        """
+        return self.status.position
+
+    @property
+    def encPos(self):
+        """Average position of the 3 mitutoyo encoders
+        """
+        return self.measScaleDev.position
+
+    @property
+    def scaleZeroPos(self):
+        return self.measScaleDev.zeroPoint
 
     @property
     def currExeDevCmd(self):
@@ -396,6 +377,9 @@ class ScaleDevice(TCPDevice):
         note that during moves the thread_ring_axis actual_position gets
         periodically output and thus updated in the status
         """
+
+        # note measScaleDevice could be read even if
+        # scaling ring is moving.  do this at somepoint?
         userCmd = expandUserCmd(userCmd)
         if timeLim is None:
             timeLim = 2
@@ -407,7 +391,7 @@ class ScaleDevice(TCPDevice):
             # get a completely fresh status from the device
             statusDevCmd = self.queueDevCmd("status", userCmd)
             # get encoder values too
-            encStatusDevCmd = self.getStatus()
+            encStatusDevCmd = self.measScaleDev.getStatus()
             statusDevCmd.addCallback(self._statusCallback)
             statusDevCmd.setTimeLimit(timeLim)
             if linkState:
@@ -436,22 +420,58 @@ class ScaleDevice(TCPDevice):
             #     self.writeToUsers("w", statusError, statusCmd.userCmd)
             self.writeStatusToUsers(statusCmd.userCmd)
 
+    def getStateKW(self):
+        # determine time remaining in this state
+        timeElapsed = time.time() - self.status._timeStamp
+        # cannot have negative time remaining
+        timeRemaining = max(0, self.status._totalTime - timeElapsed)
+        return "ThreadringState=%s, %i, %i, %.2f, %.2f"%(
+            self.status._state, self.status.currIter, self.status.maxIter, timeRemaining, self.status._totalTime
+            )
+
+    def getFaultStr(self):
+        faultList = []
+        for axis, val in self.status.dict.iteritems():
+            if hasattr(val, "iteritems"):
+                for key, value in val.iteritems():
+                    if "_fault" in key and bool(value):
+                        # fault value is non zero or not None
+                        faultList.append("%s %s %i"%(axis, key, val))
+        if not faultList:
+            # no faults
+            return None
+        else:
+            faultStr = ",".join(faultList)
+            return "ScaleRingFaults=%s"%faultStr
+
+    def statusStr(self):
+        kwList = []
+        kwList.append("ThreadRingMotorPos=%.4f"%self.motorPos)
+        kwList.append("ThreadRingEncPos=%.4f"%self.encPos)
+        kwList.append("ThreadRingSpeed=%.4f"%self.status.speed)
+        kwList.append("ThreadRingMaxSpeed=%.4f"%self.status.maxSpeed)
+        kwList.append("DesThreadRingPos=%.4f"%self.status.desPosition)
+        kwList.append("instrumentNum=%i; text='LCOHACK, cartNum is hardcoded in scaleDevice'"%20)#self.status.cartID) #LCOHACK hardcode to match cart info in db
+        kwList.append("CartLocked=%s"%"T" if self.status.locked else "F")
+        kwList.append("CartLoaded=%s"%"T" if self.status.loaded else "F")
+        return "; ".join(kwList)
+
     def writeStatusToUsers(self, userCmd=None):
         """Write the current status to all users
         """
 
-        faultStr = self.status.getFaultStr()
+        faultStr = self.getFaultStr()
         if faultStr is not None:
             self.writeToUsers("w", faultStr, userCmd)
         statusError = self.status.checkFullStatus()
         if statusError:
             self.writeToUsers("w", statusError)
-        statusKWs = self.status.statusStr()
+        statusKWs = self.statusStr()
         self.writeToUsers("i", statusKWs, userCmd)
         self.writeState(userCmd)
 
     def writeState(self, userCmd=None):
-        stateKW = self.status.getStateKW()
+        stateKW = self.getStateKW()
         self.writeToUsers("i", stateKW, userCmd)
 
 
@@ -484,7 +504,7 @@ class ScaleDevice(TCPDevice):
         on the scaling ring so i need to determine the absolute position wanted
         based on the offset I measure...gah.
         """
-        offset = self.targetPos - self.measScaleDevice.position
+        offset = self.targetPos - self.encPos
         absMovePos = self.status.position + offset
         return "move %.6f"%(absMovePos)
 
@@ -516,7 +536,7 @@ class ScaleDevice(TCPDevice):
 
     def home(self, userCmd=None):
         log.info("%s.home(userCmd=%s)" % (self, userCmd))
-        setCountCmd = self.measScaleDevice.setCountState()
+        setCountCmd = self.measScaleDev.setCountState()
 
         def finishHome(_zeroEncCmd):
             if _zeroEncCmd.didFail:
@@ -530,7 +550,7 @@ class ScaleDevice(TCPDevice):
             elif _moveCmd.isDone:
                 # zero the encoders in 1 second (give the ring a chance to stop)
                 def zeroEm():
-                    zeroEncCmd = self.measScaleDevice.setZero()
+                    zeroEncCmd = self.measScaleDev.setZero()
                     zeroEncCmd.addCallback(finishHome)
                 reactor.callLater(1., zeroEm)
 
@@ -538,7 +558,7 @@ class ScaleDevice(TCPDevice):
             if _setCountCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
             elif _setCountCmd.isDone:
-                moveCmd = self.queueDevCmd("move %.6f"%self.measScaleDevice.zeroPoint, userCmd)
+                moveCmd = self.queueDevCmd("move %.6f"%self.measScaleDev.zeroPoint, userCmd)
                 moveCmd.addCallback(zeroEncoders)
         setCountCmd.addCallback(moveThreadRing)
 
@@ -565,7 +585,7 @@ class ScaleDevice(TCPDevice):
         elif moveStatusCmd.isDone:
             # move's done, read the encoders
             # and get scaling ring status
-            readEncCmd = self.measScaleDevice.getStatus()
+            readEncCmd = self.measScaleDev.getStatus()
             readEncCmd.addCallback(self._moveIter)
 
     def _moveIter(self, readEncCmd):
@@ -576,7 +596,7 @@ class ScaleDevice(TCPDevice):
             self.moveUserCmd.setState(self.moveUserCmd.Failed, "Failed to read encoders after scaling ring move.")
         elif readEncCmd.isDone:
             atMaxIter = self.iter > self.status.maxIter
-            withinTol = numpy.abs(self.targetPos - self.measScaleDevice.position) < self.status.moveTol
+            withinTol = numpy.abs(self.targetPos - self.encPos) < self.status.moveTol
             if atMaxIter:
                 self.writeToUsers("i", "text='Max iter reached for scaling ring move.'")
             if atMaxIter or withinTol:

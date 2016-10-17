@@ -21,13 +21,13 @@ def setScaleFactor(tccActor, userCmd):
     same direction
     """
     showScaleCmd = UserCmd() # to be set done when scale is shown
-    def showScaleWhenDone(encCmd):
+    def showScaleWhenDone(scaleCmd):
         """@param[in] scaleCmd, a twistedActor.UserCmd instance passed automatically via callback
 
         when the scale is done show the current value to users
         then set the user command done.
         """
-        if encCmd.isDone:
+        if scaleCmd.isDone:
             showScaleFactor(tccActor, showScaleCmd, setDone=True)
 
     valueList = userCmd.parsedCmd.paramDict["scalefactor"].valueList[0].valueList
@@ -69,7 +69,7 @@ def setScaleFactor(tccActor, userCmd):
         # convert to microns
         # apply scaling ratio
         # command M2 move
-        focusOffset = (absPosMM - tccActor.measScaleDev.position) * UM_PER_MM * tccActor.SCALE_RATIO * -1
+        focusOffset = (absPosMM - tccActor.scaleDev.encPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
         focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
         scaleCmd = tccActor.scaleDev.move(absPosMM)
         scaleCmd.addCallback(showScaleWhenDone)
