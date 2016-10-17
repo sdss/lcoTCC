@@ -6,6 +6,7 @@ import traceback
 
 # from RO.StringUtil import strFromException
 import numpy
+from twisted.internet import reactor
 
 from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue, LinkCommands
 
@@ -525,9 +526,11 @@ class ScaleDevice(TCPDevice):
             if _moveCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
             elif _moveCmd.isDone:
-                # zero the encoders
-                zeroEncCmd = self.measScaleDevice.setZero()
-                zeroEncCmd.addCallback(finishHome)
+                # zero the encoders in 1 second (give the ring a chance to stop)
+                def zeroEm():
+                    zeroEncCmd = self.measScaleDevice.setZero()
+                    zeroEncCmd.addCallback(finishHome)
+                reactor.callLater(1., zeroEm)
 
         def moveThreadRing(_setCountCmd):
             if _setCountCmd.didFail:

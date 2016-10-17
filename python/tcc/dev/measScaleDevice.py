@@ -137,7 +137,7 @@ class MeasScaleDevice(TCPDevice):
             # check that all encoders are reading zeros
             self.writeStatusToUsers(zeroCmd.userCmd)
             if not numpy.all(numpy.abs(self.encPos) < 0.001):
-                zeroCmd.userCmd.setState(zeroCmd.userCmd.failed, "zeros failed to set")
+                zeroCmd.userCmd.setState(zeroCmd.userCmd.Failed, "zeros failed to set: %s"%str(self.encPos))
 
     def writeStatusToUsers(self, userCmd=None):
         self.writeToUsers("i", "ScaleZeroPos=%.4f"%self.zeroPoint)
@@ -221,7 +221,7 @@ class MeasScaleDevice(TCPDevice):
                                 reference.
         """
         log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
-        print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
+        #print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd = DevCmd(cmdStr=devCmdStr)
@@ -236,7 +236,7 @@ class MeasScaleDevice(TCPDevice):
         @param[in] devCmd a dev command
         """
         log.info("%s.startDevCmd(%r)" % (self, devCmd.cmdStr))
-        print("%s.startDevCmd(%r)" % (self, devCmd.cmdStr))
+        #print("%s.startDevCmd(%r)" % (self, devCmd.cmdStr))
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmd.cmdStr))
