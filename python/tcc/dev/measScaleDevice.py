@@ -51,7 +51,10 @@ class MeasScaleDevice(TCPDevice):
         # return the average value of all encoder positions
         # with respect to the zeroPoint
         # this is used for servoing the scaling ring
-        return numpy.mean(self.encPos) + self.zeroPoint
+        if not self.isHomed:
+            return None
+        else:
+            return numpy.mean(self.encPos) + self.zeroPoint
 
     @property
     def isHomed(self):

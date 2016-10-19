@@ -53,7 +53,7 @@ MAX_SPEED = 0.1
 NOM_SPEED = 0.1
 SEC_TIMEOUT = 2.0
 MAX_ITER = 3
-MOVE_TOL = 5 / 1000.0 # move tolerance (5 microns)
+MOVE_TOL = 10 / 1000.0 # move tolerance (5 microns)
 
 class MungedStatusError(Exception):
     """The scaling ring occassionally returns a Munged status
@@ -446,8 +446,9 @@ class ScaleDevice(TCPDevice):
 
     def statusStr(self):
         kwList = []
+        threadRingPos = "%.4f"%self.encPos if self.encPos else "?"
         kwList.append("ThreadRingMotorPos=%.4f"%self.motorPos)
-        kwList.append("ThreadRingEncPos=%.4f"%self.encPos)
+        kwList.append("ThreadRingEncPos=%s"%threadRingPos)
         kwList.append("ThreadRingSpeed=%.4f"%self.status.speed)
         kwList.append("ThreadRingMaxSpeed=%.4f"%self.status.maxSpeed)
         kwList.append("DesThreadRingPos=%.4f"%self.status.desPosition)
