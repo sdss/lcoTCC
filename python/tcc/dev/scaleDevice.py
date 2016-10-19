@@ -452,7 +452,7 @@ class ScaleDevice(TCPDevice):
         kwList.append("ThreadRingMaxSpeed=%.4f"%self.status.maxSpeed)
         kwList.append("DesThreadRingPos=%.4f"%self.status.desPosition)
         kwList.append("ScaleZeroPos=%.4f"%self.scaleZeroPos)
-        kwList.append("instrumentNum=%i; text='LCOHACK, cartNum is hardcoded in scaleDevice'"%20)#self.status.cartID) #LCOHACK hardcode to match cart info in db
+        kwList.append("instrumentNum=%i; text='LCOHACK, cartNum is hardcoded in scaleDevice'"%21)#self.status.cartID) #LCOHACK hardcode to match cart info in db
         kwList.append("CartLocked=%s"%"T" if self.status.locked else "F")
         kwList.append("CartLoaded=%s"%"T" if self.status.loaded else "F")
         return "; ".join(kwList)
