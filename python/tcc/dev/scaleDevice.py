@@ -447,11 +447,12 @@ class ScaleDevice(TCPDevice):
     def statusStr(self):
         kwList = []
         threadRingPos = "%.4f"%self.encPos if self.encPos else "?"
+        desThreadRingPos = "%.4f"%self.targetPos if self.targetPos else "?"
         kwList.append("ThreadRingMotorPos=%.4f"%self.motorPos)
         kwList.append("ThreadRingEncPos=%s"%threadRingPos)
         kwList.append("ThreadRingSpeed=%.4f"%self.status.speed)
         kwList.append("ThreadRingMaxSpeed=%.4f"%self.status.maxSpeed)
-        kwList.append("DesThreadRingPos=%.4f"%self.status.desPosition)
+        kwList.append("DesThreadRingPos=%.4f"%desThreadRingPos)
         kwList.append("ScaleZeroPos=%.4f"%self.scaleZeroPos)
         kwList.append("instrumentNum=%i"%self.status.cartID)
         kwList.append("CartLocked=%s"%"T" if self.status.locked else "F")
