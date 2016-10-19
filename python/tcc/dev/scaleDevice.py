@@ -451,7 +451,8 @@ class ScaleDevice(TCPDevice):
         kwList.append("ThreadRingSpeed=%.4f"%self.status.speed)
         kwList.append("ThreadRingMaxSpeed=%.4f"%self.status.maxSpeed)
         kwList.append("DesThreadRingPos=%.4f"%self.status.desPosition)
-        kwList.append("instrumentNum=%i; text='LCOHACK, cartNum is hardcoded in scaleDevice'"%21)#self.status.cartID) #LCOHACK hardcode to match cart info in db
+        kwList.append("ScaleZeroPos=%.4f"%self.scaleZeroPos)
+        kwList.append("instrumentNum=%i"%self.status.cartID)
         kwList.append("CartLocked=%s"%"T" if self.status.locked else "F")
         kwList.append("CartLoaded=%s"%"T" if self.status.loaded else "F")
         return "; ".join(kwList)
@@ -538,11 +539,23 @@ class ScaleDevice(TCPDevice):
         log.info("%s.home(userCmd=%s)" % (self, userCmd))
         setCountCmd = self.measScaleDev.setCountState()
 
-        def finishHome(_zeroEncCmd):
+        def finishHome(_statusCmd):
+            if _statusCmd.didFail:
+                userCmd.setState(userCmd.Failed, "status failed.")
+            elif _statusCmd.isDone:
+                # assert that the encoders are really reading
+                # zeros
+                if not numpy.all(numpy.abs(self.measScaleDev.encPos) < 0.001):
+                    userCmd.setState(userCmd.Failed, "zeros failed to set: %s"%str(self.measScaleDev.encPos))
+                else:
+                    userCmd.setState(userCmd.Done)
+
+        def getStatus(_zeroEncCmd):
             if _zeroEncCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Encoder zero failed.")
             elif _zeroEncCmd.isDone:
-                userCmd.setState(userCmd.Done)
+                statusCmd = self.getStatus()
+                statusCmd.addCallback(finishHome)
 
         def zeroEncoders(_moveCmd):
             if _moveCmd.didFail:
@@ -551,7 +564,7 @@ class ScaleDevice(TCPDevice):
                 # zero the encoders in 1 second (give the ring a chance to stop)
                 def zeroEm():
                     zeroEncCmd = self.measScaleDev.setZero()
-                    zeroEncCmd.addCallback(finishHome)
+                    zeroEncCmd.addCallback(getStatus)
                 reactor.callLater(1., zeroEm)
 
         def moveThreadRing(_setCountCmd):

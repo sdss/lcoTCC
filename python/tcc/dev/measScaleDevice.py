@@ -117,12 +117,8 @@ class MeasScaleDevice(TCPDevice):
         """
         userCmd = expandUserCmd(userCmd)
         zeroDevCmd = self.queueDevCmd(ZERO_SET, userCmd)
-        readDevCmd = self.queueDevCmd(READ_ENC, userCmd)
-        readDevCmd.userCmd = userCmd
-        readDevCmd.addCallback(self._zeroCallback)
         zeroDevCmd.setTimeLimit(timeLim)
-        readDevCmd.setTimeLimit(timeLim)
-        LinkCommands(userCmd, [zeroDevCmd, readDevCmd])
+        LinkCommands(userCmd, [zeroDevCmd])
         return userCmd
 
     def _statusCallback(self, statusCmd):
@@ -132,14 +128,8 @@ class MeasScaleDevice(TCPDevice):
         #     self.status.flushStatus()
         if statusCmd.isDone and not statusCmd.didFail:
             self.writeStatusToUsers(statusCmd.userCmd)
+            print("mig values,", self.encPos)
             print("done reading migs")
-
-    def _zeroCallback(self, zeroCmd):
-        if zeroCmd.isDone and not zeroCmd.didFail:
-            # check that all encoders are reading zeros
-            self.writeStatusToUsers(zeroCmd.userCmd)
-            if not numpy.all(numpy.abs(self.encPos) < 0.001):
-                zeroCmd.userCmd.setState(zeroCmd.userCmd.Failed, "zeros failed to set: %s"%str(self.encPos))
 
     def writeStatusToUsers(self, userCmd=None):
         self.writeToUsers("i", "ScaleZeroPos=%.4f"%self.zeroPoint)
