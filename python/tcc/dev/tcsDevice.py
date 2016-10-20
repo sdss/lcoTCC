@@ -68,7 +68,8 @@ PollTimeIdle = 10
 # FocusPosTol = 0.001 # microns?
 ArcSecPerDeg = 3600 # arcseconds per degree
 MinRotOffset = 5 / ArcSecPerDeg # minimum commandable rotator offset
-MaxRotOffset = 60 / ArcSecPerDeg # max commandable rotator offset
+# MaxRotOffset = 60 / ArcSecPerDeg # max commandable rotator offset
+MaxRotOffset = 1000 / ArcSecPerDeg
 UnclampWaitTime = 7 # measured with a stopwatch to be 5 seconds listening to motors, add 2 extra secs buffer
 ClampFudgeTime = 0.5 #seconds.  Time delay between perceived end of rotation and issuing "clamp"
 # RotSpeed = 1 # in degrees/second for setting timeout.
@@ -454,6 +455,8 @@ class TCSDevice(TCPDevice):
 
         self.devCmdQueue = CommandQueue({}) # all commands of equal priority
 
+        self.lastGuideRotApplied = None
+
         TCPDevice.__init__(self,
             name = name,
             host = host,
@@ -642,7 +645,7 @@ class TCSDevice(TCPDevice):
             self.writeToUsers("i", statusStr, userCmd)
         return userCmd
 
-    def rotOffset(self, rot, userCmd=None):
+    def rotOffset(self, rot, userCmd=None, force=False):
         """Offset telescope rotator.  USE APGCIR cmd
         which holds current
 
@@ -665,16 +668,27 @@ class TCSDevice(TCPDevice):
             # rotator is unclamped, a move is in progress
             userCmd.setState(userCmd.Failed, "Rotator is unclamped (already moving?)")
             return userCmd
-        if abs(rot) < MinRotOffset:
+        if abs(rot) < MinRotOffset and not force:
             # set command done, rotator offset is miniscule
-            self.writeToUsers("w", "Rot offset less than min threshold, proceeding anyways", userCmd)
-            # userCmd.setState(userCmd.Done)
-            # return userCmd
+            self.writeToUsers("w", "Rot offset less than min threshold, not applying", userCmd)
+            userCmd.setState(userCmd.Done)
+            return userCmd
         if abs(rot) > MaxRotOffset:
             # set command failed, rotator offset is too big
-            self.writeToUsers("w", "Rot offset greater than max threshold, proceeding anyways", userCmd)
-            # userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
-            # return userCmd
+            self.writeToUsers("w", "Rot offset greater than max threshold", userCmd)
+            userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
+            return userCmd
+        ### print time since last rot applied from guider command
+        if not force:
+            if self.lastGuideRotApplied is None:
+                self.lastGuideRotApplied = time.time()
+            else:
+                tnow = time.time()
+                infoStr = "time since last guide rot update: %.2f"%(tnow-self.lastGuideRotApplied)
+                print(infoStr)
+                log.info(infoStr)
+                self.lastGuideRotApplied = tnow
+
         # apgcir requires absolute position, calculate it
         # first get status
         newPos = self.status.rotPos - rot
