@@ -299,7 +299,9 @@ class Status(object):
         # check if we are really slewing instead of tracking (offsets don't trigger slew state)
         # so check manually
         ra, dec = [axisCmdState]*2
-        rot = Halted if self.isClamped else Slewing
+        rot = Halted
+        if self.rotMoving:
+            rot = Slewing
         raSlewing, decSlewing = self.axesSlewing()
         # force ra or dec slewing if true in axesSlewing
         if raSlewing:
@@ -398,7 +400,10 @@ class Status(object):
 
     @property
     def rotMoving(self):
-        rotMoving = self.statusFieldDict["axisstatus"].value["rot"].isMoving
+        if self.statusFieldDict["axisstatus"].value is None:
+            rotMoving = False
+        else:
+            rotMoving = self.statusFieldDict["axisstatus"].value["rot"].isMoving
         return rotMoving
 
     def currArcOff(self):
@@ -561,7 +566,7 @@ class TCSDevice(TCPDevice):
             if self.waitOffsetCmd.isActive and not True in self.status.axesSlewing():
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
-            if self.waitRotCmd.isActive and self.status.rotMoving:
+            if self.waitRotCmd.isActive and not self.status.rotMoving:
                 print("set rot command done")
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
 
@@ -666,8 +671,9 @@ class TCSDevice(TCPDevice):
             return userCmd
         if abs(rot) < MinRotOffset and not force:
             # set command done, rotator offset is miniscule
-            self.writeToUsers("w", "Rot offset less than min threshold, not applying", userCmd)
-            userCmd.setState(userCmd.Done)
+            self.writeToUsers("w", "ignoring min rot thresh")
+            # self.writeToUsers("w", "Rot offset less than min threshold, not applying", userCmd)
+            # userCmd.setState(userCmd.Done)
             return userCmd
         if abs(rot) > MaxRotOffset:
             # set command failed, rotator offset is too big
@@ -688,7 +694,7 @@ class TCSDevice(TCPDevice):
         # apgcir requires absolute position, calculate it
         # first get status
         # newPos = self.status.rotPos - rot
-        newPos = rot
+        newPos = -1*rot
 
 
         # rotStart = time.time()
