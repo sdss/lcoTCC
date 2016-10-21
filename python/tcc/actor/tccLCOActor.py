@@ -150,7 +150,7 @@ class TCCLCOActor(BaseActor):
         if not self.collimationModel.doCollimate and not force:
             cmd.setState(cmd.Failed, "collimation is disabled")
             return
-        if "Halted" in self.tcsDev.status.statusFieldDict["state"][:2]:
+        if "Halted" in self.tcsDev.status.statusFieldDict["state"].value[:2]:
             # either RA or Dec axis is halted
             cmd.setState(cmd.Canceled("RA or Dec axis halted, not applying collimation."))
             return
@@ -165,7 +165,7 @@ class TCCLCOActor(BaseActor):
                 # ha = self.tcsDev.status.statusFieldDict["ha"].value
                 # dec = self.tcsDev.status.statusFieldDict["dec"].value
                 # if an axis is slewing collimate to the target
-                if "Slewing" in self.tcsDev.status.statusFieldDict["state"][:2]:
+                if "Slewing" in self.tcsDev.status.statusFieldDict["state"].value[:2]:
                     # ra or dec is slewing
                     # get target coords
                     # st and ra in degrees
