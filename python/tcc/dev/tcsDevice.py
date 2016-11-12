@@ -236,6 +236,7 @@ class Status(object):
         # self.targFocus = None
         self.ra = None #unused?
         self.dec = None #unused?
+        self.targRot = None
         self.targRA = None
         self.targDec = None
         self.offDec = None
@@ -299,9 +300,7 @@ class Status(object):
         # check if we are really slewing instead of tracking (offsets don't trigger slew state)
         # so check manually
         ra, dec = [axisCmdState]*2
-        rot = Halted
-        if self.rotMoving:
-            rot = Slewing
+        rot = Halted if self.isClamped else Slewing
         raSlewing, decSlewing = self.axesSlewing()
         # force ra or dec slewing if true in axesSlewing
         if raSlewing:
@@ -375,9 +374,12 @@ class Status(object):
         # return "%.6f, 0.0, 0.0, %.6f, 0.0, 0.0"%(raOff, decOff)
         return "%.6f, %.6f"%(raOff, decOff)
 
+    # @property
+    # def rotOnTarget(self):
+    #     return abs(self.targRot - self.rotPos)<self.rotOnTarg
 
-    # def setRotOffsetTarg(self, rotOffset):
-    #     self.targRot = self.rotPos + rotOffset
+    def setRotOffsetTarg(self, rotOffset):
+        self.targRot = self.rotPos + rotOffset
 
     def axesSlewing(self):
         if self.previousDec == ForceSlew:
@@ -400,10 +402,7 @@ class Status(object):
 
     @property
     def rotMoving(self):
-        if self.statusFieldDict["axisstatus"].value is None:
-            rotMoving = False
-        else:
-            rotMoving = self.statusFieldDict["axisstatus"].value["rot"].isMoving
+        rotMoving = self.statusFieldDict["axisstatus"].value["rot"].isMoving
         return rotMoving
 
     def currArcOff(self):
@@ -566,8 +565,8 @@ class TCSDevice(TCPDevice):
             if self.waitOffsetCmd.isActive and not True in self.status.axesSlewing():
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
-            if self.waitRotCmd.isActive and not self.status.rotMoving:
-                print("set rot command done")
+            if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
+                print("set rot command done", self.rotDelay, self.status.isClamped, self.status.rotMoving)
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
 
     def target(self, ra, dec, doHA, userCmd=None):
@@ -667,13 +666,12 @@ class TCSDevice(TCPDevice):
             return userCmd
         if not self.waitRotCmd.isDone:
             # rotator is unclamped, a move is in progress
-            userCmd.setState(userCmd.Failed, "Rotator is already moving")
+            userCmd.setState(userCmd.Failed, "Rotator is unclamped (already moving?)")
             return userCmd
         if abs(rot) < MinRotOffset and not force:
             # set command done, rotator offset is miniscule
-            self.writeToUsers("w", "ignoring min rot thresh")
-            # self.writeToUsers("w", "Rot offset less than min threshold, not applying", userCmd)
-            # userCmd.setState(userCmd.Done)
+            self.writeToUsers("w", "Rot offset less than min threshold, not applying", userCmd)
+            userCmd.setState(userCmd.Done)
             return userCmd
         if abs(rot) > MaxRotOffset:
             # set command failed, rotator offset is too big
@@ -693,10 +691,7 @@ class TCSDevice(TCPDevice):
 
         # apgcir requires absolute position, calculate it
         # first get status
-        # newPos = self.status.rotPos - rot
-        newPos = -1*rot
-
-
+        newPos = self.status.rotPos - rot
         # rotStart = time.time()
         # def printRotSlewTime(aCmd):
         #     if aCmd.isDone:
@@ -705,12 +700,20 @@ class TCSDevice(TCPDevice):
         waitRotCmd = UserCmd()
         self.waitRotCmd = waitRotCmd
         # calculate time limit for rot move:
-        self.waitOffsetCmd.setTimeLimit(20)
-
-        enterDCIR = DevCmd(cmdStr="DCIR %.8f"%newPos)
-        LinkCommands(userCmd, [enterDCIR, self.waitRotCmd])
-        self.queueDevCmd(enterDCIR)
-
+        rotTimeLimBuffer = 2 # check for clamp after 4 seconds
+        self.rotDelay = True
+        print("setting rot delay true")
+        def setRotBufferOff():
+            print("setting rot delay false")
+            print("rot buffer Off (clamped?)", self.status.isClamped)
+            self.rotDelay = False
+        self.waitRotTimer.start(rotTimeLimBuffer, setRotBufferOff)
+        self.waitOffsetCmd.setTimeLimit(rotTimeLimBuffer + 20)
+        self.status.setRotOffsetTarg(rot)
+        enterAPGCIR = DevCmd(cmdStr="APGCIR %.8f"%(newPos))
+        LinkCommands(userCmd, [enterAPGCIR, self.waitRotCmd])
+        # begin the dominos game
+        self.queueDevCmd(enterAPGCIR)
         statusStr = self.status.getStatusStr()
         if statusStr:
             self.writeToUsers("i", statusStr, userCmd)
