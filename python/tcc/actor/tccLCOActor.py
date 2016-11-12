@@ -90,10 +90,10 @@ class TCCLCOActor(BaseActor):
 
     def scale2mm(self, scaleValue):
         # scale=1 device is at zero point
-        return (scaleValue - 1.0) / self.SCALE_PER_MM + self.scaleDev.scaleZeroPos
+        return -1 * (scaleValue - 1.0) / self.SCALE_PER_MM + self.scaleDev.scaleZeroPos
 
     def mm2scale(self, mm):
-        return (mm - self.scaleDev.scaleZeroPos) * self.SCALE_PER_MM + 1.0
+        return -1 * (mm - self.scaleDev.scaleZeroPos) * self.SCALE_PER_MM + 1.0
 
     def scaleMult2mm(self, multiplier):
         return self.scale2mm(self.currentScaleFactor*multiplier)
