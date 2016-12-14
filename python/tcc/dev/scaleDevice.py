@@ -530,6 +530,7 @@ class ScaleDevice(TCPDevice):
         self.iter = 1
         self.targetPos = position
         self.moveUserCmd = userCmd
+        print("moving threadring to: ", self.targetPos)
         if not self.moveUserCmd.isActive:
             self.moveUserCmd.setState(self.moveUserCmd.Running)
         self.writeToUsers("i", "DesThreadRingPos=%.4f"%self.targetPos)

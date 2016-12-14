@@ -44,7 +44,8 @@ class TCCLCOActor(BaseActor):
     # SCALE_PER_MM = 8.45e-05 * -1# Scaling ring convention (higher abs values )
     SCALE_PER_MM = 8.45e-05 # more MM per scale
     SCALE_RATIO = 1/7. #Sec dist = SCALE_RATIO * scaling ring dist
-    MAX_SF = 1.0008 # max scale factor from tcc25m/inst/default.dat
+    # MAX_SF = 1.0008 # max scale factor from tcc25m/inst/default.dat
+    MAX_SF = 1.02
     MIN_SF = 1./MAX_SF  # min scale factor
     def __init__(self,
         userPort,

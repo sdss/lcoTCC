@@ -29,11 +29,8 @@ def offset(tccActor, userCmd):
         offsetRot = coordSet[0] / 3600.
         tccActor.tcsDev.rotOffset(offsetRot, userCmd, force=True)
     else:
-        tccActor.writeToUsers("w", "NOT applying ROT!!!!!")
-        userCmd.setState(userCmd.Done)
-
-        # if not coordSet[0] == coordSet[1] == 0 or len(coordSet) != 3:
-        #     raise CommandError("Guide offset must be solely in rotation")
-        # offsetRot = coordSet[-1]
-        # tccActor.tcsDev.rotOffset(offsetRot, userCmd)
+        if not coordSet[0] == coordSet[1] == 0 or len(coordSet) != 3:
+            raise CommandError("Guide offset must be solely in rotation")
+        offsetRot = coordSet[-1]
+        tccActor.tcsDev.rotOffset(offsetRot, userCmd)
 

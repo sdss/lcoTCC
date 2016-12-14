@@ -67,7 +67,7 @@ PollTimeTrack = 5
 PollTimeIdle = 10
 # FocusPosTol = 0.001 # microns?
 ArcSecPerDeg = 3600 # arcseconds per degree
-MinRotOffset = 5 / ArcSecPerDeg # minimum commandable rotator offset
+MinRotOffset = 2 / ArcSecPerDeg # minimum commandable rotator offset
 # MaxRotOffset = 60 / ArcSecPerDeg # max commandable rotator offset
 MaxRotOffset = 1000 / ArcSecPerDeg
 UnclampWaitTime = 7 # measured with a stopwatch to be 5 seconds listening to motors, add 2 extra secs buffer
@@ -457,6 +457,8 @@ class TCSDevice(TCPDevice):
 
         self.lastGuideRotApplied = None
 
+        self.doGuideRot = True
+
         TCPDevice.__init__(self,
             name = name,
             host = host,
@@ -668,9 +670,10 @@ class TCSDevice(TCPDevice):
             # rotator is unclamped, a move is in progress
             userCmd.setState(userCmd.Failed, "Rotator is unclamped (already moving?)")
             return userCmd
-        if abs(rot) < MinRotOffset and not force:
+        # if abs(rot) < MinRotOffset and not force:
+        if not self.doGuideRot:
             # set command done, rotator offset is miniscule
-            self.writeToUsers("w", "Rot offset less than min threshold, not applying", userCmd)
+            self.writeToUsers("w", "Guide rot not enabled, not applying", userCmd)
             userCmd.setState(userCmd.Done)
             return userCmd
         if abs(rot) > MaxRotOffset:

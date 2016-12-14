@@ -4,7 +4,7 @@ from __future__ import division, absolute_import
 from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
 from ..cmd import setFocus, showFocus, setScaleFactor, showScaleFactor, showStatus, \
-                   showVersion, offset, device, ping, threadRing, sec, target, collimate, aph
+                   showVersion, offset, device, ping, threadRing, sec, target, collimate, aph, guiderot
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -321,6 +321,21 @@ TCCLCOCmdList = (
         help = "apagar prende huevon",
         callFunc = aph,
         paramList = []
+    ),
+    parseDefs.Command(
+        name = "guiderot",
+        help = "rotator toggle for guide corrections",
+        callFunc = guiderot,
+        minParAmt = 1,
+        paramList = [
+            parseDefs.KeywordParam(
+                name = 'toggle',
+                keywordDefList = [
+                    parseDefs.Keyword(name = "on", help = "guide rot corrections on"),
+                    parseDefs.Keyword(name = "off", help = "guide rot corrections off"),
+                ],
+            )
+        ]
     ),
 )
 

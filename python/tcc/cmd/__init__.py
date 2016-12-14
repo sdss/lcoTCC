@@ -17,3 +17,4 @@ from .showStatus import *
 from .showVersion import *
 from .collimate import *
 from .aph import *
+from .guiderot import *
