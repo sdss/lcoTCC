@@ -3,6 +3,7 @@ from __future__ import division, absolute_import
 import time
 import sys
 import traceback
+from collections import Counter
 
 # from RO.StringUtil import strFromException
 import numpy
@@ -106,9 +107,28 @@ class Status(object):
 
     @property
     def cartID(self):
-        #LCOHACK: hard code cart 20 to match Jose's db'
-        # return 20
-        return self.dict["cartridge_id"]
+        # a decision was made to use the 9 id switch values
+        # in sets of 3 so that there is some redundancy in cart determination
+        # if a single switch is not made.  So if two of the three agree
+        # then use that value, otherwise return a value of -1 (for unknown)
+        id1 = self.dict["id_sw"][:3]
+        id2 = self.dict["id_sw"][3:6]
+        id3 = self.dict["id_sw"][6:]
+        # determine the integer value (from 3 binary bits) for the set of 3 in theory they should all match
+        intVals = []
+        for switchSet in [id1, id2, id3]:
+            intVal = int("%i%i%i"%tuple(switchSet), 2)
+            intVals.append(intVal)
+        counter = Counter(intVals)
+        if len(counter) == 3:
+            # none agree!
+            cartID = -1
+        else:
+            # take the most common number
+            cartID = counter.most_common()[0][0]
+            # add 20 because cart IDs at LCO start at 20
+            cartID += 20
+        return cartID
 
     @property
     def loaded(self):
@@ -150,6 +170,7 @@ class Status(object):
         # parsed
         self.setThreadAxisCurrent()
         self.posSwNext = False
+        self.idSwNext = False
         self.nIter = 0
         self.maxIter = 4 # try at most status iterations before giving up
 
@@ -185,7 +206,8 @@ class Status(object):
 
             },
             "cartridge_id": None,
-            "pos_sw": [None, None, None]
+            "pos_sw": [None, None, None],
+            "id_sw": [None, None, None, None, None, None, None, None, None]
         }
 
     def checkFullStatus(self, statusDict=None, axis=None):
@@ -203,6 +225,8 @@ class Status(object):
                     # 2 element list
                     isEmpty = numpy.nan in val
                 elif "pos_sw" == key:
+                    isEmpty = None in val
+                elif "id_sw" == key:
                     isEmpty = None in val
                 else:
                     # not a list
@@ -237,6 +261,17 @@ class Status(object):
             assert len(posSw) == 3
             self.dict["pos_sw"] = posSw
             self.posSwNext = False
+            return
+
+        if "id_sw" in line:
+            self.idSwNext = True
+            return
+        if self.idSwNext:
+            # parse the 3 integers
+            idSw = [int(x) for x in line.split()]
+            assert len(posSw) == 9
+            self.dict["pos_sw"] = idSw
+            self.idSwNext = False
             return
 
         # the non-keyvalue type lines
@@ -454,7 +489,7 @@ class ScaleDevice(TCPDevice):
         kwList.append("ThreadRingMaxSpeed=%.4f"%self.status.maxSpeed)
         kwList.append("DesThreadRingPos=%s"%desThreadRingPos)
         kwList.append("ScaleZeroPos=%.4f"%self.scaleZeroPos)
-        kwList.append("instrumentNum=%i"%21)#21)#self.status.cartID)
+        kwList.append("instrumentNum=%i"%self.status.cartID)
         kwList.append("CartLocked=%s"%"T" if self.status.locked else "F")
         kwList.append("CartLoaded=%s"%"T" if self.status.loaded else "F")
         return "; ".join(kwList)
