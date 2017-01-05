@@ -22,9 +22,9 @@ class TCCLCOActorWrapper(ActorWrapper):
         @param[in] debug  print debug messages?
         """
         self.tcsWrapper = TCSDeviceWrapper(name="tcsWrapper", debug=debug)
+        self.measScaleWrapper = MeasScaleDeviceWrapper(name="measScaleWrapper", debug=debug)
         self.scaleWrapper = ScaleDeviceWrapper(name="scaleWrapper", debug=debug)
         self.m2Wrapper = M2DeviceWrapper(name="m2Wrapper", debug=debug)
-        self.measScaleWrapper = MeasScaleDeviceWrapper(name="measScaleWrapper", debug=debug)
         deviceWrapperList = [self.tcsWrapper, self.scaleWrapper, self.m2Wrapper, self.measScaleWrapper]
         ActorWrapper.__init__(self,
             deviceWrapperList = deviceWrapperList,

@@ -32,21 +32,25 @@ TCSDevicePort = 27000
 M2DevicePort = 28000
 
 
-print "Start fake LCO controllers"
+print("Start fake LCO controllers")
 fakeScaleController  = FakeScaleCtrl("fakeScale",  ScaleDevicePort)
 fakeTCS = FakeTCS("mockTCSDevice", TCSDevicePort)
 fakeM2Ctrl = FakeM2Ctrl("fakeM2", M2DevicePort)
 # fakeMeasScaleCtrl = FakeMeasScaleCtrl("fakeMeasScale", MeasScaleDevicePort)
+measScaleDev = MeasScaleDevice("measScaleDev", "10.1.1.41", MeasScaleDevicePort)
+tcsDev = TCSDevice("tcsDev", "localhost", TCSDevicePort)
+scaleDev = ScaleDevice("mockScale", "localhost", ScaleDevicePort, measScaleDev)
+m2Dev = M2Device("m2Dev", "localhost", M2DevicePort)
 
 def startTCCLCO(*args):
     try:
         tccActor = TCCLCOActor(
             name = "tcc",
             userPort = UserPort,
-            tcsDev = TCSDevice("tcsDev", "localhost", TCSDevicePort),
-            scaleDev = ScaleDevice("mockScale", "localhost", ScaleDevicePort),
-            m2Dev = M2Device("m2Dev", "localhost", M2DevicePort),
-            measScaleDev = MeasScaleDevice("measScaleDev", "10.1.1.41", MeasScaleDevicePort)
+            tcsDev = tcsDev,
+            scaleDev = scaleDev,
+            m2Dev = m2Dev,
+            measScaleDev = measScaleDev,
             )
     except Exception:
         print >>sys.stderr, "Error starting fake lcoTCC"

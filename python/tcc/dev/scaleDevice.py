@@ -257,21 +257,21 @@ class Status(object):
             return
         if self.posSwNext:
             # parse the 3 integers
+            self.posSwNext = False
             posSw = [int(x) for x in line.split()]
             assert len(posSw) == 3
             self.dict["pos_sw"] = posSw
-            self.posSwNext = False
             return
 
         if "id_sw" in line:
             self.idSwNext = True
             return
         if self.idSwNext:
+            self.idSwNext = False
             # parse the 3 integers
             idSw = [int(x) for x in line.split()]
-            assert len(posSw) == 9
-            self.dict["pos_sw"] = idSw
-            self.idSwNext = False
+            assert len(idSw) == 9
+            self.dict["id_sw"] = idSw
             return
 
         # the non-keyvalue type lines

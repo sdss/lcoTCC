@@ -227,7 +227,7 @@ class FakeScaleCtrl(FakeDev):
             "SCALE 3: -0.07550588",
             "CARTRIDGE_ID %i"%self.cartID,
             "__ID_SW: 0 1 2 3 4 5 6 7 8",
-            "         0 0 0 0 0 0 0 0 0",
+            "         0 1 1 0 1 1 0 1 1",
             "__POS_SW: 1 2 3",
             "          %i %i %i"%(self.posSw1, self.posSw2, self.posSw3),
             "WINCH_HOOK_SENSOR: OFF",
