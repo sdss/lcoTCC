@@ -16,10 +16,19 @@ class CollimationModel(object):
         self.minTrans = 10. # microns
         self.minTilt = 0.5 # arcseconds
         self.minFocus = 10 # microns
-        transX = 200.
-        transY = 0.
-        tiltX = 45.
-        tiltY = 6.
+
+        # values used December Eng Run 2016 and previously
+        # transX = 200.
+        # transY = 0.
+        # tiltX = 45.
+        # tiltY = 6.
+
+        # values from Francesco/Povilas 12/12/2016
+        transX = -1420.
+        transY = -106.
+        tiltX = 7. # known as tip in povilas's terms
+        tiltY = -52. # known as tilt in povilas's terms
+
         self.baseOrientation = numpy.asarray([tiltX, tiltY, transX, transY])
         self.baseFocus = None
         self.baseTrussTemp = None
