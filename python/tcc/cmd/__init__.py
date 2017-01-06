@@ -18,3 +18,4 @@ from .showVersion import *
 from .collimate import *
 from .aph import *
 from .guiderot import *
+from .help import *

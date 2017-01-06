@@ -519,7 +519,7 @@ class TCSDevice(TCPDevice):
         log.info("%s.getStatus(userCmd=%s)" % (self, userCmd)) # logging this will flood the log
         userCmd = expandUserCmd(userCmd)
         if not self.conn.isConnected:
-            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+            userCmd.setState(userCmd.Failed, "Not Connected to TCS: try reconnecting (is the APOGEE TCS running!?)")
             return userCmd
         self._statusTimer.cancel() # incase a status is pending
         userCmd = expandUserCmd(userCmd)

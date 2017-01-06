@@ -4,7 +4,8 @@ from __future__ import division, absolute_import
 from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
 from ..cmd import setFocus, showFocus, setScaleFactor, showScaleFactor, showStatus, \
-                   showVersion, offset, device, ping, threadRing, sec, target, collimate, aph, guiderot
+                   showVersion, offset, device, ping, threadRing, sec, target, \
+                   collimate, aph, guiderot, help
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -336,6 +337,12 @@ TCCLCOCmdList = (
                 ],
             )
         ]
+    ),
+    parseDefs.Command(
+        name = "help",
+        help = "print TCC command help",
+        callFunc = help,
+        minParAmt = 0,
     ),
 )
 
