@@ -126,8 +126,11 @@ class Status(object):
         else:
             # take the most common number
             cartID = counter.most_common()[0][0]
-            # add 20 because cart IDs at LCO start at 20
-            cartID += 20
+
+            if cartID > 0:
+                # add 20 because cart IDs at LCO start at 20
+                cartID += 20
+
         return cartID
 
     @property
@@ -859,4 +862,3 @@ WINCH_ENCODER_2_POS: 0.0
 WINCH_ENCODER_3_POS: 0.0
 OK
 """
-
