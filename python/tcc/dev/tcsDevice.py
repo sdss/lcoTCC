@@ -604,7 +604,7 @@ class TCSDevice(TCPDevice):
             if doHA:
                 ha = ra
             else:
-                ha = self.statusFieldDict["st"].value - ra
+                ha = self.status.statusFieldDict["st"].value - ra
             (az, alt), atPole = azAltFromHADec([ha,dec], LCO_LATITUDE)
             if alt < WS_ALT_LIMIT:
                 # modify declination

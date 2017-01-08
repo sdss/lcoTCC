@@ -432,6 +432,17 @@ class TestLCOCommands(TestCase):
             self.assertTrue(self.actor.tcsDev.status.statusFieldDict["dec"], dec)
         return self.queueCmd("target %.4f, %.2f icrs"%(ra, dec), cb)
 
+    def testTargetScreen(self):
+        ra = 5
+        dec = 6
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+            self.assertTrue(self.actor.tcsDev.status.statusFieldDict["inpra"], ra)
+            self.assertTrue(self.actor.tcsDev.status.statusFieldDict["inpdc"], dec)
+            self.assertTrue(self.actor.tcsDev.status.statusFieldDict["ra"], ra)
+            self.assertTrue(self.actor.tcsDev.status.statusFieldDict["dec"], dec)
+        return self.queueCmd("target %.4f, %.2f icrs /screen"%(ra, dec), cb)
+
     def testOffsetGuideMin(self):
         offset = 0.001 # below min threshold
         def cb(cmdVar):

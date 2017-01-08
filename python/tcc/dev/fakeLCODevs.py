@@ -286,6 +286,8 @@ class FakeTCS(FakeDev):
         self.dec = 0.
         self.ha = 0.
         self.targRA = 0.
+        self.inpScreen = 0.
+        self.inpHA = 0.
         self.targDec = 0.
         self.offDec = 0.
         self.offRA = 0.
@@ -363,6 +365,14 @@ class FakeTCS(FakeDev):
                 self.userSock.writeLine(axisLine)
 
             # commands
+            elif tokens[0] == "HAD":
+                assert len(tokens) == 2, "Error Parsing HAD"
+                self.inpHA = float(tokens[1])
+                self.userSock.writeLine("0")
+            elif tokens[0] == "INPS":
+                assert len(tokens) == 2, "Error Parsing INPS"
+                self.inpScreen = float(tokens[1])
+                self.userSock.writeLine("0")
             elif tokens[0] == "RAD":
                 assert len(tokens) == 2, "Error Parsing RAD"
                 self.targRA = float(tokens[1])
