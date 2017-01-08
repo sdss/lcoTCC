@@ -126,6 +126,13 @@ TCCLCOCmdList = (
                 name = "ha",
                 help = "use hour angle rather than ra as target input.",
             ),
+            parseDefs.Qualifier(
+                name = "screen",
+                help = "Move the windscreen infront of the telescope." \
+                        "Note if the telescope target coords are below the windscreen" \
+                        " range of travel, the telescope target coords are adjusted to the" \
+                        " closest position to the target coords that the windscreen can reach",
+            ),
             ],
         minParAmt = 0,
     ),

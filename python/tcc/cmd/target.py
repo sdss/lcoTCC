@@ -7,7 +7,6 @@ __all__ = ["target"]
 # use track ra, dec icrs coords
 # must we provide an equinox?
 
-
 def target(tccActor, userCmd):
     """!Implement the target command, passing coords through to LCO TCS
 
@@ -19,6 +18,7 @@ def target(tccActor, userCmd):
     val = coordSysParam.valueList[0]
     name = val.keyword
     doHA = userCmd.parsedCmd.qualDict['ha'].boolValue
+    doScreen = userCmd.parsedCmd.qualDict['screen'].boolValue
     if not name == "icrs":
         raise CommandError("%s coordSys not supported at LCO"%name)
     if val.valueList:
@@ -32,5 +32,5 @@ def target(tccActor, userCmd):
     if len(coordPair) != 2:
         raise CommandError("Must specify coordPair of solely ra, dec")
     ra, dec = coordPair
-    tccActor.tcsDev.target(float(ra), float(dec), doHA, userCmd)
+    tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, userCmd)
 
