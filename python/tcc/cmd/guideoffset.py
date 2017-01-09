@@ -14,9 +14,9 @@ def guideoffset(tccActor, userCmd):
     cmdList = []
     if offRA != 0 or offDec != 0:
         # ra dec offset wanted
-        cmdList.append(tccActor.tcsDevice.slewOffset(offRA, offDec))
+        cmdList.append(tccActor.tcsDev.slewOffset(offRA, offDec))
     if offRot != 0:
-        cmdList.append(tccActor.tcsDevice.rotOffset(offRot))
+        cmdList.append(tccActor.tcsDev.rotOffset(offRot))
     if multScale !=0:
         # move scale, and update the focus offset
         absPosMM = tccActor.scaleMult2mm(multScale)

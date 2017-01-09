@@ -477,6 +477,12 @@ class TestLCOCommands(TestCase):
             self.assertEqual(self.actor.scaleDev.status.cartID, 23)
         return self.queueCmd("thread status", cb)
 
+    def testGuideoffset(self):
+        offsets = [5, 1, 0.01, 500, 1.000001]
+        def cb(cmdVar):
+            self.assertTrue(cmdVar.isDone and not cmdVar.didFail)
+        return self.queueCmd("guideoffset %.8f, %.8f, %.8f, %.8f, %.8f"%tuple(offsets), cb)
+
 
     # def testOffsetGuideFail(self):
     #     offset = 0.001

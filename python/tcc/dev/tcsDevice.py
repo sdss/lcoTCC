@@ -700,7 +700,7 @@ class TCSDevice(TCPDevice):
         #     self.writeToUsers("w", "Rotator offset %.6f bypassed"%rot)
         #     userCmd.setState(userCmd.Done)
         #     return userCmd
-
+        userCmd = expandUserCmd(userCmd)
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
