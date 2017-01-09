@@ -292,7 +292,7 @@ class CmdParser(object):
                     # there is an upper bound
                     correctParamAmt = (paramSlotDef.numParamRange[0] <= len(paramSlotGot) <= paramSlotDef.numParamRange[1])
                 if not correctParamAmt:
-                    raise ParseError('Too many elements in parameter slot for command %r' % (inputLine,))
+                    raise ParseError('Incorrect amount of parameters for command %r' % (inputLine,))
                 for paramGot in paramSlotGot:
                     paramDef = paramSlotDef.paramElementList[getUniqueAbbrevIndex(paramGot.pop(0), paramSlotDef.matchList)]
                     validatedName = paramDef.name
