@@ -303,6 +303,14 @@ class FakeTCS(FakeDev):
         )
 
     @property
+    def rerr(self):
+        return self.targRA - self.ra
+
+    @property
+    def derr(self):
+        return self.targDec - self.dec
+
+    @property
     def onTarget(self):
         return self.targRA == self.ra and self.targDec == self.dec
 
@@ -321,6 +329,10 @@ class FakeTCS(FakeDev):
                self.userSock.writeLine(dmsStrFromDeg(self.ra / 15.))
             elif tokens[0] ==  "DEC" and len(tokens) == 1:
                self.userSock.writeLine(dmsStrFromDeg(self.dec))
+            elif tokens[0] == "RERR" and len(tokens) == 1:
+               self.userSock.writeLine(self.rerr)
+            elif tokens[0] ==  "DERR" and len(tokens) == 1:
+               self.userSock.writeLine(self.derr)
             elif tokens[0] ==  "HA" and len(tokens) == 1:
                self.userSock.writeLine(dmsStrFromDeg(self.ha))
             elif tokens[0] ==  "POS" and len(tokens) == 1:

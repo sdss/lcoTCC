@@ -34,7 +34,7 @@ def tai():
     return time.time() - 36.
 
 __all__ = ["TCSDevice"]
-ForceSlew = "ForceSlew"
+# ForceSlew = "ForceSlew"
 
 #### telescope parameters found in c100.ini file in tcs source code #####
 # Hour angle encoder scale (encoder counts / degree)
@@ -60,6 +60,10 @@ IRFASTSP=2000
 # IR slow speed (motor encoder counts / sec)
 IRSLOWSP=53
 
+## slew on target thresholds from updatethread.cpp (TCS)
+MD_TRACKING_STABILITY_THRESHOLD = 0.5 # Tracking is declared stable when error is below this threshold in arc-seconds
+MD_FINE_CORRECTION_TARGET = 0.2 #Target error before completing move in arc-seconds
+
 def encCounts2Deg(encCounts):
     """
     for converting rotator enc counts to degree position.
@@ -74,9 +78,9 @@ def SlewTimeDec(deg):
     return deg * DECSCALE / float(DECSP)
 
 PollTimeRot = 0.5 # if rotator is slewing query frequently
-PollTimeSlew = 2 #seconds, LCO says status is updated no more frequently that 5 times a second
-PollTimeTrack = 5
-PollTimeIdle = 10
+PollTimeSlew = 0.5 #seconds, LCO says status is updated no more frequently that 5 times a second
+PollTimeTrack = 2
+PollTimeIdle = 5
 # FocusPosTol = 0.001 # microns?
 ArcSecPerDeg = 3600 # arcseconds per degree
 MinRotOffset = 2 / ArcSecPerDeg # minimum commandable rotator offset
@@ -208,6 +212,8 @@ class StatusField(object):
 
 StatusFieldList = [
                 # StatusField("focus", float),
+                StatusField("rerr", float),
+                StatusField("derr", float),
                 StatusField("ra", castHoursToDeg),
                 StatusField("dec", degFromDMSStr),
                 StatusField("inpra", castHoursToDeg),
@@ -232,16 +238,28 @@ StatusFieldList = [
             ]
 
 class Status(object):
-    def __init__(self):
+    def __init__(self, tcsDevice):
         """Container for holding current status of the TCS
+
+        @param[in] tcsDevice, for access to various states of the tcs
         """
+        self.tcsDevice = tcsDevice
         # used to determine when offset is done, or AxisCmdState should be set to tracking/slewing.
         self.previousRA = None
         self.previousDec = None
         # on target when within 0:0:01 degrees dec
         # 0:0:0.2 seconds ra
-        self.raOnTarg = castHoursToDeg("0:0:0.2")
-        self.decOnTarg = degFromDMSStr("0:0:01")
+
+        # self.raOnTarg = castHoursToDeg("0:0:0.2")
+        # self.decOnTarg = degFromDMSStr("0:0:01")
+
+
+        # for new axis state handling
+        self.errBufferLen = 4
+        self.rerrQueue = collections.deque(maxlen=self.errBufferLen)
+        self.derrQueue = collections.deque(maxlen=self.errBufferLen)
+
+
         # self.rotOnTarg = 1 * ArcSecPerDeg # within 1 arcsec rot move is considered done
         self.statusFieldDict = collections.OrderedDict(( (x.cmdVerb, x) for x in StatusFieldList ))
         # self.focus = None
@@ -278,22 +296,17 @@ class Status(object):
             haStr = "%.6f"%ha
         return "tccHA=%s"%haStr
 
-    def tccPos(self):
-        # raPos = self.statusFieldDict["inpra"].value
-        # decPos = self.statusFieldDict["inpdc"].value
-        # rotPos = self.rotPos
-        # raStr = "%.4f"%raPos if raPos else "NaN"
-        # decStr = "%.4f"%decPos if decPos else "NaN"
-        # rotStr = "%.4f"%rotPos if decPos else "NaN"
-        # return "TCCPos=%s"%(", ".join([raStr, decStr, rotStr]))
-
+    def azAltStr(self):
         elPos = self.statusFieldDict["telel"].value
         azPos = self.statusFieldDict["telaz"].value
         rotPos = self.rotPos
         elStr = "%.4f"%elPos if elPos else "NaN"
         azStr = "%.4f"%azPos if azPos else "NaN"
         rotStr = "%.4f"%rotPos if rotPos else "NaN"
-        return "TCCPos=%s"%(", ".join([azStr, elStr, rotStr]))
+        return ", ".join([azStr, elStr, rotStr])
+
+    def tccPos(self):
+        return "TCCPos=%s"%(self.azAltStr)
 
     def tccTemps(self):
         tempsDict = self.statusFieldDict["temps"].value
@@ -307,24 +320,24 @@ class Status(object):
         trussTempStr = "%.2f"%self.trussTemp if self.trussTemp is not None else "NaN"
         return "SecTrussTemp=%s"%(trussTempStr)
 
-    def axisCmdStateList(self):
-        axisCmdState = self.statusFieldDict["state"].value or "?"
-        # check if we are really slewing instead of tracking (offsets don't trigger slew state)
-        # so check manually
-        ra, dec = [axisCmdState]*2
-        rot = Halted if self.isClamped else Slewing
-        raSlewing, decSlewing = self.axesSlewing()
-        # force ra or dec slewing if true in axesSlewing
-        if raSlewing:
-            ra = Slewing
-        if decSlewing:
-            dec = Slewing
-        return [ra, dec, rot]
+    # def axisCmdStateList(self):
+    #     axisCmdState = self.statusFieldDict["state"].value or "?"
+    #     # check if we are really slewing instead of tracking (offsets don't trigger slew state)
+    #     # so check manually
+    #     ra, dec = [axisCmdState]*2
+    #     rot = Halted if self.isClamped else Slewing
+    #     raSlewing, decSlewing = self.axesSlewing()
+    #     # force ra or dec slewing if true in axesSlewing
+    #     if raSlewing:
+    #         ra = Slewing
+    #     if decSlewing:
+    #         dec = Slewing
+    #     return [ra, dec, rot]
 
     def axisCmdState(self):
         """Format the AxisCmdState keyword
         """
-        return "AxisCmdState=%s"%(", ".join(self.axisCmdStateList()))
+        return "AxisCmdState=%s"%(", ".join(self.axisStatus))
 
 
     def objNetPos(self):
@@ -352,14 +365,7 @@ class Status(object):
     def axePos(self):
         """Format the AxePos keyword (alt az rot)
         """
-        raPos = self.statusFieldDict["ra"].value
-        decPos = self.statusFieldDict["dec"].value
-        rotPos = self.rotPos
-        raStr = "%.4f"%raPos if raPos else "NaN"
-        decStr = "%.4f"%decPos if decPos else "NaN"
-        rotStr = "%.4f"%rotPos if decPos else "NaN"
-        axePosStr = "AxePos=%s"%(", ".join([raStr, decStr, rotStr]))
-        return axePosStr
+        return "AxePos=%s"%(self.azAltStr)
 
     def utc_tai(self):
         return "UTC_TAI=%0.0f"%(-36.0,) # this value is usually gotten from coordConv/earthpred, I think, which we don't have implemented...
@@ -369,22 +375,52 @@ class Status(object):
     #     secFocus = "NaN" if secFocus is None else "%.4f"%secFocus
     #     return "SecFocus=%s"%secFocus
 
+    def onTarget(self, errorBuffer):
+        """Look at an error buffer and decide if the telescope is on target (for offests)
+        """
+        if len(errorBuffer) < self.errBufferLen:
+            # requre a full buffer before deciding if we're on target or not
+            return False
+        elif True in (numpy.abs(numpy.asarray(errorBuffer)) > MD_FINE_CORRECTION_TARGET):
+            return False
+        else:
+            # the buffer is full and errors are under the threshold
+            return True
+
+    @property
+    def raOnTarget(self):
+        """Return True if the rerr buffer is full and all values are under the threshold
+        """
+        return self.onTarget(self.rerrQueue)
+
+    @property
+    def decOnTarget(self):
+        """Return True if the derr buffer is full and all values are under the threshold
+        """
+        return self.onTarget(self.derrQueue)
+
+    @property
+    def axesOnTarget(self):
+        """Return true if ra and dec are both on target.
+        """
+        return self.raOnTarget and self.decOnTarget
+
     @property
     def rotPos(self):
         return self.statusFieldDict["rawpos"].value
 
-    @property
-    def arcOff(self):
-        if None in [self.statusFieldDict["inpra"].value, self.statusFieldDict["mpos"].value[0]]:
-            raOff = 0
-        else:
-            raOff = self.statusFieldDict["inpra"].value - self.statusFieldDict["mpos"].value[0]
-        if None in [self.statusFieldDict["inpdc"].value, self.statusFieldDict["mpos"].value[1]]:
-            decOff = 0
-        else:
-            decOff = self.statusFieldDict["inpdc"].value - self.statusFieldDict["mpos"].value[1]
-        # return "%.6f, 0.0, 0.0, %.6f, 0.0, 0.0"%(raOff, decOff)
-        return "%.6f, %.6f"%(raOff, decOff)
+    # @property
+    # def arcOff(self):
+    #     if None in [self.statusFieldDict["inpra"].value, self.statusFieldDict["mpos"].value[0]]:
+    #         raOff = 0
+    #     else:
+    #         raOff = self.statusFieldDict["inpra"].value - self.statusFieldDict["mpos"].value[0]
+    #     if None in [self.statusFieldDict["inpdc"].value, self.statusFieldDict["mpos"].value[1]]:
+    #         decOff = 0
+    #     else:
+    #         decOff = self.statusFieldDict["inpdc"].value - self.statusFieldDict["mpos"].value[1]
+    #     # return "%.6f, 0.0, 0.0, %.6f, 0.0, 0.0"%(raOff, decOff)
+    #     return "%.6f, %.6f"%(raOff, decOff)
 
     # @property
     # def rotOnTarget(self):
@@ -393,16 +429,47 @@ class Status(object):
     def setRotOffsetTarg(self, rotOffset):
         self.targRot = self.rotPos + rotOffset
 
-    def axesSlewing(self):
-        if self.previousDec == ForceSlew:
-            decSlewing = True
+    @property
+    def rotAxisStatus(self):
+        """Return Halted, Slewing or Tracking
+        """
+        # if unclamped return slewing
+        if self.tcsDevice.waitRotCmd.isActive:
+            return Slewing
+        if self.raDecAxisStatus in [Slewing, Tracking]:
+            # if ra, or dec are tracking or slewing, report tracking
+            return Tracking
         else:
-            decSlewing = abs(self.previousDec - self.statusFieldDict["mpos"].value[1]) > self.decOnTarg if self.previousDec is not None else False
-        if self.previousRA == ForceSlew:
-            raSlewing = True
+            # telescope is idle, report this axis as halted
+            return Halted
+
+    @property
+    def raDecAxisState(self):
+        if self.tcsDevice.waitOffsetCmd.isActive:
+            return Slewing
+        if self.statusFieldDict["state"].value is None:
+            return "?"
         else:
-            raSlewing = abs(self.previousRA - self.statusFieldDict["mpos"].value[0]) > self.raOnTarg if self.previousRA is not None else False
-        return [raSlewing, decSlewing]
+            return self.statusFieldDict["state"].value
+
+    @property
+    def axisStatus(self):
+        """Return Halted, Slewing or Tracking for ra, dec, rot axes
+        """
+        return [self.raDecAxisState]*2 + [self.rotAxisStatus]
+
+
+
+    # def axesSlewing(self):
+    #     if self.previousDec == ForceSlew:
+    #         decSlewing = True
+    #     else:
+    #         decSlewing = abs(self.previousDec - self.statusFieldDict["mpos"].value[1]) > self.decOnTarg if self.previousDec is not None else False
+    #     if self.previousRA == ForceSlew:
+    #         raSlewing = True
+    #     else:
+    #         raSlewing = abs(self.previousRA - self.statusFieldDict["mpos"].value[0]) > self.raOnTarg if self.previousRA is not None else False
+    #     return [raSlewing, decSlewing]
 
     @property
     def trussTemp(self):
@@ -417,11 +484,11 @@ class Status(object):
         rotMoving = self.statusFieldDict["axisstatus"].value["rot"].isMoving
         return rotMoving
 
-    def currArcOff(self):
-        return "currArcOff=%s"%self.arcOff
+    # def currArcOff(self):
+    #     return "currArcOff=%s"%self.arcOff
 
-    def objArcOff(self):
-        return "objArcOff=%s"%self.arcOff
+    # def objArcOff(self):
+    #     return "objArcOff=%s"%self.arcOff
 
     def getStatusStr(self):
         """Grab and format tcc keywords, only output those which have changed
@@ -450,7 +517,7 @@ class TCSDevice(TCPDevice):
                 note that it is NOT called when the connection state changes;
                 register a callback with "conn" for that task.
         """
-        self.status = Status()
+        self.status = Status(self)
         self._statusTimer = Timer()
 
         self.waitRotCmd = UserCmd()
@@ -462,7 +529,7 @@ class TCSDevice(TCPDevice):
 
         self.waitOffsetCmd = UserCmd()
         self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
-        self.waitOffsetTimer = Timer()
+        # self.waitOffsetTimer = Timer()
         self.rotDelay = False
 
         self.devCmdQueue = CommandQueue({}) # all commands of equal priority
@@ -549,10 +616,7 @@ class TCSDevice(TCPDevice):
         LinkCommands(userCmd, devCmdList)
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
-        if not self.status.isClamped or self.rotDelay:
-            # rotator is moving, get status frequently
-            pollTime = PollTimeRot
-        elif self.isSlewing:
+        if self.isSlewing:
             # slewing, get status kinda frequently
             pollTime = PollTimeSlew
         elif self.isTracking:
@@ -572,11 +636,14 @@ class TCSDevice(TCPDevice):
         if cmd.isDone and not cmd.didFail:
             # do we want status output so frequently? probabaly not.
             # perhaps only write status if it has changed...
+            # append ra and dec errors to the queues
+            self.status.rerrQueue.append(self.status.statusFieldDict["rerr"].value)
+            self.status.derrQueue.append(self.status.statusFieldDict["derr"].value)
             statusStr = self.status.getStatusStr()
             if statusStr:
                 self.writeToUsers("i", statusStr, cmd)
 
-            if self.waitOffsetCmd.isActive and not True in self.status.axesSlewing():
+            if self.waitOffsetCmd.isActive and self.status.axesOnTarget:
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
@@ -654,13 +721,18 @@ class TCSDevice(TCPDevice):
         log.info("%s.slewOffset(userCmd=%s, ra=%.6f, dec=%.6f)" % (self, userCmd, ra, dec))
         userCmd = expandUserCmd(userCmd)
         # zero the delta computation so the offset isn't marked done immediately
-        self.status.previousDec = ForceSlew
-        self.status.previousRA = ForceSlew
+
+        # self.status.previousDec = ForceSlew
+        # self.status.previousRA = ForceSlew
+
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
         if not self.waitOffsetCmd.isDone:
             self.waitOffsetCmd.setState(self.waitOffsetCmd.Cancelled, "Superseded by new offset")
+        # clear the target error buffers
+        self.status.rerrQueue.clear()
+        self.status.derrQueue.clear()
         waitOffsetCmd = UserCmd()
         self.waitOffsetCmd = waitOffsetCmd
         enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg)
@@ -669,13 +741,16 @@ class TCSDevice(TCPDevice):
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
         # set an offset done after 6 seconds no matter what
-        def setWaitOffsetCmdDone(aWaitingOffsetCmd):
-            print("wait offset command state", aWaitingOffsetCmd.state)
-            if not aWaitingOffsetCmd.isDone:
-                print("Wait offset timed out!!!!")
-                self.writeToUsers("w", "Text=OFFSET SET DONE ON TIMER.")
-                aWaitingOffsetCmd.setState(aWaitingOffsetCmd.Done, "offset set done on a timer")
-        self.waitOffsetTimer.start(8, setWaitOffsetCmdDone, waitOffsetCmd)
+
+        # def setWaitOffsetCmdDone(aWaitingOffsetCmd):
+        #     print("wait offset command state", aWaitingOffsetCmd.state)
+        #     if not aWaitingOffsetCmd.isDone:
+        #         print("Wait offset timed out!!!!")
+        #         self.writeToUsers("w", "Text=OFFSET SET DONE ON TIMER.")
+        #         aWaitingOffsetCmd.setState(aWaitingOffsetCmd.Done, "offset set done on a timer")
+        # self.waitOffsetTimer.start(8, setWaitOffsetCmdDone, waitOffsetCmd)
+
+        self.waitOffsetCmd.setTimeLimit(10) # 10 second timeout for every offset
         # self.waitOffsetCmd.setTimeLimit(6)
         LinkCommands(userCmd, devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
@@ -749,7 +824,9 @@ class TCSDevice(TCPDevice):
             print("rot buffer Off (clamped?)", self.status.isClamped)
             self.rotDelay = False
         self.waitRotTimer.start(rotTimeLimBuffer, setRotBufferOff)
-        self.waitOffsetCmd.setTimeLimit(rotTimeLimBuffer + 20)
+        #### should this be waitRotCmd ?!!?
+        # self.waitOffsetCmd.setTimeLimit(rotTimeLimBuffer + 20)
+        self.waitRotCmd.setTimeLimit(rotTimeLimBuffer + 20)
         self.status.setRotOffsetTarg(rot)
         enterAPGCIR = DevCmd(cmdStr="APGCIR %.8f"%(newPos))
         LinkCommands(userCmd, [enterAPGCIR, self.waitRotCmd])
