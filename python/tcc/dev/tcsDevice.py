@@ -20,12 +20,15 @@ from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUs
 
 SEC_TIMEOUT = 1.0
 LCO_LATITUDE = -29.0146
-WS_ALT_LIMIT = 32.9 # windscreen altutude limit
+# WS_ALT_LIMIT = 32.9 # windscreen altutude limit  # Old value
+WS_ALT_LIMIT = 19.0  # windscreen altutude limit
 # windscreen model
 # telescope altitude measurements
-altArray = numpy.array([89.9, 79.9, 57.0, 64.0, 69.0, 74.0, 78.9, 83.9, 88.9])
+# altArray = numpy.array([89.9, 79.9, 57.0, 64.0, 69.0, 74.0, 78.9, 83.9, 88.9])  # Old values
+altArray = numpy.array([90, 70, 50])
 # windscreen measurements
-wsArray = numpy.array([68, 57, 32.9, 40.5, 46.5, 51, 56, 61.2, 66.2])
+# wsArray = numpy.array([68, 57, 32.9, 40.5, 46.5, 51, 56, 61.2, 66.2])  # Old values
+wsArray = numpy.array([64.2, 47., 25.6])
 # ws coeffs
 order = 1
 WS_COEFFS = numpy.polyfit(altArray, wsArray, order)
@@ -834,8 +837,3 @@ class TCSDevice(TCPDevice):
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected to TCS")
         except Exception as e:
             self.currExeDevCmd.setState(self.currExeDevCmd.Failed, textMsg=strFromException(e))
-
-
-
-
-
