@@ -21,7 +21,7 @@ from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUs
 SEC_TIMEOUT = 1.0
 LCO_LATITUDE = -29.0146
 # WS_ALT_LIMIT = 32.9 # windscreen altutude limit  # Old value
-WS_ALT_LIMIT = 19.0  # windscreen altutude limit
+WS_ALT_LIMIT = 32.9  # windscreen altutude limit
 # windscreen model
 # telescope altitude measurements
 # altArray = numpy.array([89.9, 79.9, 57.0, 64.0, 69.0, 74.0, 78.9, 83.9, 88.9])  # Old values
@@ -595,12 +595,15 @@ class TCSDevice(TCPDevice):
         @param[in] doHA: if True, use degrees in hour angle rather than ra.
         @param[in] userCmd: a twistedActor BaseCommand.
         """
+
         log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
         userCmd = expandUserCmd(userCmd)
         screenPos = None
+
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
+
         if doScreen:
             # check telescope altitude, if too low,
             # increase declination until the screen can reach!
@@ -608,27 +611,41 @@ class TCSDevice(TCPDevice):
                 ha = ra
             else:
                 ha = self.status.statusFieldDict["st"].value - ra
-            (az, alt), atPole = azAltFromHADec([ha,dec], LCO_LATITUDE)
+
+            (az, alt), atPole = azAltFromHADec([ha, dec], LCO_LATITUDE)
+
             if alt < WS_ALT_LIMIT:
-                # modify declination
-                # find declination that will be above the
-                # windscreen limit for this az
-                alt = WS_ALT_LIMIT+0.1
+                # Modifies target HA and Dec for the telescope to point to the minimum altitude
+                # the screen can be at.
+
+                alt = WS_ALT_LIMIT + 0.1
+                screenPos = alt
+
                 (ha, dec), atPole = haDecFromAzAlt([az, alt], LCO_LATITUDE)
-                # move to this ha,dec instead
+
+                # move to this ha, dec instead
                 doHA = True
-                self.writeToUsers("w", 'text="target postion below windscreen, modified target coords HA=%.4f, DEC=%.4f"%(ha, dec)"', userCmd)
                 ra = ha
-            # determine the screen position based on the model fit
-            screenPos = WS_COEFFS[0]*alt + WS_COEFFS[1]
-            self.writeToUsers("i", 'text="setting windscreen target to %.2f"'%screenPos)
+
+                self.writeToUsers('w', 'text="target postion below windscreen, '
+                                       'modified target coords HA=%.4f, DEC=%.4f"'.format(ha, dec),
+                                  userCmd)
+            else:
+
+                # Determines the screen position based on the model fit
+                screenPos = WS_COEFFS[0] * alt + WS_COEFFS[1]
+
+            self.writeToUsers("i", 'text="setting windscreen target to %.2f"' % screenPos)
+
         if doHA:
             enterRa = "HAD %.8f"%ra
         else:
             enterRa = "RAD %.8f"%ra
+
         enterDec = "DECD %.8f"%dec
         enterEpoch = "MP %.2f"%2000 # LCO: HACK should coords always be 2000?
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]#, cmdSlew]]
+
         if screenPos is not None:
             # add the screen position to the device command list
             devCmdList += [DevCmd(cmdStr="INPS %.2f"%screenPos)]
