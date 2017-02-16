@@ -436,7 +436,7 @@ class Status(object):
         # if unclamped return slewing
         if self.tcsDevice.waitRotCmd.isActive:
             return Slewing
-        if self.raDecAxisStatus in [Slewing, Tracking]:
+        if self.raDecAxisState in [Slewing, Tracking]:
             # if ra, or dec are tracking or slewing, report tracking
             return Tracking
         else:
@@ -517,7 +517,6 @@ class TCSDevice(TCPDevice):
                 note that it is NOT called when the connection state changes;
                 register a callback with "conn" for that task.
         """
-        self.status = Status(self)
         self._statusTimer = Timer()
 
         self.waitRotCmd = UserCmd()
@@ -545,6 +544,7 @@ class TCSDevice(TCPDevice):
             callFunc = callFunc,
             cmdInfo = (),
         )
+        self.status = Status(self)
 
     @property
     def currExeDevCmd(self):

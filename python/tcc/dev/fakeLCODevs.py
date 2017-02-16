@@ -4,6 +4,8 @@ from RO.Comm.TwistedTimer import Timer
 from RO.Comm.TwistedSocket import TCPServer
 from RO.StringUtil import dmsStrFromDeg
 import numpy
+import traceback
+import sys
 
 ArcsecPerDeg = 3600.
 AxisVelocity = 1.25 # deg / sec
@@ -330,9 +332,9 @@ class FakeTCS(FakeDev):
             elif tokens[0] ==  "DEC" and len(tokens) == 1:
                self.userSock.writeLine(dmsStrFromDeg(self.dec))
             elif tokens[0] == "RERR" and len(tokens) == 1:
-               self.userSock.writeLine(self.rerr)
+               self.userSock.writeLine("%.4f"%self.rerr)
             elif tokens[0] ==  "DERR" and len(tokens) == 1:
-               self.userSock.writeLine(self.derr)
+               self.userSock.writeLine("%.4f"%self.derr)
             elif tokens[0] ==  "HA" and len(tokens) == 1:
                self.userSock.writeLine(dmsStrFromDeg(self.ha))
             elif tokens[0] ==  "POS" and len(tokens) == 1:
@@ -465,6 +467,7 @@ class FakeTCS(FakeDev):
         except Exception as e:
             self.userSock.writeLine("-1") # error!
             print("Error: ", e)
+            traceback.print_exc(file=sys.stdout)
 
     def doSlew(self, offset=False):
         if not offset:
