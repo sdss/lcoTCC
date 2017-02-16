@@ -626,10 +626,10 @@ class TCSDevice(TCPDevice):
 
                 self.writeToUsers(
                     'w', 'text="target postion below windscreen, '
-                         'modified target coords HA=%.4f, DEC=%.4f"'.format(ha, dec), userCmd)
+                         'modified target coords HA=%.4f, DEC=%.4f"' % (ha, dec), userCmd)
 
             self.writeToUsers(
-                'i', 'text="setting windscreen target to altitude %.2f deg"'.format(ffs_altitude))
+                'i', 'text="setting windscreen target to altitude %.2f deg"' % (ffs_altitude))
 
         if doHA:
             enterRa = 'HAD %.8f' % ra
