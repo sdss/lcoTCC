@@ -88,7 +88,7 @@ class MeasScaleDevice(TCPDevice):
         """
         # first flush the current status to ensure we don't
         # have stale values
-        print("reading migs!")
+        # print("reading migs!")
         userCmd = expandUserCmd(userCmd)
         self.encPos = [None]*6
         statusDevCmd = self.queueDevCmd(READ_ENC, userCmd)
@@ -102,8 +102,8 @@ class MeasScaleDevice(TCPDevice):
             return statusDevCmd
 
     def setCountState(self, userCmd=None, timeLim=1):
-        """!Set the Mitutoyo EV counter into the counting state,
-        this is required after a power cycle
+        """!Set the Mitutoyo EV counter into the counting state, and the
+        current display state, this is required after a power cycle
         """
         userCmd = expandUserCmd(userCmd)
         countDevCmd = self.queueDevCmd(COUNTING_STATE, userCmd)
@@ -115,8 +115,7 @@ class MeasScaleDevice(TCPDevice):
         return userCmd
 
     def setZero(self, userCmd=None, timeLim=1):
-        """!Set the Mitutoyo EV counter into the counting state,
-        this is required after a power cycle
+        """!Zero set the mitutoyo gauges
         """
         userCmd = expandUserCmd(userCmd)
         zeroDevCmd = self.queueDevCmd(ZERO_SET, userCmd)
@@ -131,8 +130,8 @@ class MeasScaleDevice(TCPDevice):
         #     self.status.flushStatus()
         if statusCmd.isDone and not statusCmd.didFail:
             self.writeStatusToUsers(statusCmd.userCmd)
-            print("mig values,", self.encPos)
-            print("done reading migs")
+            # print("mig values,", self.encPos)
+            # print("done reading migs")
 
     def writeStatusToUsers(self, userCmd=None):
         self.writeToUsers("i", "ScaleZeroPos=%.4f"%self.zeroPoint)
@@ -195,12 +194,16 @@ class MeasScaleDevice(TCPDevice):
             self.writeToUsers("w", "Mitutoyo EV counter Error output: " + replyStr)
 
         if self.currExeDevCmd.cmdStr == READ_ENC:
-            # all encoders values have been read
-            # set command done
-            self.setEncValue(replyStr)
-            # was this the 6th value read? if so we are done
-            if replyStr.startswith(ENCVAL_PREFIX+"%i"%6):
-                self.currExeDevCmd.setState(self.currExeDevCmd.Done)
+            # check that the expected prefix is seen
+            # if not we are not in the 'current value state probably'
+            if not replyStr.startswith(ENCVAL_PREFIX):
+                self.encPos = [None]*6
+                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Mitutoyo gauges not in expected read state.  Homing necessary.")
+            else:
+                self.setEncValue(replyStr)
+                # was this the 6th value read? if so we are done
+                if replyStr.startswith(ENCVAL_PREFIX+"%i"%6):
+                    self.currExeDevCmd.setState(self.currExeDevCmd.Done)
         if self.currExeDevCmd.cmdStr in [COUNTING_STATE, ZERO_SET, DISPLAY_CURR]:
             if replyStr == SUCESS:
                 # successful set into counting state
