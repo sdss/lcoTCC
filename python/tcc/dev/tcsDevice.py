@@ -375,6 +375,7 @@ class Status(object):
             # requre a full buffer before deciding if we're on target or not
             return False
         elif True in (numpy.abs(numpy.asarray(errorBuffer)) > MD_FINE_CORRECTION_TARGET):
+            # buffer is full but not all are below threshold.
             return False
         else:
             # the buffer is full and errors are under the threshold

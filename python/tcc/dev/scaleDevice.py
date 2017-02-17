@@ -210,7 +210,9 @@ class Status(object):
             },
             "cartridge_id": None,
             "pos_sw": [None, None, None],
-            "id_sw": [None, None, None, None, None, None, None, None, None]
+            "id_sw": [None, None, None, None, None, None, None, None, None],
+            "gang connector sw": numpy.nan,
+            "gang stowed sw": numpy.nan,
         }
 
     def checkFullStatus(self, statusDict=None, axis=None):
@@ -283,6 +285,16 @@ class Status(object):
             return
         if "overtravel" in line:
             self.dict[self._currentAxis]["overtravel"] = line.endswith("on")
+            return
+        # gang connector switch lines
+        # (annoying because they have spaces)
+        # these gang connector sw status lines were added later
+        # and don't parse nicely because they have spaces
+        # they are still key value types
+        if "gang" in line:
+            key = line.strip("on").strip("off").strip()
+            value = line.endswith("on")
+            self.dict[key] = value
             return
         # key value type lines
         key, value = line.split(None, 1)
