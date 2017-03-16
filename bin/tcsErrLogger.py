@@ -28,11 +28,13 @@ def queryTCS():
     values = []
     for statusPiece in statusPieces:
         TN.write(statusPiece+"\r\n")
-        value = TN.read_until("\n", 0.2)
+        value = TN.read_until("\n", 0.5)
         value = value.strip()
         if not value:
             value = "?"
         values.append(value)
+    if values[2] == "?" or int(values[2]) != 2:
+        return # only record if in tracking state
     with open(filename, "a") as f:
         f.write("%s %s %s %s %s %s\n"%tuple([timestamp]+values))
 
