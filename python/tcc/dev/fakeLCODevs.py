@@ -232,6 +232,8 @@ class FakeScaleCtrl(FakeDev):
             "         0 1 1 0 1 1 0 1 1",
             "__POS_SW: 1 2 3",
             "          %i %i %i"%(self.posSw1, self.posSw2, self.posSw3),
+            "GANG CONNECTOR SW: OFF",
+            "GANG STOWED SW: ON",
             "WINCH_HOOK_SENSOR: OFF",
             "WINCH_ENCODER_1_POS: 0.0",
             "WINCH_ENCODER_2_POS: 0.0",

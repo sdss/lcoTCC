@@ -11,6 +11,8 @@ from RO.StringUtil import strFromException, degFromDMSStr
 
 from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd, LinkCommands
 
+from tcc.utils.ffs import get_ffs_altitude, telescope_alt_limit
+
 #TODO: Combine offset wait command and rotation offset wait commands.
 # make queueDev command return a dev command rather than requiring one.
 # creat a command list where subsequent commands are not sent if the previous is not successful
@@ -20,18 +22,6 @@ from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUs
 
 SEC_TIMEOUT = 1.0
 LCO_LATITUDE = -29.0146
-# WS_ALT_LIMIT = 32.9 # windscreen altutude limit  # Old value
-WS_ALT_LIMIT = 32.9  # windscreen altutude limit
-# windscreen model
-# telescope altitude measurements
-# altArray = numpy.array([89.9, 79.9, 57.0, 64.0, 69.0, 74.0, 78.9, 83.9, 88.9])  # Old values
-altArray = numpy.array([90, 70, 50])
-# windscreen measurements
-# wsArray = numpy.array([68, 57, 32.9, 40.5, 46.5, 51, 56, 61.2, 66.2])  # Old values
-wsArray = numpy.array([64.2, 47., 25.6])
-# ws coeffs
-order = 1
-WS_COEFFS = numpy.polyfit(altArray, wsArray, order)
 
 def tai():
     return time.time() - 36.
@@ -385,6 +375,7 @@ class Status(object):
             # requre a full buffer before deciding if we're on target or not
             return False
         elif True in (numpy.abs(numpy.asarray(errorBuffer)) > MD_FINE_CORRECTION_TARGET):
+            # buffer is full but not all are below threshold.
             return False
         else:
             # the buffer is full and errors are under the threshold
@@ -665,68 +656,74 @@ class TCSDevice(TCPDevice):
 
         log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
         userCmd = expandUserCmd(userCmd)
-        screenPos = None
+        ffs_altitude = None
 
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
 
         if doScreen:
-            # check telescope altitude, if too low,
-            # increase declination until the screen can reach!
+
+            # If we command to move the flat field screen (FFS),  calculates at which altitude
+            # we should move it to be in front of the telescope. If the position to which we
+            # have commanded the telescope to go is too low, slews the telescope to that minimum
+            # positoin.
+
             if doHA:
                 ha = ra
             else:
-                ha = self.status.statusFieldDict["st"].value - ra
+                ha = self.status.statusFieldDict['st'].value - ra
 
             (az, alt), atPole = azAltFromHADec([ha, dec], LCO_LATITUDE)
 
-            if alt < WS_ALT_LIMIT:
-                # Modifies target HA and Dec for the telescope to point to the minimum altitude
-                # the screen can be at.
+            # Uses a FFS pointing model to determine the altitude of the FFS for this
+            # telescope altitude
+            ffs_altitude, is_ffs_at_minimum = get_ffs_altitude(alt)
 
-                alt = WS_ALT_LIMIT + 0.1
-                screenPos = alt
+            if is_ffs_at_minimum:
+
+                # If the telescope is below telescope_alt_limit, the FFS cannot go any lower.
+
+                ffs_altitude += 0.1
+                alt = telescope_alt_limit + 0.1
 
                 (ha, dec), atPole = haDecFromAzAlt([az, alt], LCO_LATITUDE)
 
-                # move to this ha, dec instead
                 doHA = True
                 ra = ha
 
-                self.writeToUsers('w', 'text="target postion below windscreen, '
-                                       'modified target coords HA=%.4f, DEC=%.4f"'.format(ha, dec),
-                                  userCmd)
-            else:
+                self.writeToUsers(
+                    'w', 'text="target postion below flat field screen, '
+                         'modified target coords HA=%.4f, DEC=%.4f"' % (ha, dec), userCmd)
 
-                # Determines the screen position based on the model fit
-                screenPos = WS_COEFFS[0] * alt + WS_COEFFS[1]
-
-            self.writeToUsers("i", 'text="setting windscreen target to %.2f"' % screenPos)
+            self.writeToUsers(
+                'i', 'text="setting FFS target to altitude %.2f deg"' % (ffs_altitude))
 
         if doHA:
-            enterRa = "HAD %.8f"%ra
+            enterRa = 'HAD %.8f' % ra
         else:
-            enterRa = "RAD %.8f"%ra
+            enterRa = 'RAD %.8f' % ra
 
-        enterDec = "DECD %.8f"%dec
-        enterEpoch = "MP %.2f"%2000 # LCO: HACK should coords always be 2000?
-        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]#, cmdSlew]]
+        enterDec = 'DECD %.8f' % dec
+        enterEpoch = 'MP %.2f' % 2000  # LCO: HACK should coords always be 2000?
+        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, enterEpoch]]
+        #             , cmdSlew]]
 
-        if screenPos is not None:
+        if ffs_altitude is not None:
             # add the screen position to the device command list
-            devCmdList += [DevCmd(cmdStr="INPS %.2f"%screenPos)]
+            devCmdList += [DevCmd(cmdStr='INPS %.2f' % ffs_altitude)]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
         # when the last dev cmd is done (the slew), set axis cmd statue to slewing
 
-        LinkCommands(userCmd, devCmdList) #LCO: HACK don't wait for a slew to finish + [self.waitSlewCmd])
+        # LCOHACK: don't wait for a slew to finish + [self.waitSlewCmd])
+        LinkCommands(userCmd, devCmdList)
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
 
         statusStr = self.status.getStatusStr()
         if statusStr:
-            self.writeToUsers("i", statusStr, userCmd)
+            self.writeToUsers('i', statusStr, userCmd)
         return userCmd
 
     def slewOffset(self, ra, dec, userCmd=None):
