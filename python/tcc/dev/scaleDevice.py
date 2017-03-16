@@ -211,8 +211,8 @@ class Status(object):
             "cartridge_id": None,
             "pos_sw": [None, None, None],
             "id_sw": [None, None, None, None, None, None, None, None, None],
-            "gang connector sw": numpy.nan,
-            "gang stowed sw": numpy.nan,
+            "gang connector sw": None,
+            "gang stowed sw": None,
         }
 
     def checkFullStatus(self, statusDict=None, axis=None):
@@ -309,9 +309,6 @@ class Status(object):
             self.dict[self._currentAxis][key] = [float(x) for x in value.split("-")]
         elif "cartridge" in key:
             self.dict[key] =  int(value)
-        else:
-            return False
-        return True
 
 class ScaleDevice(TCPDevice):
     """!A Device for communicating with the LCO Scaling ring."""
@@ -493,6 +490,20 @@ class ScaleDevice(TCPDevice):
         else:
             faultStr = ",".join(faultList)
             return "ScaleRingFaults=%s"%faultStr
+
+    def gangKW(self):
+        onCart = self.status.dict["gang connector sw"]
+        atBoom = self.status.dict["gang stowed sw"]
+        if onCart and not atBoom:
+            # plugged into cart
+            val = 2
+        elif atBoom and not onCart:
+            val = 1
+        else:
+            #unknown
+            val = 0
+        return "ApogeeGang=%i"%val
+
 
     def statusStr(self):
         kwList = []
@@ -743,15 +754,12 @@ class ScaleDevice(TCPDevice):
         elif self.currExeDevCmd.cmdStr == "status":
             # only parse lines if we asked for status
             try:
-                parsed = self.status.parseStatusLine(replyStr)
+                self.status.parseStatusLine(replyStr)
             except Exception as e:
                 errMsg = "Scale Device failed to parse: %s"%str(replyStr)
                 print(traceback.print_exc(file=sys.stdout))
                 log.error(errMsg)
                 self.writeToUsers("w", errMsg)
-            # if not parsed:
-            #     print("%s.handleReply unparsed line: %s" % (self, replyStr))
-            #     log.info("%s.handleReply unparsed line: %s" % (self, replyStr))
 
 
     # def sendCmd(self, devCmdStr, userCmd):
