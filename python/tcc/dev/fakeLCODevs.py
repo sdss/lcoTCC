@@ -697,3 +697,53 @@ class FakeMeasScaleCtrl(FakeDev):
             print(errMsg)
             # self.readyDeferred.errback(failure.Failure(RuntimeError(errMsg)))
 
+class FakeFFPowerSuply(FakeDev):
+
+    def __init__(self, name, port):
+        """!Construct a fake MeasController
+
+        @param[in] name  name of M2 controller
+        @param[in] port  port on which to command M2
+        """
+        self.PWR = "OFF"
+        self.IMAX = 37
+        self.VMAX = 12
+        self.ISET = 4
+        self.VSET = 12
+        FakeDev.__init__(self,
+            name = name,
+            port = port,
+        )
+
+    def parseCmdStr(self, cmdStr):
+        """Parse an incoming command
+        """
+        cmdTokens = cmdStr.strip().split()
+        if not cmdTokens:
+            return
+        if len(cmdTokens)==2:
+            value = cmdTokens[1]
+        else:
+            value = None
+        cmdStr = cmdTokens[0]
+        if cmdStr == "PWR":
+            if value:
+                self.PWR = value
+            self.userSock.writeLine(self.PWR)
+        elif cmdStr == "VMAX":
+            self.userSock.writeLine("%4f"%self.VMAX)
+        elif cmdStr == "IMAX":
+            self.userSock.writeLine("%4f"%self.IMAX)
+        elif cmdStr == "ISET":
+            if value:
+                self.ISET = float(value)
+            self.userSock.writeLine("%4f A"%self.ISET)
+        elif cmdStr == "VSET":
+            if value:
+                self.VSET = float(value)
+            self.userSock.writeLine("%4f V {#Hdb8d=56205 raw}"%self.VSET)
+        else:
+            # unknown command?
+            self.userSock.writeLine("ERROR") # error!
+
+
