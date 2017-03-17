@@ -710,6 +710,9 @@ class FakeFFPowerSuply(FakeDev):
         self.VMAX = 12
         self.ISET = 4
         self.VSET = 12
+        self.IREAD = 4
+        self.VREAD = 12
+        self.iTimer = Timer()
         FakeDev.__init__(self,
             name = name,
             port = port,
@@ -729,6 +732,12 @@ class FakeFFPowerSuply(FakeDev):
         if cmdStr == "PWR":
             if value:
                 self.PWR = value
+            # set the current in 2 seconds
+            if self.PWR == "ON":
+                iValue = self.ISET
+            else:
+                iValue = 0.
+            self.iTimer.start(2, self.setI, iValue)
             self.userSock.writeLine(self.PWR)
         elif cmdStr == "VMAX":
             self.userSock.writeLine("%4f"%self.VMAX)
@@ -742,8 +751,13 @@ class FakeFFPowerSuply(FakeDev):
             if value:
                 self.VSET = float(value)
             self.userSock.writeLine("%4f V {#Hdb8d=56205 raw}"%self.VSET)
+        elif cmdStr == "VREAD":
+            self.userSock.writeLine("%4f V {#Hdb8d=56205 raw}"%self.VSET)
+        elif cmdStr == "IREAD":
+            self.userSock.writeLine("%4f A"%self.IREAD)
         else:
             # unknown command?
             self.userSock.writeLine("ERROR") # error!
 
-
+    def setI(self, iValue):
+        self.IREAD = iValue

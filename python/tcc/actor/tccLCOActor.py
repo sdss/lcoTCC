@@ -53,6 +53,7 @@ class TCCLCOActor(BaseActor):
         scaleDev,
         m2Dev,
         measScaleDev,
+        ffDev,
         name = "tcc",
     ):
         """Construct a TCCActor
@@ -72,18 +73,20 @@ class TCCLCOActor(BaseActor):
         self.secDev.writeToUsers = self.writeToUsers
         self.measScaleDev = measScaleDev
         self.measScaleDev.writeToUsers = self.writeToUsers
+        self.ffDev = ffDev
+        self.ffDev.writeToUsers = self.writeToUsers
         # auto connection looks for self.dev
-        self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.secDev, self.measScaleDev])
+        self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.secDev, self.measScaleDev, self.ffDev])
         # connect devices
         self.tcsDev.connect()
         self.scaleDev.connect()
         self.secDev.connect()
         self.measScaleDev.connect()
+        self.ffDev.connect()
         self.cmdParser = TCCLCOCmdParser()
         self.collimationModel = CollimationModel()
         self.collimateTimer = Timer(0, self.updateCollimation)
-        BaseActor.__init__(self, userPort=userPort, maxUsers=1, name=name, version=__version__)
-        # Actor.__init__(self, userPort=userPort, maxUsers=1, name=name, devs=(tcsDev, scaleDev), version=__version__)
+        BaseActor.__init__(self, userPort=userPort, name=name, version=__version__)
 
     @property
     def currentScaleFactor(self):
