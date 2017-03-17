@@ -518,6 +518,7 @@ class ScaleDevice(TCPDevice):
         kwList.append("instrumentNum=%i"%self.status.cartID)
         kwList.append("CartLocked=%s"%"T" if self.status.locked else "F")
         kwList.append("CartLoaded=%s"%"T" if self.status.loaded else "F")
+        kwList.append(self.gangKW())
         return "; ".join(kwList)
 
     def writeStatusToUsers(self, userCmd=None):
