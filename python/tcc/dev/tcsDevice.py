@@ -369,7 +369,7 @@ class Status(object):
     def axePos(self):
         """Format the AxePos keyword (alt az rot)
         """
-        return "AxePos=%s"%(self.azAltStr)
+        return "AxePos=%s"%(self.azAltStr())
 
     def utc_tai(self):
         return "UTC_TAI=%0.0f"%(-36.0,) # this value is usually gotten from coordConv/earthpred, I think, which we don't have implemented...
