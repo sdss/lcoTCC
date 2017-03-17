@@ -218,7 +218,7 @@ class TCCLCOActor(BaseActor):
             self.collimateTimer.cancel()
 
     def collimateStatus(self):
-        if not self.collimateTimer.isActive:# and self.tcsDev.isTracking or self.tcsDev.isSlewing:
+        if not self.collimateTimer.isActive and self.tcsDev.isTracking or self.tcsDev.isSlewing:
             self.writeToUsers("w", "Text=Collimation is NOT active!!!")
         self.collimateStatusTimer.start(5, self.collimateStatus)
 
