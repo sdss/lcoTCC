@@ -10,7 +10,7 @@ from RO.Comm.TwistedTimer import Timer
 
 __all__ = ["FFDevice"]
 
-I_SETPOINT = 4 # AMPS
+I_SETPOINT = 3.2 # AMPS
 V_SETPOINT = 12 # Volts
 I_THRESH = 0.1 # determines 'close enough' amps
 V_THRESH = 0.1 # determines 'close enough' volts
