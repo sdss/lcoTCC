@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import
 
-from twistedActor import CommandError
+from twistedActor import CommandError, UserCmd, LinkCommands
 
 __all__ = ["target"]
 
@@ -32,5 +32,14 @@ def target(tccActor, userCmd):
     if len(coordPair) != 2:
         raise CommandError("Must specify coordPair of solely ra, dec")
     ra, dec = coordPair
-    tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, userCmd)
+    # if do screen, turn on the FF lamp
+    # else turn it off
+    tcsCmd = UserCmd()
+    ffCmd = UserCmd()
+    LinkCommands(userCmd, [tcsCmd, ffCmd])
+    tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, tcsCmd)
+    if doScreen:
+        tccActor.ffDev.powerOn(ffCmd)
+    else:
+        tccActor.ffDev.powerOn(ffCmd)
 
