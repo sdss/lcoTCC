@@ -87,7 +87,7 @@ class TCCLCOActor(BaseActor):
         self.collimationModel = CollimationModel()
         self.collimateTimer = Timer(0, self.updateCollimation)
         self.collimateStatusTimer = Timer()
-        self.collimateStatus()
+        self.collimateStatusTimer.start(5, self.collimateStatus) #git things a chance to boot up
 
         BaseActor.__init__(self, userPort=userPort, name=name, version=__version__)
 
@@ -218,7 +218,7 @@ class TCCLCOActor(BaseActor):
             self.collimateTimer.cancel()
 
     def collimateStatus(self):
-        if not self.collimateTimer.isActive and self.tcsDev.isTracking or self.tcsDev.isSlewing:
+        if not self.collimateTimer.isActive and (self.tcsDev.isTracking or self.tcsDev.isSlewing):
             self.writeToUsers("w", "Text=Collimation is NOT active!!!")
         self.collimateStatusTimer.start(5, self.collimateStatus)
 
