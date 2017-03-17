@@ -84,11 +84,11 @@ class FFDevice(TCPDevice):
         userCmd = expandUserCmd(userCmd)
         devCmdList = [DevCmd(cmdStr=cmdVerb) for cmdVerb in [REMOTE, PWR, ISET, VSET, VREAD, IREAD]]
         LinkCommands(userCmd, devCmdList)
-        devCmdList[-1].addCallback(self._statusCallback)
+        # devCmdList[-1].addCallback(self._statusCallback)
         userCmd.setTimeLimit(timeLim)
         userCmd.setState(userCmd.Running)
         for devCmd in devCmdList:
-            self.queueDevCmd(devCmd)
+            self.queueDevCmd(devCmd, userCmd)
         return userCmd
 
     def powerOn(self, userCmd=None):
@@ -99,13 +99,15 @@ class FFDevice(TCPDevice):
             power = "up" if self.waitPwrCmd.pwrOn else "down"
             userCmd.setState(userCmd.Cancelled, "Cannot power on, FF screen is currently powering %s"%power)
             return userCmd
-        self.waitPwrCmd = userCmd()
+        self.waitPwrCmd = UserCmd()
         self.waitPwrCmd.setTimeLimit(10)
         self.waitPwrCmd.pwrOn = True
         devCmdStrs = ["%s %s"%(REMOTE, REMOTE), "%s %.4f"%(VSET, V_SETPOINT), "%s %.4f"%(ISET, I_SETPOINT), "%s %s"%(PWR, ON)]
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in devCmdStrs]
         LinkCommands(userCmd, devCmdList+[self.waitPwrCmd])
         self.waitPwrCmd.setState(self.waitPwrCmd.Running)
+        for devCmd in devCmdList:
+            self.queueDevCmd(devCmd, userCmd)
         return userCmd
 
     def powerOff(self, userCmd=None):
@@ -116,40 +118,46 @@ class FFDevice(TCPDevice):
             power = "up" if self.waitPwrCmd.pwrOn else "down"
             userCmd.setState(userCmd.Cancelled, "Cannot power off, FF screen is currently powering %s"%power)
             return userCmd
-        self.waitPwrCmd = userCmd()
+        self.waitPwrCmd = UserCmd()
         self.waitPwrCmd.setTimeLimit(10)
         self.waitPwrCmd.pwrOn = False
-        devCmdStrs = ["%s %s"%(REMOTE, REMOTE), "%s %s"%(PWR, OFF)]
+        devCmdStrs = ["%s %s"%(REMOTE, REMOTE), "%s %.4f"%(VSET, V_SETPOINT), "%s %.4f"%(ISET, I_SETPOINT), "%s %s"%(PWR, OFF)]
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in devCmdStrs]
         LinkCommands(userCmd, devCmdList+[self.waitPwrCmd])
         self.waitPwrCmd.setState(self.waitPwrCmd.Running)
+        for devCmd in devCmdList:
+            self.queueDevCmd(devCmd, userCmd)
         return userCmd
 
-    def _statusCallback(self, statusCmd):
-        # if statusCmd.isActive:
-        #     # not sure this is necessary
-        #     # but ensures we get a 100% fresh status
-        #     self.status.flushStatus()
-        if statusCmd.isDone and not statusCmd.didFail:
-            self.writeStatusToUsers(statusCmd.userCmd)
-            # print("mig values,", self.encPos)
-            # print("done reading migs")
+    # def _statusCallback(self, statusCmd):
+    #     # if statusCmd.isActive:
+    #     #     # not sure this is necessary
+    #     #     # but ensures we get a 100% fresh status
+    #     #     self.status.flushStatus()
+    #     if statusCmd.isDone and not statusCmd.didFail:
+    #         self.writeStatusToUsers(statusCmd.userCmd)
+    #         # print("mig values,", self.encPos)
+    #         # print("done reading migs")
 
     @property
     def iSetKW(self):
-        return "ffSetCurrent=%4f"%self.ISET if self.ISET else "nan"
+        strVal = "%4f"%self.ISET if self.ISET is not None else "nan"
+        return "ffSetCurrent=%s"%strVal
 
     @property
     def vSetKW(self):
-        return "ffSetVoltage=%4f"%self.ISET if self.VSET else "nan"
+        strVal = "%.4f"%self.VSET if self.VSET is not None else "nan"
+        return "ffSetVoltage=%s"%strVal
 
     @property
     def iReadKW(self):
-        return "ffCurrent=%4f"%self.IREAD if self.IREAD else "nan"
+        strVal = "%.4f"%self.IREAD if self.IREAD is not None else "nan"
+        return "ffCurrent=%s"%strVal
 
     @property
     def vReadKW(self):
-        return "ffVoltage=%4f"%self.VREAD if self.VREAD else "nan"
+        strVal = "%.4f"%self.VREAD if self.VREAD is not None else "nan"
+        return "ffVoltage=%s"%strVal
 
     @property
     def pwrKW(self):
@@ -161,12 +169,12 @@ class FFDevice(TCPDevice):
             pwrVal = "?"
         return "ffPower=%s"%pwrVal
 
-    def writeStatusToUsers(self, userCmd=None):
-        self.writeToUsers("i", self.iReadKW, userCmd)
-        self.writeToUsers("i", self.vReadKW, userCmd)
-        self.writeToUsers("i", self.iSetKW, userCmd)
-        self.writeToUsers("i", self.vSetKW, userCmd)
-        self.writeToUsers("i", self.pwrKW, userCmd)
+    # def writeStatusToUsers(self, userCmd=None):
+    #     self.writeToUsers("i", self.iReadKW, userCmd)
+    #     self.writeToUsers("i", self.vReadKW, userCmd)
+    #     self.writeToUsers("i", self.iSetKW, userCmd)
+    #     self.writeToUsers("i", self.vSetKW, userCmd)
+    #     self.writeToUsers("i", self.pwrKW, userCmd)
 
     def handleReply(self, replyStr):
         """Handle a line of output from the device.
@@ -174,6 +182,7 @@ class FFDevice(TCPDevice):
         @param[in] replyStr   the reply, minus any terminating \n
         """
         log.info("%s.handleReply(replyStr=%s)" % (self, replyStr))
+        print("%s.handleReply(replyStr=%s)" % (self, replyStr))
         replyStr = replyStr.strip()
         # print(replyStr, self.currExeDevCmd.cmdStr)
         if not replyStr:
@@ -190,16 +199,16 @@ class FFDevice(TCPDevice):
             if not replyStr in [ON, OFF]:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "FF power state: %s as ON or OFF."%replyStr)
             self.PWR = replyStr
-            expectedVal = self.currExeDevCmd.cmdStr.split(PWR)[-1]
+            expectedVal = self.currExeDevCmd.cmdStr.split(PWR)[-1].strip()
             if expectedVal and not expectedVal == self.PWR:
-                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Returned PWR state doesn't match commanded [%.4f, %.4f]"%(expectedVal, self.PWR))
+                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Returned PWR state doesn't match commanded [%s, %s]"%(expectedVal, self.PWR))
             self.writeToUsers("i", self.pwrKW, self.currExeDevCmd.userCmd)
         if REMOTE in self.currExeDevCmd.cmdStr:
             # parse pwr state
             if not replyStr in [LOCAL, REMOTE]:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "FF remote: %s as LOCAL or REMOTE."%replyStr)
             self.REMOTE = replyStr
-            expectedVal = self.currExeDevCmd.cmdStr.split(REMOTE)[-1]
+            expectedVal = self.currExeDevCmd.cmdStr.split(REMOTE)[-1].strip()
             if expectedVal and not expectedVal == self.REMOTE:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Returned REMOTE state doesn't match commanded [%.4f, %.4f]"%(expectedVal, self.REMOTE))
         elif ISET in self.currExeDevCmd.cmdStr:
@@ -222,18 +231,18 @@ class FFDevice(TCPDevice):
             if expectedVal and not float(expectedVal) == self.VSET:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Returned VSET point doesn't match commanded [%.4f, %.4f]"%(expectedVal, self.ISET))
             self.writeToUsers("i", self.vSetKW, self.currExeDevCmd.userCmd)
-        elif VREAD in self.currExeDevCmd:
+        elif VREAD in self.currExeDevCmd.cmdStr:
             try:
                 self.VREAD = float(replyStr)
             except:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Failed to parse ff voltage state: %s as a float."%replyStr)
             self.writeToUsers("i", self.vReadKW, self.currExeDevCmd.userCmd)
-        elif IREAD in self.currExeDevCmd:
+        elif IREAD in self.currExeDevCmd.cmdStr:
             try:
                 self.IREAD = float(replyStr)
             except:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Failed to parse ff current state: %s as a float."%replyStr)
-            self.writeToUsers("i", self.iSetKW, self.currExeDevCmd.userCmd)
+            self.writeToUsers("i", self.iReadKW, self.currExeDevCmd.userCmd)
         if not self.currExeDevCmd.isDone:
             self.currExeDevCmd.setState(self.currExeDevCmd.Done)
         if not self.waitPwrCmd.isDone:
@@ -249,24 +258,24 @@ class FFDevice(TCPDevice):
                 self.waitPwrCmd.setState(self.waitPwrCmd.Done)
         # if the power command has not completed
         # query for status again .5 seconds
-        self.statusTimer.start(0.5, self.getStatus)
+        if not self.waitPwrCmd.isDone:
+            self.statusTimer.start(0.5, self.getStatus)
 
 
-    def queueDevCmd(self, devCmdStr, userCmd):
+    def queueDevCmd(self, devCmd, userCmd):
         """Add a device command to the device command queue
 
-        @param[in] devCmdStr: a command string to send to the device.
+        @param[in] devCmd: a deviceCommand.
         @param[in] userCmd: a UserCmd associated with this device (probably but
                                 not necessarily linked.  Used here for writeToUsers
                                 reference.
         """
-        log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
+        log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmd.cmdStr, self.devCmdQueue))
         #print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
-        devCmd = DevCmd(cmdStr=devCmdStr)
         devCmd.userCmd = userCmd
-        devCmd.cmdVerb = devCmdStr
+        devCmd.cmdVerb = devCmd.cmdStr
         self.devCmdQueue.addCmd(devCmd, self.startDevCmd)
         return devCmd
 

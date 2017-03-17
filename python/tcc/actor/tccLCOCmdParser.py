@@ -5,7 +5,7 @@ from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
 from ..cmd import setFocus, showFocus, setScaleFactor, showScaleFactor, showStatus, \
                    showVersion, offset, device, ping, threadRing, sec, target, \
-                   collimate, guiderot, help, guideoffset
+                   collimate, guiderot, help, guideoffset, lamp
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -225,7 +225,7 @@ TCCLCOCmdList = (
             parseDefs.KeywordParam(
                 name = 'device',
                 keywordDefList = [parseDefs.Keyword(name = item) for item in [
-                    "tcs", "scale", "sec"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
+                    "tcs", "scale", "sec", "lamp"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
                 numParamRange = [0, None],
                 help = "Which controller? If omitted then all devices.",
             ),
@@ -358,6 +358,22 @@ TCCLCOCmdList = (
         help = "print TCC command help",
         callFunc = help,
         minParAmt = 0,
+    ),
+    parseDefs.Command(
+        name = "lamp",
+        help = "turn ff lamp on or off.",
+        callFunc = lamp,
+        minParAmt = 1,
+        paramList = [
+            parseDefs.KeywordParam(
+                name = 'action',
+                keywordDefList = [
+                    parseDefs.Keyword(name = "on", help = "turn lamp on"),
+                    parseDefs.Keyword(name = "off", help = "turn lamp off"),
+                    parseDefs.Keyword(name = "status", help = "get lamp status"),
+                ],
+            )
+        ],
     ),
 )
 

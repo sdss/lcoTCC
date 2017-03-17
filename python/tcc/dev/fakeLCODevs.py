@@ -22,7 +22,7 @@ munge = 1
 
 GlobalScalePosition = 20 # global variable for sharing scaling ring position between fake ScaleCtrl and fake ScaleMeas
 
-__all__ = ["FakeScaleCtrl", "FakeTCS", "FakeM2Ctrl", "FakeMeasScaleCtrl"]
+__all__ = ["FakeScaleCtrl", "FakeTCS", "FakeM2Ctrl", "FakeMeasScaleCtrl", "FakeFFPowerSuply"]
 
 class FakeDev(TCPServer):
     """!A server that emulates an echoing device for testing
@@ -712,6 +712,7 @@ class FakeFFPowerSuply(FakeDev):
         self.VSET = 12
         self.IREAD = 4
         self.VREAD = 12
+        self.REMOTE  = "REMOTE"
         self.iTimer = Timer()
         FakeDev.__init__(self,
             name = name,
@@ -733,12 +734,16 @@ class FakeFFPowerSuply(FakeDev):
             if value:
                 self.PWR = value
             # set the current in 2 seconds
-            if self.PWR == "ON":
-                iValue = self.ISET
-            else:
-                iValue = 0.
-            self.iTimer.start(2, self.setI, iValue)
+                if self.PWR == "ON":
+                    iValue = self.ISET
+                else:
+                    iValue = 0.
+                self.iTimer.start(2, self.setI, iValue)
             self.userSock.writeLine(self.PWR)
+        elif cmdStr == "REMOTE":
+            if value:
+                self.REMOTE = value
+            self.userSock.writeLine(self.REMOTE)
         elif cmdStr == "VMAX":
             self.userSock.writeLine("%4f"%self.VMAX)
         elif cmdStr == "IMAX":
@@ -752,7 +757,7 @@ class FakeFFPowerSuply(FakeDev):
                 self.VSET = float(value)
             self.userSock.writeLine("%4f V {#Hdb8d=56205 raw}"%self.VSET)
         elif cmdStr == "VREAD":
-            self.userSock.writeLine("%4f V {#Hdb8d=56205 raw}"%self.VSET)
+            self.userSock.writeLine("%4f V {#Hdb8d=56205 raw}"%self.VREAD)
         elif cmdStr == "IREAD":
             self.userSock.writeLine("%4f A"%self.IREAD)
         else:
@@ -760,4 +765,13 @@ class FakeFFPowerSuply(FakeDev):
             self.userSock.writeLine("ERROR") # error!
 
     def setI(self, iValue):
+        print("setting I value")
         self.IREAD = iValue
+
+    def stateCallback(self, server=None):
+        if self.isReady:
+            # self.readyDeferred.callback(None)
+            print("Fake FF controller %s running on port %s" % (self.name, self.port))
+        elif self.didFail and not self.readyDeferred.called:
+            errMsg = "Fake FF controller %s failed to start on port %s" % (self.name, self.port)
+            print(errMsg)
