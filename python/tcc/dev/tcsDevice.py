@@ -310,7 +310,7 @@ class Status(object):
         return ", ".join([azStr, elStr, rotStr])
 
     def tccPos(self):
-        return "TCCPos=%s"%(self.azAltStr)
+        return "TCCPos=%s"%(self.azAltStr())
 
     def tccTemps(self):
         tempsDict = self.statusFieldDict["temps"].value
