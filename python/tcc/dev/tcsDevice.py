@@ -229,6 +229,7 @@ StatusFieldList = [
                 StatusField("temps", castTemps),
                 StatusField("ttruss", float),
                 StatusField("rawpos", castRawPos),
+                StatusField("airmass", float),
             ]
 
 class Status(object):
@@ -276,11 +277,20 @@ class Status(object):
             "secTrussTemp": self.secTrussTemp(),
             "tccHA": self.tccHA(),
             "tccTemps": self.tccTemps(),
+            "airmass": self.airmass(),
             # "secFocus": self.secFocus(),
             # "currArcOff": self.currArcOff(), 0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # "objArcOff": self.objArcOff(), bjArcOff=0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
             # TCCPos=68.361673,63.141087,nan; AxePos=68.393020,63.138022
         }
+
+    def airmass(self):
+        airmass = self.statusFieldDict["airmass"].value
+        if airmass is None:
+            airmassStr = "NaN"
+        else:
+            airmassStr = "%.2f"%airmass
+        return "airmass=%s"%airmassStr
 
     def tccHA(self):
         ha = self.statusFieldDict["ha"].value
