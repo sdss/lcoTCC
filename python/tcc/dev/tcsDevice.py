@@ -55,7 +55,7 @@ IRSLOWSP=53
 
 ## slew on target thresholds from updatethread.cpp (TCS)
 # MD_TRACKING_STABILITY_THRESHOLD = 0.5 # Tracking is declared stable when error is below this threshold in arc-seconds
-MD_FINE_CORRECTION_TARGET = 0.04 #Target error before completing move in arc-seconds
+MD_FINE_CORRECTION_TARGET = 0.08 #Target error before completing move in arc-seconds
 # RADEC_ERR_THRES = 0.04 # arcseconds, when stable here, offset is done
 
 def encCounts2Deg(encCounts):
