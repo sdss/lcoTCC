@@ -5,7 +5,7 @@ from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
 from ..cmd import setFocus, showFocus, setScaleFactor, showScaleFactor, showStatus, \
                    showVersion, offset, device, ping, threadRing, sec, target, \
-                   collimate, guiderot, help, guideoffset, lamp
+                   collimate, guiderot, help, guideoffset, lamp, showTime
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -191,6 +191,11 @@ TCCLCOCmdList = (
                 parseDefs.Keyword(name="status"),
                 callFunc = showStatus,
                 help = "Show tcc status.",
+            ),
+            parseDefs.SubCommand(
+                parseDefs.Keyword(name="time"),
+                callFunc = showTime,
+                help = "Show tcc time.",
             ),
             parseDefs.SubCommand(
                 parseDefs.Keyword(name="version"),
