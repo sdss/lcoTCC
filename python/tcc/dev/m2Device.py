@@ -78,7 +78,9 @@ class Status(object):
 
     def _getOrientStr(self, orientation):
         orientStrs = []
-        for orient in orientation:
+        # add an aditional 0 for rotation about z to
+        # keep actorkeys consistent between apo and lco
+        for orient in orientation + [0]:
             orientStr = "NaN" if orient is None else "%.2f"%orient
             orientStrs.append(orientStr)
         return ", ".join(orientStrs)
