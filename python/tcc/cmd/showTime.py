@@ -9,6 +9,7 @@ calibrates the TCC's clock from the observatory's time standard.
 
 Returned keywords: TAI, UT1, LST, UTC_TAI.
 """
+import time
 
 __all__ = ["showTime"]
 
@@ -19,7 +20,7 @@ def showTime(tccActor, userCmd, setDone=True):
     @param[in,out] userCmd  user command
     @param[in] setDone  set userCmd done? (ignored if userCmd is already done)
     """
-    currTAI = tccActor.tcsDev.tai()
+    currTAI = time.time() - 36.
 
     # LCOHACK! output bogus time (which shouldn't be used)
     # anywehre.  this is just to hide an error thrown
