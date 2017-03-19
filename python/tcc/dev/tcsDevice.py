@@ -533,6 +533,9 @@ class TCSDevice(TCPDevice):
 
         self.waitOffsetCmd = UserCmd()
         self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
+
+        self.waitSlewCmd = UserCmd()
+        self.waitSlewCmd.setState(self.waitSlewCmd.Done)
         # self.waitOffsetTimer = Timer()
         self.rotDelay = False
 
@@ -651,17 +654,24 @@ class TCSDevice(TCPDevice):
             if self.waitOffsetCmd.isActive and self.status.axesOnTarget:
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
+            if not self.waitSlewCmd.isDone and self.status.statusFieldDict["state"]==Slewing:
+                self.waitSlewCmd.setState(self.waitSlewCmd.Running)
+
+            if self.waitSlewCmd.isActive and self.status.statusFieldDict["state"]==Tracking:
+                self.waitSlewCmd.setState(self.waitSlewCmd.Done)
+
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
                 print("set rot command done", self.rotDelay, self.status.isClamped, self.status.rotMoving)
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
 
 
-    def target(self, ra, dec, doHA, doScreen, userCmd=None):
+    def target(self, ra, dec, doHA, doScreen, doBlock, userCmd=None):
         """Set coordinates for a slew.
 
         @param[in] ra: right ascension decimal degrees
         @param[in] dec: declination decimal degrees
         @param[in] doHA: if True, use degrees in hour angle rather than ra.
+        @param[in] doBlock: if True, do not set the userCmd done until the telescope is in place.
         @param[in] userCmd: a twistedActor BaseCommand.
         """
 
@@ -728,7 +738,13 @@ class TCSDevice(TCPDevice):
         # when the last dev cmd is done (the slew), set axis cmd statue to slewing
 
         # LCOHACK: don't wait for a slew to finish + [self.waitSlewCmd])
-        LinkCommands(userCmd, devCmdList)
+        if doBlock:
+            if not self.waitSlewCmd.isDone:
+                self.waitSlewCmd.setState(self.waitSlewCmd.Cancelled, "Superseded by new slew")
+            self.waitSlewCmd = UserCmd()
+            LinkCommands(userCmd, devCmdList + [self.waitSlewCmd])
+        else:
+            LinkCommands(userCmd, devCmdList)
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
 
@@ -885,6 +901,8 @@ class TCSDevice(TCPDevice):
             errorStr = "handleReply failed for %s with -1"%self.currDevCmdStr
             if self.waitOffsetCmd.isActive:
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Failed, errorStr)
+            if self.waitSlewCmd.isActive:
+                self.waitSlewCmd.setState(self.waitSlewCmd.Failed, errorStr)
             if self.waitRotCmd.isActive:
                 # note the clamp should still execute!!!!
                 self.waitRotCmd.setState(self.waitRotCmd.Failed, errorStr)

@@ -133,6 +133,11 @@ TCCLCOCmdList = (
                         " range of travel, the telescope target coords are adjusted to the" \
                         " closest position to the target coords that the windscreen can reach",
             ),
+            parseDefs.Qualifier(
+                name = "block",
+                help = "If specified, do not mark command as finished, until" \
+                        "the slew has completed.",
+            ),
             ],
         minParAmt = 0,
     ),
