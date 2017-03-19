@@ -665,7 +665,7 @@ class TCSDevice(TCPDevice):
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
 
 
-    def target(self, ra, dec, doHA, doScreen, doBlock, userCmd=None):
+    def target(self, ra, dec, doHA, doScreen, userCmd=None):
         """Set coordinates for a slew.
 
         @param[in] ra: right ascension decimal degrees
@@ -737,14 +737,11 @@ class TCSDevice(TCPDevice):
         # AND the pending slew is also done.
         # when the last dev cmd is done (the slew), set axis cmd statue to slewing
 
-        # LCOHACK: don't wait for a slew to finish + [self.waitSlewCmd])
-        if doBlock:
-            if not self.waitSlewCmd.isDone:
-                self.waitSlewCmd.setState(self.waitSlewCmd.Cancelled, "Superseded by new slew")
-            self.waitSlewCmd = UserCmd()
-            LinkCommands(userCmd, devCmdList + [self.waitSlewCmd])
-        else:
-            LinkCommands(userCmd, devCmdList)
+        if not self.waitSlewCmd.isDone:
+            self.waitSlewCmd.setState(self.waitSlewCmd.Cancelled, "Superseded by new slew")
+        self.waitSlewCmd = UserCmd()
+        LinkCommands(userCmd, devCmdList + [self.waitSlewCmd])
+
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
 
