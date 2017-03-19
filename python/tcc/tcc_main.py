@@ -18,7 +18,7 @@ logPath = "/data/logs/actors/tcc"
 if not os.path.exists(logPath):
     os.makedirs(logPath)
 
-startFileLogging(os.path.join(logPath, "tcc"))
+startFileLogging(os.path.join(logPath, "tcc"), rotate=True)
 
 UserPort = 25000
 
