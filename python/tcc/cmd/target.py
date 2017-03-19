@@ -19,7 +19,7 @@ def target(tccActor, userCmd):
     name = val.keyword
     doHA = userCmd.parsedCmd.qualDict['ha'].boolValue
     doScreen = userCmd.parsedCmd.qualDict['screen'].boolValue
-    doBlock = userCmd.parsedCmd.qualDict['block'].boolValue
+    #doBlock = userCmd.parsedCmd.qualDict['block'].boolValue
     if not name == "icrs":
         raise CommandError("%s coordSys not supported at LCO"%name)
     if val.valueList:
@@ -38,7 +38,7 @@ def target(tccActor, userCmd):
     tcsCmd = UserCmd()
     ffCmd = UserCmd()
     LinkCommands(userCmd, [tcsCmd, ffCmd])
-    tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, doBlock, tcsCmd)
+    tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, tcsCmd)
     if doScreen:
         tccActor.ffDev.powerOn(ffCmd)
     else:
