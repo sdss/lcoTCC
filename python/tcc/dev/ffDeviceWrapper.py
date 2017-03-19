@@ -42,10 +42,3 @@ class FFDeviceWrapper(DeviceWrapper):
             port=port,
         )
 
-    def _basicClose(self):
-        """Explicitly kill all timers, to keep twisted dirty reactor
-        errors showing up during tests.
-        """
-        self.controller.moveTimer.cancel()
-        self.device._statusTimer.cancel()
-        return DeviceWrapper._basicClose(self)

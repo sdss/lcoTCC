@@ -751,6 +751,10 @@ class TCSDevice(TCPDevice):
         statusStr = self.status.getStatusStr()
         if statusStr:
             self.writeToUsers('i', statusStr, userCmd)
+
+        # output please slew announce in stui
+        self.writeToUsers("i", "pleaseSlew=T")
+        self.writeToUsers("i", "pleaseSlew=F")
         return userCmd
 
     def slewOffset(self, ra, dec, userCmd=None):

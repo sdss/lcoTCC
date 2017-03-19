@@ -379,6 +379,8 @@ class FakeTCS(FakeDev):
                     self.istop, self.iactive, self.imoving
                 )
                 self.userSock.writeLine(axisLine)
+            elif tokens[0] == "AIRMASS" and len(tokens) == 1:
+                self.userSock.writeLine("1.01")
 
             # commands
             elif tokens[0] == "HAD":
