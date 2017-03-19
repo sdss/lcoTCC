@@ -17,7 +17,7 @@ Returned keywords: TAI, UT1, LST, UTC_TAI.
     */
     double tai();
 """
-from astropy.io import Time
+from astropy.time import Time
 
 __all__ = ["showTime"]
 
