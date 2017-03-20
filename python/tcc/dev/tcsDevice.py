@@ -184,7 +184,7 @@ def castRawPos(lcoReply):
     return deg
 
 def castScreenPos(lcoReply):
-    items = lcoReply.splti()
+    items = lcoReply.split()
     screenPos = lcoReply[6]
     return float(screenPos)
 
@@ -259,7 +259,7 @@ class Status(object):
         self.errBufferLen = 3
         self.rerrQueue = collections.deque(maxlen=self.errBufferLen)
         self.derrQueue = collections.deque(maxlen=self.errBufferLen)
-        self.wsPosQueue = collections.dequeue(maxlen=self.errBufferLen)
+        self.wsPosQueue = collections.deque(maxlen=self.errBufferLen)
 
 
         # self.rotOnTarg = 1 * ArcSecPerDeg # within 1 arcsec rot move is considered done
