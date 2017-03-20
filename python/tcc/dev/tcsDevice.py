@@ -797,7 +797,7 @@ class TCSDevice(TCPDevice):
         #         aWaitingOffsetCmd.setState(aWaitingOffsetCmd.Done, "offset set done on a timer")
         # self.waitOffsetTimer.start(8, setWaitOffsetCmdDone, waitOffsetCmd)
 
-        self.waitOffsetCmd.setTimeLimit(30) # 10 second timeout for every offset
+        self.waitOffsetCmd.setTimeLimit(60)
         # self.waitOffsetCmd.setTimeLimit(6)
         LinkCommands(userCmd, devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
