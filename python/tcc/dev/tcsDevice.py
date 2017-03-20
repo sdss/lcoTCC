@@ -604,6 +604,7 @@ class TCSDevice(TCPDevice):
         """Return current telescope status. Continuously poll.
         """
         log.info("%s.getStatus(userCmd=%s)" % (self, userCmd)) # logging this will flood the log
+        print("telstate", self.status.statusFieldDict["state"], self.status.statusFieldDict["state"]==Slewing)
         userCmd = expandUserCmd(userCmd)
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS: try reconnecting (is the APOGEE TCS running!?)")
@@ -655,9 +656,11 @@ class TCSDevice(TCPDevice):
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
             if not self.waitSlewCmd.isDone and self.status.statusFieldDict["state"]==Slewing:
+                print("waitSlewCommand Running")
                 self.waitSlewCmd.setState(self.waitSlewCmd.Running)
 
             if self.waitSlewCmd.isActive and self.status.statusFieldDict["state"]==Tracking:
+                print("waitSlewCommand Done")
                 self.waitSlewCmd.setState(self.waitSlewCmd.Done)
 
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
@@ -895,7 +898,7 @@ class TCSDevice(TCPDevice):
         - Parse status to update the model parameters
         - If a command has finished, call the appropriate command callback
         """
-        log.info("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
+        # log.info("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
         replyStr = replyStr.strip()
         if replyStr == "-1":
             # error
@@ -928,7 +931,7 @@ class TCSDevice(TCPDevice):
 
         @param[in] devCmd: a twistedActor DevCmd.
         """
-        log.info("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
+        # log.info("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (other wise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd.cmdVerb = devCmd.cmdStr
@@ -945,7 +948,7 @@ class TCSDevice(TCPDevice):
         @param[in] devCmdStr a line of text to send to the device
         """
         devCmdStr = devCmdStr.upper() # lco uses all upper case
-        log.info("%s.startDevCmd(%r)" % (self, devCmdStr))
+        # log.info("%s.startDevCmd(%r)" % (self, devCmdStr))
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmdStr))
