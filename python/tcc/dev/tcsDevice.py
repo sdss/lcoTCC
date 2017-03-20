@@ -604,7 +604,6 @@ class TCSDevice(TCPDevice):
         """Return current telescope status. Continuously poll.
         """
         log.info("%s.getStatus(userCmd=%s)" % (self, userCmd)) # logging this will flood the log
-        print("telstate", self.status.statusFieldDict["state"], self.status.statusFieldDict["state"]==Slewing)
         userCmd = expandUserCmd(userCmd)
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS: try reconnecting (is the APOGEE TCS running!?)")
@@ -655,11 +654,11 @@ class TCSDevice(TCPDevice):
             if self.waitOffsetCmd.isActive and self.status.axesOnTarget:
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
-            if not self.waitSlewCmd.isDone and self.status.statusFieldDict["state"]==Slewing:
+            if not self.waitSlewCmd.isDone and self.status.statusFieldDict["state"].value==Slewing:
                 print("waitSlewCommand Running")
                 self.waitSlewCmd.setState(self.waitSlewCmd.Running)
 
-            if self.waitSlewCmd.isActive and self.status.statusFieldDict["state"]==Tracking:
+            if self.waitSlewCmd.isActive and self.status.statusFieldDict["state"].value==Tracking:
                 print("waitSlewCommand Done")
                 self.waitSlewCmd.setState(self.waitSlewCmd.Done)
 
