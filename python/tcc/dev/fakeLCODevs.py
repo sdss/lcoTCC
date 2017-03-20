@@ -442,6 +442,10 @@ class FakeTCS(FakeDev):
                 # set epoch
                 self.MP = float(tokens[1])
                 self.userSock.writeLine("0")
+                # begin slew after short delay
+                # simulating the TO
+                self.doSlew()
+                # self.slewTimer.start(1, self.doSlew)
             elif tokens[0] == "FOCUS":
                 raise RuntimeError("DON'T USE TCS FOR FOCUS!")
                 if len(tokens) == 1:

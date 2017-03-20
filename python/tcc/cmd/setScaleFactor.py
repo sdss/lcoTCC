@@ -20,7 +20,6 @@ def setScaleFactor(tccActor, userCmd):
     M2.  To maintain current focus the M2 must also move fractionally in the
     same direction
     """
-    motionCmd = UserCmd() # to be set done when scale move is done
     def showScaleWhenDone(motionCmd):
         """@param[in] motionCmd, a twistedActor.UserCmd instance passed automatically via callback
 
@@ -32,6 +31,7 @@ def setScaleFactor(tccActor, userCmd):
 
     valueList = userCmd.parsedCmd.paramDict["scalefactor"].valueList[0].valueList
     if valueList:
+        motionCmd = UserCmd() # to be set done when scale move is done
         scaleFac = valueList[0]
         mult = userCmd.parsedCmd.qualDict['multiplicative'].boolValue
         if mult:
@@ -73,8 +73,8 @@ def setScaleFactor(tccActor, userCmd):
         focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
         scaleCmd = tccActor.scaleDev.move(absPosMM)
         motionCmd.addCallback(showScaleWhenDone)
-        # user cmd is not done until all three of the
-        # commands below have finshied
+        # user cmd is not done until motion is finished and
+        # scaleFac kw is output.
         LinkCommands(motionCmd, [scaleCmd, focusCmd])
 
     else:
