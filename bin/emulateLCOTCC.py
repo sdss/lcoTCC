@@ -26,7 +26,7 @@ from tcc.dev import TCSDevice, ScaleDevice, M2Device, FakeScaleCtrl, FakeTCS, Fa
 UserPort = 25000
 
 ScaleDevicePort = 26000
-# MeasScaleDevicePort = 26500
+MeasScaleDevicePort = 26500
 MeasScaleDevicePort = 10001
 TCSDevicePort = 27000
 M2DevicePort = 28000
@@ -38,8 +38,9 @@ fakeScaleController  = FakeScaleCtrl("fakeScale",  ScaleDevicePort)
 fakeTCS = FakeTCS("mockTCSDevice", TCSDevicePort)
 fakeM2Ctrl = FakeM2Ctrl("fakeM2", M2DevicePort)
 fakeFFDev = FakeFFPowerSuply("fakeFF", FFDevicePort)
-# fakeMeasScaleCtrl = FakeMeasScaleCtrl("fakeMeasScale", MeasScaleDevicePort)
-measScaleDev = MeasScaleDevice("measScaleDev", "10.1.1.41", MeasScaleDevicePort)
+fakeMeasScaleDev = FakeMeasScaleCtrl("fakeMeasScale", MeasScaleDevicePort)
+
+measScaleDev = MeasScaleDevice("measScaleDev", "localhost", MeasScaleDevicePort)
 tcsDev = TCSDevice("tcsDev", "localhost", TCSDevicePort)
 scaleDev = ScaleDevice("mockScale", "localhost", ScaleDevicePort, measScaleDev)
 m2Dev = M2Device("m2Dev", "localhost", M2DevicePort)
@@ -64,14 +65,14 @@ def startTCCLCO(*args):
 
 
 def checkFakesRunning(ignored):
-    if fakeScaleController.isReady and fakeTCS.isReady and fakeM2Ctrl.isReady and fakeFFDev.isReady:# and fakeMeasScale.isReady:
+    if fakeScaleController.isReady and fakeTCS.isReady and fakeM2Ctrl.isReady and fakeFFDev.isReady and fakeMeasScaleDev.isReady:
         startTCCLCO()
 
 fakeScaleController.addStateCallback(checkFakesRunning)
 fakeTCS.addStateCallback(checkFakesRunning)
 fakeM2Ctrl.addStateCallback(checkFakesRunning)
 fakeFFDev.addStateCallback(checkFakesRunning)
-# fakeMeasScale.addStateCallback(checkFakesRunning)
+fakeMeasScaleDev.addStateCallback(checkFakesRunning)
 
 reactor.run()
 
