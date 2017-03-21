@@ -183,15 +183,6 @@ def castRawPos(lcoReply):
     deg = encCounts2Deg(encCounts)
     return deg
 
-def castScreenPos(lcoReply):
-    try:
-        items = lcoReply.split()
-        screenPos = items[6].strip()
-        return float(screenPos)
-    except:
-        print("error parsing lco screen pos: ", screenPos)
-        return 0
-
 
 class StatusField(object):
     def __init__(self, cmdVerb, castFunc):
@@ -239,7 +230,6 @@ StatusFieldList = [
                 StatusField("ttruss", float),
                 StatusField("rawpos", castRawPos),
                 StatusField("airmass", float),
-                StatusField("lplc", castScreenPos)
             ]
 
 class Status(object):
@@ -263,7 +253,6 @@ class Status(object):
         self.errBufferLen = 3
         self.rerrQueue = collections.deque(maxlen=self.errBufferLen)
         self.derrQueue = collections.deque(maxlen=self.errBufferLen)
-        self.wsPosQueue = collections.deque(maxlen=self.errBufferLen)
 
 
         # self.rotOnTarg = 1 * ArcSecPerDeg # within 1 arcsec rot move is considered done
@@ -389,16 +378,6 @@ class Status(object):
     #     secFocus = self.statusFieldDict["focus"].value
     #     secFocus = "NaN" if secFocus is None else "%.4f"%secFocus
     #     return "SecFocus=%s"%secFocus
-
-    @property
-    def wsMoving(self):
-        """ return true if ws is moving"""
-        if len(self.wsPosQueue) < self.errBufferLen and numpy.all(self.wsPosQueue):
-            print("ws moving")
-            return True
-        else:
-            print("ws stationary")
-            return False
 
     def onTarget(self, errorBuffer):
         """Look at an error buffer and decide if the telescope is on target (for offests)
@@ -668,7 +647,6 @@ class TCSDevice(TCPDevice):
             # append ra and dec errors to the queues
             self.status.rerrQueue.append(self.status.statusFieldDict["rerr"].value)
             self.status.derrQueue.append(self.status.statusFieldDict["derr"].value)
-            self.status.wsPosQueue.append(self.status.statusFieldDict["lplc"].value)
             statusStr = self.status.getStatusStr()
             if statusStr:
                 self.writeToUsers("i", statusStr, cmd)
@@ -677,9 +655,11 @@ class TCSDevice(TCPDevice):
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
             if not self.waitSlewCmd.isDone and self.status.statusFieldDict["state"].value==Slewing:
+                print("waitSlewCommand Running")
                 self.waitSlewCmd.setState(self.waitSlewCmd.Running)
 
-            if self.waitSlewCmd.isActive and self.status.statusFieldDict["state"].value==Tracking and not self.status.wsMoving:
+            if self.waitSlewCmd.isActive and self.status.statusFieldDict["state"].value==Tracking:
+                print("waitSlewCommand Done")
                 self.waitSlewCmd.setState(self.waitSlewCmd.Done)
 
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
