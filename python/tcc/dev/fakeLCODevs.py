@@ -381,6 +381,8 @@ class FakeTCS(FakeDev):
                 self.userSock.writeLine(axisLine)
             elif tokens[0] == "AIRMASS" and len(tokens) == 1:
                 self.userSock.writeLine("1.01")
+            elif tokens[0] == "LPLC" and len(tokens) == 1:
+                self.userSock.writeLine("180.072 5002 0 1 0 0 84.593 2643 1 0 1 0 0 3103 3100 1 1 0 0 0 1 0 1 0")
 
             # commands
             elif tokens[0] == "HAD":
