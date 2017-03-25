@@ -6,6 +6,8 @@ import sys
 import traceback
 import os
 
+import numpy
+
 from twisted.internet import reactor
 # from twistedActor import startSystemLogging
 from twistedActor import startFileLogging
@@ -13,12 +15,17 @@ from twistedActor import startFileLogging
 from tcc.actor.tccLCOActor import TCCLCOActor
 from tcc.dev import TCSDevice, ScaleDevice, M2Device, MeasScaleDevice, FFDevice
 
+from sdss.utilities.astrodatetime import datetime
+
+mjdRollover = numpy.floor(datetime.now().mjd) + 0.4
+rolloverDatetime = datetime.fromMJD(mjdRollover) # only uses time of day
+
 # log to directory $HOME/tcclogs/
 logPath = "/data/logs/actors/tcc"
 if not os.path.exists(logPath):
     os.makedirs(logPath)
 
-startFileLogging(os.path.join(logPath, "tcc"), rotate=True)
+startFileLogging(os.path.join(logPath, "tcc"), rotate=rolloverDatetime)
 
 UserPort = 25000
 

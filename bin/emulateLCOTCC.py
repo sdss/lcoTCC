@@ -13,12 +13,12 @@ from twisted.internet import reactor
 # import twisted.internet.tksupport
 from twistedActor import startFileLogging
 # import RO.Wdg
+import datetime
 
-try:
-    startFileLogging("emulateTCCLCO")
-except KeyError:
-   # don't start logging
-   pass
+rotateTime = datetime.datetime.now() + datetime.timedelta(seconds=10)
+
+startFileLogging("emulateTCCLCO", rotate=rotateTime)
+
 
 from tcc.actor import TCCLCOActor
 from tcc.dev import TCSDevice, ScaleDevice, M2Device, FakeScaleCtrl, FakeTCS, FakeM2Ctrl, MeasScaleDevice, FakeMeasScaleCtrl, FFDevice, FakeFFPowerSuply
