@@ -106,12 +106,18 @@ class CollimationModel(object):
         sinDecCosHA = numpy.sin(decRad)*numpy.cos(haRad)
         cosDecSinHA = numpy.cos(decRad)*numpy.sin(haRad)
 
-        transY = -272.9 + 679*sinDec + 407.8*cosDec + -39.71*sinHA + -334.7*cosHA + 833.6*sinDecCosHA + 153.1*cosDecSinHA
+        # old, Povilas updated such that zero points are easier?
+        # transY = -272.9 + 679*sinDec + 407.8*cosDec + -39.71*sinHA + -334.7*cosHA + 833.6*sinDecCosHA + 153.1*cosDecSinHA
 
-        # transY = -2.141 + 1413*sinDec + 386.7*cosDec + -49.3*sinHA + -487.1*cosHA
-        transX = -300.8 + -132.1*sinDec + 182.3*cosDec + -589.6*sinHA + 141.1*cosHA
-        tiltX = 1.14 + 29.03*sinDec + 9.86*cosDec + -0.46*sinHA + -10.21*cosHA
-        tiltY = 6.45 + -13.56*sinDec + -4.28*cosDec + 4.84*sinHA + -1.09*cosHA
+        # # transY = -2.141 + 1413*sinDec + 386.7*cosDec + -49.3*sinHA + -487.1*cosHA
+        # transX = -300.8 + -132.1*sinDec + 182.3*cosDec + -589.6*sinHA + 141.1*cosHA
+        # tiltX = 1.14 + 29.03*sinDec + 9.86*cosDec + -0.46*sinHA + -10.21*cosHA
+        # tiltY = 6.45 + -13.56*sinDec + -4.28*cosDec + 4.84*sinHA + -1.09*cosHA
+
+        transY = 679*sinDec + 407.8*(cosDec-1.) + -39.71*sinHA + -334.7*(cosHA-1) + 833.6*sinDecCosHA + 153.1*cosDecSinHA
+        transX = -132.1*sinDec + 182.3*(cosDec-1.) + -589.6*sinHA + 141.1*(cosHA-1.)
+        tiltX =  29.03*sinDec + 9.86*(cosDec-1.) + -0.46*sinHA + -10.21*(cosHA-1.)
+        tiltY = -13.56*sinDec + -4.28*(cosDec-1) + 4.84*sinHA + -1.09*(cosHA-1.)
 
         flexTerms = self.baseOrientation - numpy.asarray([tiltX, tiltY, transX, transY])
         focus = None if temp is None else self.getFocus(temp)
