@@ -134,16 +134,16 @@ class MeasScaleDevice(TCPDevice):
             # print("done reading migs")
 
     def writeStatusToUsers(self, userCmd=None):
-        self.writeToUsers("i", "ScaleZeroPos=%.4f"%self.zeroPoint)
-        self.writeToUsers("i", self.encPosKWStr, userCmd)
-        severity = "i"
+        self.tccStatus.updateKW("ScaleZeroPos", "%.4f"%self.zeroPoint, userCmd)
+        self.tccStatus.updateKW("ScaleEncPos", "%s"%self.encPosStr, userCmd)
+        severity = None
         if not self.isHomed:
             severity = "w"
-        self.writeToUsers(severity, self.encHomedKWStr, userCmd)
+        self.tccStatus.updateKW("ScaleEncHomed", "%s"%self.encHomedStr, userCmd, level=severity)
 
 
     @property
-    def encPosKWStr(self):
+    def encPosStr(self):
         encPosStr = []
         for encPos in self.encPos[:3]:
             if encPos is None:
@@ -151,12 +151,12 @@ class MeasScaleDevice(TCPDevice):
             else:
                 encPos += self.zeroPoint
                 encPosStr.append("%.3f"%encPos)
-        return "ScaleEncPos=" + ", ".join(encPosStr[:3])
+        return ", ".join(encPosStr[:3])
 
     @property
-    def encHomedKWStr(self):
+    def encHomedStr(self):
         homedInt = 1 if self.isHomed else 0
-        return "ScaleEncHomed=%i"%homedInt
+        return "%i"%homedInt
 
     def setEncValue(self, serialStr):
         """Figure out which gauge this line corresponds to and set the value
@@ -182,16 +182,16 @@ class MeasScaleDevice(TCPDevice):
         if self.currExeDevCmd.isDone:
             # ignore unsolicited output?
             log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
-            self.writeToUsers("i", "%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
+            self.tccStatus.writeToUsers("i", "%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
 
         if "error 15" in replyStr.lower():
-            self.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing necessary.")
+            self.tccStatus.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing necessary.")
             self.encPos = [None]*6
 
         elif "error" in replyStr.lower():
             # some other error?
-            self.writeToUsers("w", "Mitutoyo EV counter Error output: " + replyStr)
+            self.tccStatus.writeToUsers("w", "Mitutoyo EV counter Error output: " + replyStr)
 
         if self.currExeDevCmd.cmdStr == READ_ENC:
             # check that the expected prefix is seen

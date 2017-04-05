@@ -129,52 +129,35 @@ class FFDevice(TCPDevice):
             self.queueDevCmd(devCmd, userCmd)
         return userCmd
 
-    # def _statusCallback(self, statusCmd):
-    #     # if statusCmd.isActive:
-    #     #     # not sure this is necessary
-    #     #     # but ensures we get a 100% fresh status
-    #     #     self.status.flushStatus()
-    #     if statusCmd.isDone and not statusCmd.didFail:
-    #         self.writeStatusToUsers(statusCmd.userCmd)
-    #         # print("mig values,", self.encPos)
-    #         # print("done reading migs")
-
     @property
-    def iSetKW(self):
+    def iSet(self):
         strVal = "%4f"%self.ISET if self.ISET is not None else "nan"
-        return "ffSetCurrent=%s"%strVal
+        return "%s"%strVal
 
     @property
-    def vSetKW(self):
+    def vSet(self):
         strVal = "%.4f"%self.VSET if self.VSET is not None else "nan"
-        return "ffSetVoltage=%s"%strVal
+        return "%s"%strVal
 
     @property
-    def iReadKW(self):
+    def iRead(self):
         strVal = "%.4f"%self.IREAD if self.IREAD is not None else "nan"
         return "ffCurrent=%s"%strVal
 
     @property
-    def vReadKW(self):
+    def vRead(self):
         strVal = "%.4f"%self.VREAD if self.VREAD is not None else "nan"
-        return "ffVoltage=%s"%strVal
+        return "%s"%strVal
 
     @property
-    def pwrKW(self):
+    def pwr(self):
         if self.PWR == ON:
             pwrVal = "T"
         elif self.PWR == OFF:
             pwrVal = "F"
         else:
             pwrVal = "?"
-        return "ffPower=%s"%pwrVal
-
-    # def writeStatusToUsers(self, userCmd=None):
-    #     self.writeToUsers("i", self.iReadKW, userCmd)
-    #     self.writeToUsers("i", self.vReadKW, userCmd)
-    #     self.writeToUsers("i", self.iSetKW, userCmd)
-    #     self.writeToUsers("i", self.vSetKW, userCmd)
-    #     self.writeToUsers("i", self.pwrKW, userCmd)
+        return "%s"%pwrVal
 
     def handleReply(self, replyStr):
         """Handle a line of output from the device.
@@ -189,7 +172,7 @@ class FFDevice(TCPDevice):
         if self.currExeDevCmd.isDone:
             # ignore unsolicited output?
             log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
-            self.writeToUsers("i", "%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
+            self.tccStatus.writeToUsers("d", "%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
         # only parse the first element of the replyStr in all cases
         replyStr = replyStr.split()[0]
@@ -201,7 +184,7 @@ class FFDevice(TCPDevice):
             expectedVal = self.currExeDevCmd.cmdStr.split(PWR)[-1].strip()
             if expectedVal and not expectedVal == self.PWR:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Returned PWR state doesn't match commanded [%s, %s]"%(expectedVal, self.PWR))
-            self.writeToUsers("i", self.pwrKW, self.currExeDevCmd.userCmd)
+            self.tccStatus.updateKW("ffPower", self.pwr, self.currExeDevCmd.userCmd)
         if REMOTE in self.currExeDevCmd.cmdStr:
             # parse pwr state
             if not replyStr in [LOCAL, REMOTE]:
@@ -219,7 +202,7 @@ class FFDevice(TCPDevice):
             expectedVal = self.currExeDevCmd.cmdStr.split(ISET)[-1]
             if expectedVal and not float(expectedVal) == self.ISET:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Returned ISET point doesn't match commanded [%.4f, %.4f]"%(expectedVal, self.ISET))
-            self.writeToUsers("i", self.iSetKW, self.currExeDevCmd.userCmd)
+            self.tccStatus.updateKW("ffSetCurrent", self.iSet, self.currExeDevCmd.userCmd)
         elif VSET in self.currExeDevCmd.cmdStr:
             try:
                 self.VSET = float(replyStr)
@@ -229,19 +212,19 @@ class FFDevice(TCPDevice):
             expectedVal = self.currExeDevCmd.cmdStr.split(VSET)[-1]
             if expectedVal and not float(expectedVal) == self.VSET:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Returned VSET point doesn't match commanded [%.4f, %.4f]"%(expectedVal, self.ISET))
-            self.writeToUsers("i", self.vSetKW, self.currExeDevCmd.userCmd)
+            self.tccStatus.updateKW("ffSetVoltage", self.vSet, self.currExeDevCmd.userCmd)
         elif VREAD in self.currExeDevCmd.cmdStr:
             try:
                 self.VREAD = float(replyStr)
             except:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Failed to parse ff voltage state: %s as a float."%replyStr)
-            self.writeToUsers("i", self.vReadKW, self.currExeDevCmd.userCmd)
+            self.tccStatus.updateKW("ffVoltage", self.vRead, self.currExeDevCmd.userCmd)
         elif IREAD in self.currExeDevCmd.cmdStr:
             try:
                 self.IREAD = float(replyStr)
             except:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Failed to parse ff current state: %s as a float."%replyStr)
-            self.writeToUsers("i", self.iReadKW, self.currExeDevCmd.userCmd)
+            self.tccStatus.updateKW("ffCurrent", self.iRead, self.currExeDevCmd.userCmd)
         if not self.currExeDevCmd.isDone:
             self.currExeDevCmd.setState(self.currExeDevCmd.Done)
         if not self.waitPwrCmd.isDone:

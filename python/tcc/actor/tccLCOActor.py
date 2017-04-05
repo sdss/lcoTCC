@@ -8,6 +8,7 @@ from RO.StringUtil import strFromException
 from RO.Comm.TwistedTimer import Timer
 
 import numpy
+from astropy.time import Time
 
 from twistedActor import CommandError, BaseActor, DeviceCollection, expandUserCmd
 
@@ -38,6 +39,111 @@ So lets say that a scale change +8.45e05 as reported by the guider requires a pl
                  and  a scale change -8.45e05 as reported by the guider requires a plate motion of down by 1mm (away from the primary)
 """
 
+timeNow = Time.now()
+TAI = timeNow.tai.mjd*60*60*24
+UT1 = timeNow.ut1.mjd*60*60*24
+UTC = timeNow.mjd*60*60*24
+
+# output TAI on a timer?
+
+class TCCStatus(object):
+    def __init__(self, writeToUsers):
+        self.writeToUsers = writeToUsers
+        self.tccKWs = [
+            "ScaleFac",
+            "ScaleFacRange",
+            "SecFocus",
+            "ffSetCurrent", # FFS KWS
+            "ffSetVoltage",
+            "ffCurrent",
+            "ffVoltage",
+            "ffPower",
+            "secOrient", # M2 KWS
+            "secDesOrient",
+            "secState",
+            "SecFocus",
+            "Galil",
+            "ScaleZeroPos", #Measscale Dev
+            "ScaleEncPos",
+            "ScaleEncHomed",
+            "ThreadRingMotorPos", #Threadring Dev
+            "ThreadRingEncPos",
+            "ThreadRingSpeed",
+            "ThreadRingMaxSpeed",
+            "DesThreadRingPos",
+            "ScaleZeroPos",
+            "instrumentNum",
+            "CartLocked",
+            "CartLoaded",
+            "ApogeeGang",
+            "ThreadringState",
+            "ScaleRingFaults",
+            "axisCmdState",
+            "axePos",
+            "tccPos",
+            "objNetPos",
+            "objSys",
+            "secTrussTemp",
+            "tccHA",
+            "tccTemps",
+            "airmass",
+            "pleaseSlew"
+        ]
+        self.kwDict = {}
+        for kw in self.tccKWs:
+            self.kwDict[kw.lower()] = None
+
+    def outputTimeKWs(self, justTAI=False, userCmd=None):
+        if userCmd is not None:
+            level = "i"
+        else:
+            level = "d"
+        timeNow = Time.now()
+        TAI = timeNow.tai.mjd*60*60*24
+        UT1 = timeNow.ut1.mjd*60*60*24
+        UTC = timeNow.mjd*60*60*24
+        timeKWs = [
+            "TAI=%0.3f" % (TAI,),
+        ]
+        if not justTAI:
+            timeKWs += [
+                "UT1=%0.3f" % (UT1,),
+                "UTC_TAI=%0.0f" % (UTC-TAI,),
+                "UT1_TAI=%0.3f" % (UT1-TAI,),
+            ]
+        self.writeToUsers(level, "; ".join(timeKWs), userCmd)
+
+    def updateKW(self, kw, valueStr, userCmd, level=None):
+        #if no userCmd is associated
+        # output the keyword as debug level
+        # but only if it has changed since last
+        # output, else don't output.
+        # if a userCmd is assocated,
+        # output no matter what with info
+        #level
+        output = False
+        if userCmd is not None:
+            output = True
+            if level is None:
+                level = "i"
+            self.kwDict[kw.lower()] = valueStr
+        else:
+            # check if value has changed
+            if level is None:
+                level = "d"
+            if valueStr != self.kwDict[kw.lower()]:
+                self.kwDict[kw.lower()] = valueStr
+                output = True
+        if output or level == "w":
+            # always output warning level
+            self.writeToUsers(level, "%s=%s"%(kw, self.kwDict[kw.lower()]), userCmd)
+
+    def updateKWs(self, keyValDict, userCmd=None):
+        for key, val in keyValDict.iteritems():
+            self.updateKW(key, val, userCmd)
+
+
+
 class TCCLCOActor(BaseActor):
     """!TCC actor for the LCO telescope
     """
@@ -65,16 +171,17 @@ class TCCLCOActor(BaseActor):
         @param[in] m2Dev a MeasScaleDevice instance
         @param[in] name  actor name; used for logging
         """
+        self.status = TCCStatus(self.writeToUsers)
         self.tcsDev = tcsDev
-        self.tcsDev.writeToUsers = self.writeToUsers
+        self.tcsDev.tccStatus = self.status
         self.scaleDev = scaleDev
-        self.scaleDev.writeToUsers = self.writeToUsers
+        self.scaleDev.tccStatus = self.status
         self.secDev = m2Dev
-        self.secDev.writeToUsers = self.writeToUsers
+        self.secDev.tccStatus = self.status
         self.measScaleDev = measScaleDev
-        self.measScaleDev.writeToUsers = self.writeToUsers
+        self.measScaleDev.tccStatus = self.status
         self.ffDev = ffDev
-        self.ffDev.writeToUsers = self.writeToUsers
+        self.ffDev.tccStatus = self.status
         # auto connection looks for self.dev
         self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.secDev, self.measScaleDev, self.ffDev])
         # connect devices
@@ -87,7 +194,7 @@ class TCCLCOActor(BaseActor):
         self.collimationModel = CollimationModel()
         self.collimateTimer = Timer(0, self.updateCollimation)
         self.collimateStatusTimer = Timer()
-        self.collimateStatusTimer.start(5, self.collimateStatus) #git things a chance to boot up
+        self.collimateStatusTimer.start(5, self.collimateStatus) #give things a chance to boot up
 
         BaseActor.__init__(self, userPort=userPort, name=name, version=__version__)
 

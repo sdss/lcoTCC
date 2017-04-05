@@ -15,7 +15,6 @@ __all__ = ["M2Device"]
 PollTime = 0.5 #seconds, LCO says status is updated no more frequently that 5 times a second
 # PollTime = 1
 # Speed = 25.0 # microns per second for focus
-MIN_FOCUS_MOVE = 50 # microns
 DefaultTimeout = 2 # seconds
 
 Done = "Done"
@@ -70,11 +69,11 @@ class Status(object):
 
     def secFocusStr(self):
         secFocus = "NaN" if self.secFocus is None else "%.2f"%self.secFocus
-        return "SecFocus=%s"%secFocus
+        return "%s"%secFocus
 
     def galilStr(self):
         galil = "?" if self.galil is None else "%s"%self.galil
-        return "Galil=%s"%galil
+        return "%s"%galil
 
     def _getOrientStr(self, orientation):
         orientStrs = []
@@ -86,7 +85,7 @@ class Status(object):
         return ", ".join(orientStrs)
 
     def secOrientStr(self):
-        return "secOrient=%s"%self._getOrientStr(self.orientation)
+        return "%s"%self._getOrientStr(self.orientation)
 
     def secDesOrientStr(self):
         return "secDesOrient=%s"%self._getOrientStr(self.desOrientation)
@@ -100,19 +99,21 @@ class Status(object):
         #   total time
         currIter = 1 # no meaning at LCO
         maxIter = 1 # no meaning at LCO
-        return "secState=%s, %i, %i, %.2f, %.2f"%(
+        return "%s, %i, %i, %.2f, %.2f"%(
             self.state, currIter, maxIter, self.moveTimeRemaining, self.moveTimeTotal
             )
 
-    def getStatusStr(self):
+    def getStatusDict(self):
         """Grab and format tcc keywords, only output those which have changed
         """
-        kwOutputList = [self.secStateStr(), self.secFocusStr(), self.galilStr(),
-            self.secOrientStr(), self.secDesOrientStr()
-            ]
-        # add mirror moving times, and actuator positions?
-        # eg colimation
-        return "; ".join(kwOutputList)
+        statusDict = {
+            "secState": self.secStateStr(),
+            "secFocus": self.secFocusStr(),
+            "Galil": self.galilStr(),
+            "secOrient": self.secOrientStr(),
+            "secDesOrient": self.secDesOrientStr(),
+        }
+        return statusDict
 
     def parseStatus(self, replyStr):
         """Parse replyString (as returned from the M2 tcp/ip server) and set values
@@ -227,7 +228,7 @@ class M2Device(TCPDevice):
     def getStatus(self, userCmd=None):
         """Return current telescope status. Continuously poll.
         """
-        log.info("%s.getStatus(userCmd=%s)" % (self, userCmd)) # logging this will flood the log
+        # log.info("%s.getStatus(userCmd=%s)" % (self, userCmd)) # logging this will flood the log
         # print("%s.getStatus(userCmd=%s)" % (self, userCmd))
         userCmd = expandUserCmd(userCmd)
         if not self.conn.isConnected:
@@ -249,15 +250,11 @@ class M2Device(TCPDevice):
         # perhaps only write status if it has changed...
         # but so far status is a small amount of values
         # so its probably ok
-        statusStr = self.status.getStatusStr()
-        if statusStr:
+        statusDict = self.status.getStatusStr()
+        userCmd = None
+        if self.currExeDevCmd.userCmd and not self.currExeDevCmd.userCmd.isDone:
             userCmd = self.currExeDevCmd.userCmd
-            if self.waitMoveCmd.isActive:
-                userCmd = self.waitMoveCmd
-                # write as debug during moves
-                self.writeToUsers("d", statusStr, userCmd)
-            else:
-                self.writeToUsers("i", statusStr, userCmd)
+        self.tccStatus.updateKWs(statusDict, userCmd)
 
         if self.waitMoveCmd.isActive:
             if not self.isBusy:
@@ -304,13 +301,6 @@ class M2Device(TCPDevice):
             deltaFocus = focusValue
         else:
             deltaFocus = self.status.secFocus - focusValue
-
-
-        if abs(deltaFocus) < MIN_FOCUS_MOVE:
-            # should focus be cancelled or just set to done?
-            self.writeToUsers("w", "Focus offset below threshold of < %.2f, moving anyways."%MIN_FOCUS_MOVE, userCmd)
-            # userCmd.setState(userCmd.Done)
-            # return userCmd
 
         # focusDir = 1 # use M2's natural coordinates
         # focusDir = -1 # use convention at APO
@@ -387,7 +377,7 @@ class M2Device(TCPDevice):
             return
         if "error" in replyStr.lower():
             # error
-            self.writeToUsers("w", "Error in M2 reply: %s, current cmd: %s"%(replyStr, self.currExeDevCmd.cmdStr))
+            self.tccStatus.writeToUsers("w", "Error in M2 reply: %s, current cmd: %s"%(replyStr, self.currExeDevCmd.cmdStr))
         # if this was a speed command, set it
         if self.currDevCmdStr.lower() == "speed":
             self.status.speed = float(replyStr)
@@ -431,7 +421,7 @@ class M2Device(TCPDevice):
                 if "move" in devCmdStr.lower() or "offset" in devCmdStr.lower():
                     self.waitMoveCmd.setState(self.waitMoveCmd.Running)
                     self.status.state = Moving
-                    self.writeToUsers("i", self.status.secStateStr(), devCmd.userCmd)
+                    self.tccStatus.updateKW("secState", self.status.secStateStr(), devCmd.userCmd)
                 # if "galil" in devCmdStr.lower():
                 #     self.waitGalilCmd.setState(self.waitGalilCmd.Running)
                 self.conn.writeLine(devCmdStr)

@@ -283,16 +283,12 @@ class Status(object):
             "axePos": self.axePos(),
             "tccPos": self.tccPos(),
             "objNetPos": self.objNetPos(),
-            "utc_tai": self.utc_tai(),
+            # "utc_tai": self.utc_tai(),
             "objSys": self.objSys(),
             "secTrussTemp": self.secTrussTemp(),
             "tccHA": self.tccHA(),
             "tccTemps": self.tccTemps(),
             "airmass": self.airmass(),
-            # "secFocus": self.secFocus(),
-            # "currArcOff": self.currArcOff(), 0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
-            # "objArcOff": self.objArcOff(), bjArcOff=0.000000,0.000000,4947564013.2595177,0.000000,0.000000,4947564013.2595177
-            # TCCPos=68.361673,63.141087,nan; AxePos=68.393020,63.138022
         }
 
     def airmass(self):
@@ -516,18 +512,10 @@ class Status(object):
     # def objArcOff(self):
     #     return "objArcOff=%s"%self.arcOff
 
-    def getStatusStr(self):
+    def updateTCCStatus(self, userCmd=None):
         """Grab and format tcc keywords, only output those which have changed
         """
-        kwOutputList = []
-        for kw in self.tccKWDict.iterkeys():
-            oldOutput = self.tccKWDict[kw]
-            newOutput = getattr(self, kw)()
-            # if oldOutput != newOutput:
-            if True:
-                self.tccKWDict[kw] = newOutput
-                kwOutputList.append(newOutput)
-        return "; ".join(kwOutputList)
+        self.tccStatus.updateKWs(self.tccKWDict, userCmd)
 
 
 class TCSDevice(TCPDevice):
@@ -669,9 +657,7 @@ class TCSDevice(TCPDevice):
             self.status.rerrQueue.append(self.status.statusFieldDict["rerr"].value)
             self.status.derrQueue.append(self.status.statusFieldDict["derr"].value)
             self.status.wsPosQueue.append(self.status.statusFieldDict["lplc"].value)
-            statusStr = self.status.getStatusStr()
-            if statusStr:
-                self.writeToUsers("i", statusStr, cmd)
+            self.status.updateTCCStatus(cmd)
 
             if self.waitOffsetCmd.isActive and self.status.axesOnTarget:
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
@@ -735,11 +721,11 @@ class TCSDevice(TCPDevice):
                 doHA = True
                 ra = ha
 
-                self.writeToUsers(
+                self.tccStatus.writeToUsers(
                     'w', 'text="target postion below flat field screen, '
                          'modified target coords HA=%.4f, DEC=%.4f"' % (ha, dec), userCmd)
 
-            self.writeToUsers(
+            self.tccStatus.writeToUsers(
                 'i', 'text="setting FFS target to altitude %.2f deg"' % (ffs_altitude))
 
         if doHA:
@@ -767,13 +753,11 @@ class TCSDevice(TCPDevice):
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
 
-        statusStr = self.status.getStatusStr()
-        if statusStr:
-            self.writeToUsers('i', statusStr, userCmd)
+        self.status.updateTCCStatus(userCmd)
 
         # output please slew announce in stui
-        self.writeToUsers("i", "pleaseSlew=T")
-        self.writeToUsers("i", "pleaseSlew=F")
+        self.tccStatus.updateKW("pleaseSlew", "T") # for outputting slew sound in stui
+        self.tccStatus.updateKW("pleaseSlew", "F")
         return userCmd
 
     def slewOffset(self, ra, dec, userCmd=None):
@@ -805,26 +789,12 @@ class TCSDevice(TCPDevice):
         enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg)
         enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
-        # set userCmd done only when each device command finishes
-        # AND the pending slew is also done.
-        # set an offset done after 6 seconds no matter what
-
-        # def setWaitOffsetCmdDone(aWaitingOffsetCmd):
-        #     print("wait offset command state", aWaitingOffsetCmd.state)
-        #     if not aWaitingOffsetCmd.isDone:
-        #         print("Wait offset timed out!!!!")
-        #         self.writeToUsers("w", "Text=OFFSET SET DONE ON TIMER.")
-        #         aWaitingOffsetCmd.setState(aWaitingOffsetCmd.Done, "offset set done on a timer")
-        # self.waitOffsetTimer.start(8, setWaitOffsetCmdDone, waitOffsetCmd)
 
         self.waitOffsetCmd.setTimeLimit(60)
-        # self.waitOffsetCmd.setTimeLimit(6)
         LinkCommands(userCmd, devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
-        statusStr = self.status.getStatusStr()
-        if statusStr:
-            self.writeToUsers("i", statusStr, userCmd)
+        self.status.updateTCCStatus(userCmd)
         return userCmd
 
     def rotOffset(self, rot, userCmd=None, force=False):
@@ -834,14 +804,7 @@ class TCSDevice(TCPDevice):
         @param[in] rot: in decimal degrees
         @param[in] userCmd a twistedActor BaseCommand
         """
-        # LCOHACK: allow offsets only if over 5 arcseconds!
 
-        # if True:
-        #     #! lupton!
-        #     userCmd = expandUserCmd(userCmd)
-        #     self.writeToUsers("w", "Rotator offset %.6f bypassed"%rot)
-        #     userCmd.setState(userCmd.Done)
-        #     return userCmd
         userCmd = expandUserCmd(userCmd)
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
@@ -853,12 +816,12 @@ class TCSDevice(TCPDevice):
         # if abs(rot) < MinRotOffset and not force:
         if not self.doGuideRot:
             # set command done, rotator offset is miniscule
-            self.writeToUsers("w", "Guide rot not enabled, not applying", userCmd)
+            self.tccStatus.writeToUsers("w", "Guide rot not enabled, not applying", userCmd)
             userCmd.setState(userCmd.Done)
             return userCmd
         if abs(rot) > MaxRotOffset:
             # set command failed, rotator offset is too big
-            self.writeToUsers("w", "Rot offset greater than max threshold", userCmd)
+            self.tccStatus.writeToUsers("w", "Rot offset greater than max threshold", userCmd)
             userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
             return userCmd
         ### print time since last rot applied from guider command
@@ -899,9 +862,7 @@ class TCSDevice(TCPDevice):
         LinkCommands(userCmd, [enterAPGCIR, self.waitRotCmd])
         # begin the dominos game
         self.queueDevCmd(enterAPGCIR)
-        statusStr = self.status.getStatusStr()
-        if statusStr:
-            self.writeToUsers("i", statusStr, userCmd)
+        self.status.updateTCCStatus(userCmd)
         return userCmd
 
 
