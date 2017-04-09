@@ -9,7 +9,7 @@ from RO.Astro.Sph.AzAltFromHADec import azAltFromHADec
 from RO.Astro.Sph.HADecFromAzAlt import haDecFromAzAlt
 from RO.StringUtil import strFromException, degFromDMSStr
 
-from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd, LinkCommands
+from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd
 
 from tcc.utils.ffs import get_ffs_altitude, telescope_alt_limit
 
@@ -630,7 +630,7 @@ class TCSDevice(TCPDevice):
             self.status.previousDec = self.status.statusFieldDict["mpos"].value[1]
         # gather list of status elements to get
         devCmdList = [DevCmd(cmdStr=cmdVerb) for cmdVerb in self.status.statusFieldDict.keys()]
-        LinkCommands(userCmd, devCmdList)
+        userCmd.linkCommands(devCmdList)
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
         if self.isSlewing:
@@ -748,7 +748,7 @@ class TCSDevice(TCPDevice):
         if not self.waitSlewCmd.isDone:
             self.waitSlewCmd.setState(self.waitSlewCmd.Cancelled, "Superseded by new slew")
         self.waitSlewCmd = UserCmd()
-        LinkCommands(userCmd, devCmdList + [self.waitSlewCmd])
+        userCmd.linkCommands(devCmdList + [self.waitSlewCmd])
 
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
@@ -791,7 +791,7 @@ class TCSDevice(TCPDevice):
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
 
         self.waitOffsetCmd.setTimeLimit(60)
-        LinkCommands(userCmd, devCmdList + [self.waitOffsetCmd])
+        userCmd.linkCommands(devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
         self.status.updateTCCStatus(userCmd)
@@ -859,7 +859,7 @@ class TCSDevice(TCPDevice):
         self.waitRotCmd.setTimeLimit(rotTimeLimBuffer + 20)
         self.status.setRotOffsetTarg(rot)
         enterAPGCIR = DevCmd(cmdStr="APGCIR %.8f"%(newPos))
-        LinkCommands(userCmd, [enterAPGCIR, self.waitRotCmd])
+        userCmd.linkCommands([enterAPGCIR, self.waitRotCmd])
         # begin the dominos game
         self.queueDevCmd(enterAPGCIR)
         self.status.updateTCCStatus(userCmd)

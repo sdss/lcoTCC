@@ -1,7 +1,6 @@
 from __future__ import division, absolute_import
 """For LCO TCC Device command
 """
-from twistedActor import LinkCommands
 
 __all = ["device"]
 
@@ -39,5 +38,5 @@ def device(tccActor, userCmd):
     for devName in devNameList:
         dev = devDict[devName]
         devCmds.append(getattr(dev, devAttr)())
-    LinkCommands(userCmd, devCmds)
+    userCmd.linkCommands(devCmds)
     return True

@@ -2,7 +2,7 @@ from __future__ import division, absolute_import
 
 import numpy
 
-from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue, LinkCommands, UserCmd
+from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue, UserCmd
 
 from RO.StringUtil import strFromException
 from RO.Comm.TwistedTimer import Timer
@@ -83,7 +83,7 @@ class FFDevice(TCPDevice):
         self.statusTimer.cancel()
         userCmd = expandUserCmd(userCmd)
         devCmdList = [DevCmd(cmdStr=cmdVerb) for cmdVerb in [REMOTE, PWR, ISET, VSET, VREAD, IREAD]]
-        LinkCommands(userCmd, devCmdList)
+        userCmd.linkCommands(devCmdList)
         # devCmdList[-1].addCallback(self._statusCallback)
         userCmd.setTimeLimit(timeLim)
         userCmd.setState(userCmd.Running)
@@ -104,7 +104,7 @@ class FFDevice(TCPDevice):
         self.waitPwrCmd.pwrOn = True
         devCmdStrs = ["%s %s"%(REMOTE, REMOTE), "%s %.4f"%(VSET, V_SETPOINT), "%s %.4f"%(ISET, I_SETPOINT), "%s %s"%(PWR, ON)]
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in devCmdStrs]
-        LinkCommands(userCmd, devCmdList+[self.waitPwrCmd])
+        userCmd.linkCommands(devCmdList+[self.waitPwrCmd])
         self.waitPwrCmd.setState(self.waitPwrCmd.Running)
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd, userCmd)
@@ -123,7 +123,7 @@ class FFDevice(TCPDevice):
         self.waitPwrCmd.pwrOn = False
         devCmdStrs = ["%s %s"%(REMOTE, REMOTE), "%s %.4f"%(VSET, V_SETPOINT), "%s %.4f"%(ISET, I_SETPOINT), "%s %s"%(PWR, OFF)]
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in devCmdStrs]
-        LinkCommands(userCmd, devCmdList+[self.waitPwrCmd])
+        userCmd.linkCommands(devCmdList+[self.waitPwrCmd])
         self.waitPwrCmd.setState(self.waitPwrCmd.Running)
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd, userCmd)

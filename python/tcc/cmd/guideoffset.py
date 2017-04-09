@@ -1,5 +1,4 @@
 from __future__ import division, absolute_import
-from twistedActor import LinkCommands
 
 __all__ = ["guideoffset"]
 # m2 and scale directions need to be determined.
@@ -29,5 +28,5 @@ def guideoffset(tccActor, userCmd):
         tccActor.writeToUsers("w", "text='guideoffset command all zeros?'")
         userCmd.setState(userCmd.Done)
     else:
-        LinkCommands(userCmd, cmdList)
+        userCmd.linkCommands(cmdList)
 

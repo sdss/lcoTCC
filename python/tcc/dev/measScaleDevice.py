@@ -2,7 +2,7 @@ from __future__ import division, absolute_import
 
 import numpy
 
-from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue, LinkCommands
+from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue
 
 from RO.StringUtil import strFromException
 
@@ -95,7 +95,7 @@ class MeasScaleDevice(TCPDevice):
         statusDevCmd.addCallback(self._statusCallback)
         statusDevCmd.setTimeLimit(timeLim)
         if linkState:
-            LinkCommands(userCmd, [statusDevCmd])
+            userCmd.linkCommands([statusDevCmd])
             return userCmd
         else:
             # return the device command to be linked outside
@@ -111,7 +111,7 @@ class MeasScaleDevice(TCPDevice):
         currValDevCmd.addCallback(self._statusCallback)
         countDevCmd.setTimeLimit(timeLim)
         currValDevCmd.setTimeLimit(timeLim)
-        LinkCommands(userCmd, [countDevCmd, currValDevCmd])
+        userCmd.linkCommands([countDevCmd, currValDevCmd])
         return userCmd
 
     def setZero(self, userCmd=None, timeLim=1):
@@ -120,7 +120,7 @@ class MeasScaleDevice(TCPDevice):
         userCmd = expandUserCmd(userCmd)
         zeroDevCmd = self.queueDevCmd(ZERO_SET, userCmd)
         zeroDevCmd.setTimeLimit(timeLim)
-        LinkCommands(userCmd, [zeroDevCmd])
+        userCmd.linkCommands([zeroDevCmd])
         return userCmd
 
     def _statusCallback(self, statusCmd):

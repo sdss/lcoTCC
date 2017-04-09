@@ -1,7 +1,5 @@
 from __future__ import division, absolute_import
 
-from twistedActor import LinkCommands
-
 __all__ = ["lamp"]
 
 def lamp(tccActor, userCmd):

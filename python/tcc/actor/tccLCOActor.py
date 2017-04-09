@@ -95,7 +95,7 @@ class TCCStatus(object):
         for kw in self.tccKWs:
             self.kwDict[kw.lower()] = None
 
-    def outputTimeKWs(self, userCmd=None):
+    def outputTimeKWs(self, userCmd):
         timeNow = Time.now()
         TAI = timeNow.tai.mjd*60*60*24
         # UT1 = timeNow.ut1.mjd*60*60*24
@@ -115,39 +115,26 @@ class TCCStatus(object):
         # output no matter what with info
         #level
         level = level
-        if hasattr(userCmd, "mainCmd"):
-            print("has mainCmd", userCmd, userCmd.mainCmd)
-            self.updateKW(kw, valueStr, userCmd.mainCmd)
-        else:
-            print("updateKW", kw, valueStr, userCmd, level)
-            didChange = valueStr == self.kwDict[kw.lower()]
-            self.kwDict[kw.lower()] = valueStr
-            output = False
-            if userCmd is not None and userCmd.cmdID != 0:
-                output = True
-                level = "i"
-            elif didChange:
-                level = "d"
-                output = True
-            elif level == "w":
-                output = True
-            if output:
-                self.writeToUsers(level, "%s=%s"%(kw, self.kwDict[kw.lower()]), userCmd)
+        didChange = valueStr == self.kwDict[kw.lower()]
+        self.kwDict[kw.lower()] = valueStr
+        print("updateKW", kw, valueStr, userCmd, level, didChange)
+        output = False
+        if userCmd is not None and userCmd.cmdID != 0:
+            output = True
+            level = "i"
+        elif didChange:
+            level = "d"
+            output = True
+        elif level == "w":
+            output = True
+        if output:
+            userCmd.writeToUsers(level, "%s=%s"%(kw, self.kwDict[kw.lower()]), userCmd)
 
 
-    def updateKWs(self, keyValDict, userCmd=None):
+    def updateKWs(self, keyValDict, userCmd):
         for key, val in keyValDict.iteritems():
             if not userCmd.cmdStr:
                 self.updateKW(key, val, userCmd)
-
-    def writeToUsers(self, level, message, userCmd=None):
-        # try to discover the topmost command if it has been linked
-        # via LinkCommands so a reply can be sent to the correct person
-        if hasattr(userCmd, "mainCmd"):
-            self.writeToUsers(level, message, userCmd.mainCmd)
-        else:
-            self._writeToUsers(level, message, userCmd)
-
 
 
 class TCCLCOActor(BaseActor):

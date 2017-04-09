@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import
 
-from twistedActor import CommandError, UserCmd, LinkCommands
+from twistedActor import CommandError, UserCmd
 
 __all__ = ["target"]
 
@@ -37,7 +37,7 @@ def target(tccActor, userCmd):
     # else turn it off
     tcsCmd = UserCmd()
     ffCmd = UserCmd()
-    LinkCommands(userCmd, [tcsCmd, ffCmd])
+    userCmd.LinkCommands([tcsCmd, ffCmd])
     tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, tcsCmd)
     if doScreen:
         tccActor.ffDev.powerOn(ffCmd)

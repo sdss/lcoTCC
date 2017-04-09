@@ -5,7 +5,7 @@ import numpy
 from RO.Comm.TwistedTimer import Timer
 from RO.StringUtil import strFromException
 
-from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd, LinkCommands
+from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd
 
 __all__ = ["M2Device"]
 
@@ -239,7 +239,7 @@ class M2Device(TCPDevice):
         # userCmd.addCallback(self._statusCallback)
         # gather list of status elements to get
         statusCmd = self.queueDevCmd("status", userCmd)
-        LinkCommands(userCmd, [statusCmd])
+        userCmd.linkCommands([statusCmd])
         return userCmd
 
     def processStatus(self, replyStr):
@@ -280,7 +280,7 @@ class M2Device(TCPDevice):
         status2 = self.queueDevCmd("status", userCmd)
         # first status gets the error state
         # second status clears it
-        LinkCommands(userCmd, [stopCmd, status, galilOffCmd, status2])
+        userCmd.linkCommands([stopCmd, status, galilOffCmd, status2])
         return userCmd
 
     def focus(self, focusValue, offset=False, userCmd=None):
@@ -349,7 +349,7 @@ class M2Device(TCPDevice):
         self.status._moveTimeTotal = self.getTimeForMove()
         timeout = self.status._moveTimeTotal+galilOverHead+extraOverHead
         userCmd.setTimeLimit(timeout)
-        LinkCommands(userCmd, [moveCmd, statusCmd, self.waitMoveCmd])
+        userCmd.linkCommands([moveCmd, statusCmd, self.waitMoveCmd])
         return userCmd
 
     def getTimeForMove(self):

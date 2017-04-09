@@ -9,7 +9,7 @@ from collections import Counter
 import numpy
 from twisted.internet import reactor
 
-from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue, LinkCommands
+from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue
 
 from RO.StringUtil import strFromException
 
@@ -410,7 +410,7 @@ class ScaleDevice(TCPDevice):
         stopCmd = self.queueDevCmd("stop", userCmd)
         speedCmd = self.queueDevCmd("speed %.4f"%self.nomSpeed, userCmd)
         statusCmd = self.queueDevCmd("status", userCmd)
-        LinkCommands(userCmd, [stopCmd, speedCmd, statusCmd])
+        userCmd.linkCommands([stopCmd, speedCmd, statusCmd])
         return userCmd
         # if getStatus:
         #     return self.getStatus(userCmd=userCmd)
@@ -442,7 +442,7 @@ class ScaleDevice(TCPDevice):
             statusDevCmd.addCallback(self._statusCallback)
             statusDevCmd.setTimeLimit(timeLim)
             if linkState:
-                LinkCommands(userCmd, [statusDevCmd, encStatusDevCmd])
+                userCmd.linkCommands([statusDevCmd, encStatusDevCmd])
                 return userCmd
             else:
                 # return the device command to be linked outside
@@ -551,7 +551,7 @@ class ScaleDevice(TCPDevice):
             speedDevCmd = self.queueDevCmd("speed %.6f"%speedValue, userCmd)
             statusDevCmd = self.queueDevCmd("status", userCmd)
             statusDevCmd.addCallback(self._statusCallback)
-            LinkCommands(userCmd, [speedDevCmd, statusDevCmd])
+            userCmd.linkCommands([speedDevCmd, statusDevCmd])
         return userCmd
 
     def getMoveCmdStr(self):
@@ -701,7 +701,7 @@ class ScaleDevice(TCPDevice):
         stopDevCmd = self.queueDevCmd("stop", userCmd)
         statusDevCmd = self.queueDevCmd("status", userCmd)
         statusDevCmd.addCallback(self._statusCallback)
-        LinkCommands(userCmd, [stopDevCmd, statusDevCmd])
+        userCmd.linkCommand([stopDevCmd, statusDevCmd])
         return userCmd
 
     def handleReply(self, replyStr):

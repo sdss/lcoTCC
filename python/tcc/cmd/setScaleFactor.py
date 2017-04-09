@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import
 
-from twistedActor import LinkCommands, UserCmd
+from twistedActor import UserCmd
 
 from .showScaleFactor import showScaleFactor
 
@@ -20,6 +20,9 @@ def setScaleFactor(tccActor, userCmd):
     M2.  To maintain current focus the M2 must also move fractionally in the
     same direction
     """
+    motionCmd = UserCmd() # to be set done when scale move is done
+    showScaleCmd = UserCmd() # to be set done when show scale is done
+
     def showScaleWhenDone(motionCmd):
         """@param[in] motionCmd, a twistedActor.UserCmd instance passed automatically via callback
 
@@ -27,11 +30,10 @@ def setScaleFactor(tccActor, userCmd):
         then set the user command done.
         """
         if motionCmd.isDone:
-            showScaleFactor(tccActor, userCmd, setDone=True)
+            showScaleFactor(tccActor, showScaleCmd, setDone=True)
 
     valueList = userCmd.parsedCmd.paramDict["scalefactor"].valueList[0].valueList
     if valueList:
-        motionCmd = UserCmd() # to be set done when scale move is done
         scaleFac = valueList[0]
         mult = userCmd.parsedCmd.qualDict['multiplicative'].boolValue
         if mult:
@@ -51,31 +53,13 @@ def setScaleFactor(tccActor, userCmd):
             userCmd.setState(userCmd.Failed, "Cannot set scale, M2 is moving.")
             return
 
-        # did scale increase or decrease?
-        # careful with conventions
-        # newScale = tccActor.mm2scale(absPosMM)
-        # print("newScale", newScale, "curr scale factor", tccActor.currentScaleFactor)
-        # if newScale > tccActor.currentScaleFactor:
-        #     # scale increases, focal lengh decreases,
-        #     # M2 moves away from M1
-        #     # as LCO greater increase focus moves away
-        #     # from M2
-        #     offsetDir = 1
-        # else:
-        #     # move M2 other direction ...
-        #     offsetDir = -1
-        #     print("M2 offset Dir", offsetDir)
-        # determine magnitude of offset
-        # convert to microns
-        # apply scaling ratio
-        # command M2 move
         focusOffset = (absPosMM - tccActor.scaleDev.encPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
         focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
         scaleCmd = tccActor.scaleDev.move(absPosMM)
+        userCmd.linkCommands([motionCmd, showScaleCmd])
         motionCmd.addCallback(showScaleWhenDone)
-        # user cmd is not done until motion is finished and
-        # scaleFac kw is output.
-        LinkCommands(motionCmd, [scaleCmd, focusCmd])
+        motionCmd.linkCommands([scaleCmd, focusCmd])
+
 
     else:
         # no scale value received, just show current vale

@@ -1,6 +1,5 @@
 from __future__ import division, absolute_import
 
-from twistedActor import LinkCommands
 
 __all__ = ["threadRing"]
 
@@ -35,7 +34,7 @@ def threadRing(tccActor, userCmd):
     elif "status" in parsedKeys:
         # what do do here? both write to users should get same
         # user command but I don't want the command to be set done!
-        threadCmd = tccActor.scaleDev.getStatus(userCmd)
+        tccActor.scaleDev.getStatus(userCmd)
 
     elif "home" in parsedKeys:
         tccActor.scaleDev.home(userCmd)
