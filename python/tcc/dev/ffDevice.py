@@ -142,7 +142,7 @@ class FFDevice(TCPDevice):
     @property
     def iRead(self):
         strVal = "%.4f"%self.IREAD if self.IREAD is not None else "nan"
-        return "ffCurrent=%s"%strVal
+        return "%s"%strVal
 
     @property
     def vRead(self):

@@ -39,16 +39,16 @@ So lets say that a scale change +8.45e05 as reported by the guider requires a pl
                  and  a scale change -8.45e05 as reported by the guider requires a plate motion of down by 1mm (away from the primary)
 """
 
-timeNow = Time.now()
-TAI = timeNow.tai.mjd*60*60*24
-UT1 = timeNow.ut1.mjd*60*60*24
-UTC = timeNow.mjd*60*60*24
+# timeNow = Time.now()
+# TAI = timeNow.tai.mjd*60*60*24
+# UT1 = timeNow.ut1.mjd*60*60*24
+# UTC = timeNow.mjd*60*60*24
 
 # output TAI on a timer?
 
 class TCCStatus(object):
     def __init__(self, writeToUsers):
-        self.writeToUsers = writeToUsers
+        self._writeToUsers = writeToUsers
         self.tccKWs = [
             "ScaleFac",
             "ScaleFacRange",
@@ -87,31 +87,24 @@ class TCCStatus(object):
             "tccHA",
             "tccTemps",
             "airmass",
-            "pleaseSlew"
+            "pleaseSlew",
+            "TAI",
+            "UTC_TAI"
         ]
         self.kwDict = {}
         for kw in self.tccKWs:
             self.kwDict[kw.lower()] = None
 
-    def outputTimeKWs(self, justTAI=False, userCmd=None):
-        if userCmd is not None:
-            level = "i"
-        else:
-            level = "d"
+    def outputTimeKWs(self, userCmd=None):
         timeNow = Time.now()
         TAI = timeNow.tai.mjd*60*60*24
-        UT1 = timeNow.ut1.mjd*60*60*24
+        # UT1 = timeNow.ut1.mjd*60*60*24
         UTC = timeNow.mjd*60*60*24
-        timeKWs = [
-            "TAI=%0.3f" % (TAI,),
-        ]
-        if not justTAI:
-            timeKWs += [
-                "UT1=%0.3f" % (UT1,),
-                "UTC_TAI=%0.0f" % (UTC-TAI,),
-                "UT1_TAI=%0.3f" % (UT1-TAI,),
-            ]
-        self.writeToUsers(level, "; ".join(timeKWs), userCmd)
+        timeDict = {
+            "TAI": TAI,
+            "UTC_TAI": UTC-TAI,
+        }
+        self.updateKWs(timeDict, userCmd)
 
     def updateKW(self, kw, valueStr, userCmd, level=None):
         #if no userCmd is associated
@@ -121,26 +114,39 @@ class TCCStatus(object):
         # if a userCmd is assocated,
         # output no matter what with info
         #level
-        output = False
-        if userCmd is not None:
-            output = True
-            if level is None:
-                level = "i"
-            self.kwDict[kw.lower()] = valueStr
+        level = level
+        if hasattr(userCmd, "mainCmd"):
+            print("has mainCmd", userCmd, userCmd.mainCmd)
+            self.updateKW(kw, valueStr, userCmd.mainCmd)
         else:
-            # check if value has changed
-            if level is None:
-                level = "d"
-            if valueStr != self.kwDict[kw.lower()]:
-                self.kwDict[kw.lower()] = valueStr
+            print("updateKW", kw, valueStr, userCmd, level)
+            didChange = valueStr == self.kwDict[kw.lower()]
+            self.kwDict[kw.lower()] = valueStr
+            output = False
+            if userCmd is not None and userCmd.cmdID != 0:
                 output = True
-        if output or level == "w":
-            # always output warning level
-            self.writeToUsers(level, "%s=%s"%(kw, self.kwDict[kw.lower()]), userCmd)
+                level = "i"
+            elif didChange:
+                level = "d"
+                output = True
+            elif level == "w":
+                output = True
+            if output:
+                self.writeToUsers(level, "%s=%s"%(kw, self.kwDict[kw.lower()]), userCmd)
+
 
     def updateKWs(self, keyValDict, userCmd=None):
         for key, val in keyValDict.iteritems():
-            self.updateKW(key, val, userCmd)
+            if not userCmd.cmdStr:
+                self.updateKW(key, val, userCmd)
+
+    def writeToUsers(self, level, message, userCmd=None):
+        # try to discover the topmost command if it has been linked
+        # via LinkCommands so a reply can be sent to the correct person
+        if hasattr(userCmd, "mainCmd"):
+            self.writeToUsers(level, message, userCmd.mainCmd)
+        else:
+            self._writeToUsers(level, message, userCmd)
 
 
 

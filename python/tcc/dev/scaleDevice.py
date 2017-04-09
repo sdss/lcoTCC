@@ -63,7 +63,7 @@ class MungedStatusError(Exception):
 
 class Status(object):
     # how close you must be to the locked setpoint to be considered "locked"
-    LOCKED_TOL = 0.005 # mm
+    LOCKED_TOL = 0.1 # mm
     Moving = "Moving"
     Done = "Done"
     def __init__(self):
@@ -501,8 +501,10 @@ class ScaleDevice(TCPDevice):
 
 
     def statusDict(self):
-        threadRingPos = "%.4f"%self.encPos if self.encPos else "nan"
-        desThreadRingPos = "%.4f"%self.targetPos if self.targetPos else "nan"
+        desThreadRingPos = "%.4f"%self.targetPos if self.targetPos is not None else "NaN"
+        threadRingPos = "%.4f"%self.encPos if self.encPos is not None else "NaN"
+        cartLoaded = "T" if self.status.loaded else "F"
+        cartLocked = "T" if self.status.locked else "F"
         return {
             "ThreadRingMotorPos": "%.4f"%self.motorPos,
             "ThreadRingEncPos": "%s"%threadRingPos,
@@ -511,8 +513,8 @@ class ScaleDevice(TCPDevice):
             "DesThreadRingPos": "%s"%desThreadRingPos,
             "ScaleZeroPos": "%.4f"%self.scaleZeroPos,
             "instrumentNum": "%i"%self.status.cartID,
-            "CartLocked": "%s"%"T" if self.status.locked else "F",
-            "CartLoaded": "%s"%"T" if self.status.loaded else "F",
+            "CartLocked": cartLoaded,
+            "CartLoaded": cartLocked,
             "apogeeGang": self.gangVal(),
             "ThreadRingState": self.getStateVal(),
         }
@@ -526,7 +528,7 @@ class ScaleDevice(TCPDevice):
             self.tccStatus.writeToUsers("w", faultStr, userCmd)
         self.tccStatus.updateKWs(self.statusDict(), userCmd)
         # output measScale KWs too
-        self.measScaleDevice.writeStatusToUsers(userCmd)
+        self.measScaleDev.writeStatusToUsers(userCmd)
 
     def writeState(self, userCmd=None):
         self.tccStatus.updateKW("ThreadRingState", self.getStateVal(), userCmd)

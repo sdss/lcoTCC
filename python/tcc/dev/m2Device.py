@@ -88,7 +88,7 @@ class Status(object):
         return "%s"%self._getOrientStr(self.orientation)
 
     def secDesOrientStr(self):
-        return "secDesOrient=%s"%self._getOrientStr(self.desOrientation)
+        return "%s"%self._getOrientStr(self.desOrientation)
 
 
     def secStateStr(self):
@@ -250,7 +250,7 @@ class M2Device(TCPDevice):
         # perhaps only write status if it has changed...
         # but so far status is a small amount of values
         # so its probably ok
-        statusDict = self.status.getStatusStr()
+        statusDict = self.status.getStatusDict()
         userCmd = None
         if self.currExeDevCmd.userCmd and not self.currExeDevCmd.userCmd.isDone:
             userCmd = self.currExeDevCmd.userCmd

@@ -297,7 +297,7 @@ class Status(object):
             airmassStr = "NaN"
         else:
             airmassStr = "%.2f"%airmass
-        return "airmass=%s"%airmassStr
+        return "%s"%airmassStr
 
     def tccHA(self):
         ha = self.statusFieldDict["ha"].value
@@ -305,7 +305,7 @@ class Status(object):
             haStr = "NaN"
         else:
             haStr = "%.6f"%ha
-        return "tccHA=%s"%haStr
+        return "%s"%haStr
 
     def azAltStr(self):
         elPos = self.statusFieldDict["telel"].value
@@ -317,7 +317,7 @@ class Status(object):
         return ", ".join([azStr, elStr, rotStr])
 
     def tccPos(self):
-        return "TCCPos=%s"%(self.azAltStr())
+        return "%s"%(self.azAltStr())
 
     def tccTemps(self):
         tempsDict = self.statusFieldDict["temps"].value
@@ -325,11 +325,11 @@ class Status(object):
             tempsStr = ",".join(["NaN"]*len(tempKeys))
         else:
             tempsStr = ",".join(["%.2f"%tempsDict[temp] for temp in tempKeys])
-        return "TCCTemps=%s"%tempsStr
+        return "%s"%tempsStr
 
     def secTrussTemp(self):
         trussTempStr = "%.2f"%self.trussTemp if self.trussTemp is not None else "NaN"
-        return "SecTrussTemp=%s"%(trussTempStr)
+        return "%s"%(trussTempStr)
 
     # def axisCmdStateList(self):
     #     axisCmdState = self.statusFieldDict["state"].value or "?"
@@ -348,7 +348,7 @@ class Status(object):
     def axisCmdState(self):
         """Format the AxisCmdState keyword
         """
-        return "AxisCmdState=%s"%(", ".join(self.axisStatus))
+        return "%s"%(", ".join(self.axisStatus))
 
 
     def objNetPos(self):
@@ -363,7 +363,7 @@ class Status(object):
         decStr = "%.6f"%decPos if decPos else "NaN"
         taiSecs = "%.6f"%(tai())
         v = "%.6f"%0 # velocity always zero
-        return "ObjNetPos=%s"%(",".join([raStr, v, taiSecs, decStr, v, taiSecs]))
+        return "%s"%(",".join([raStr, v, taiSecs, decStr, v, taiSecs]))
 
     def objSys(self):
         """@ LCOHACK: i think coords are always fk5?
@@ -371,12 +371,12 @@ class Status(object):
         """
         epoch = self.statusFieldDict["epoch"].value
         epochStr = "%.2f"%epoch if epoch is not None else "NaN"
-        return "ObjSys=FK5, %s"%epochStr
+        return "FK5, %s"%epochStr
 
     def axePos(self):
         """Format the AxePos keyword (alt az rot)
         """
-        return "AxePos=%s"%(self.azAltStr())
+        return "%s"%(self.azAltStr())
 
     def utc_tai(self):
         return "UTC_TAI=%0.0f"%(-36.0,) # this value is usually gotten from coordConv/earthpred, I think, which we don't have implemented...
@@ -515,7 +515,7 @@ class Status(object):
     def updateTCCStatus(self, userCmd=None):
         """Grab and format tcc keywords, only output those which have changed
         """
-        self.tccStatus.updateKWs(self.tccKWDict, userCmd)
+        self.tcsDevice.tccStatus.updateKWs(self.tccKWDict, userCmd)
 
 
 class TCSDevice(TCPDevice):

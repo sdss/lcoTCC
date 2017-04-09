@@ -24,10 +24,16 @@ class CollimationModel(object):
         # tiltY = 6.
 
         # values from Francesco/Povilas 12/12/2016
-        transX = -1420.
-        transY = -106.
-        tiltX = 7. # known as tip in povilas's terms
-        tiltY = -52. # known as tilt in povilas's terms
+        # transX = -1420.
+        # transY = -106.
+        # tiltX = 7. # known as tip in povilas's terms
+        # tiltY = -52. # known as tilt in povilas's terms
+
+        # values from April 5 2017
+        transX = -1918.2
+        transY = 615.5
+        tiltX = -100
+        tiltY = -450
 
         self.baseOrientation = numpy.asarray([tiltX, tiltY, transX, transY])
         self.baseFocus = None
