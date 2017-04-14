@@ -2,6 +2,7 @@
 from __future__ import division, absolute_import
 
 from twisted.trial.unittest import TestCase
+from twisted.internet import reactor
 
 from tcc.actor import TCCLCOActorWrapper
 
@@ -17,6 +18,9 @@ class TestTCCLCOActorCtrlWrapper(TestCase):
 
     def tearDown(self):
         self.aw.actor.collimateStatusTimer.cancel()
+        delayedCalls = reactor.getDelayedCalls()
+        for call in delayedCalls:
+            call.cancel()
         return self.aw.close()
 
     def testSetUpTearDown(self):

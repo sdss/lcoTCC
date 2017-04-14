@@ -91,9 +91,10 @@ class MeasScaleDevice(TCPDevice):
         # print("reading migs!")
         userCmd = expandCommand(userCmd)
         self.encPos = [None]*6
-        statusDevCmd = self.queueDevCmd(READ_ENC)
+        statusDevCmd = DevCmd(cmdStr=READ_ENC)
         statusDevCmd.addCallback(self._statusCallback)
         statusDevCmd.setTimeLimit(timeLim)
+        self.queueDevCmd(statusDevCmd)
         if linkState:
             userCmd.linkCommands([statusDevCmd])
             return userCmd
@@ -106,21 +107,21 @@ class MeasScaleDevice(TCPDevice):
         current display state, this is required after a power cycle
         """
         userCmd = expandCommand(userCmd)
-        countDevCmd = self.queueDevCmd(COUNTING_STATE)
-        currValDevCmd = self.queueDevCmd(DISPLAY_CURR)
-        currValDevCmd.addCallback(self._statusCallback)
-        countDevCmd.setTimeLimit(timeLim)
-        currValDevCmd.setTimeLimit(timeLim)
-        userCmd.linkCommands([countDevCmd, currValDevCmd])
+        devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [COUNTING_STATE, DISPLAY_CURR]]
+        userCmd.linkCommands(devCmdList)
+        for devCmd in devCmdList:
+            devCmd.setTimeLimit(timeLim)
+            self.queueDevCmd(devCmd)
         return userCmd
 
     def setZero(self, userCmd=None, timeLim=1):
         """!Zero set the mitutoyo gauges
         """
         userCmd = expandCommand(userCmd)
-        zeroDevCmd = self.queueDevCmd(ZERO_SET)
+        zeroDevCmd = DevCmd(cmdStr=ZERO_SET)
         zeroDevCmd.setTimeLimit(timeLim)
         userCmd.linkCommands([zeroDevCmd])
+        self.queueDevCmd(zeroDevCmd)
         return userCmd
 
     def _statusCallback(self, statusCmd):
@@ -209,7 +210,7 @@ class MeasScaleDevice(TCPDevice):
                 self.currExeDevCmd.setState(self.currExeDevCmd.Done)
 
 
-    def queueDevCmd(self, devCmdStr):
+    def queueDevCmd(self, devCmd):
         """Add a device command to the device command queue
 
         @param[in] devCmdStr: a command string to send to the device.
@@ -217,11 +218,11 @@ class MeasScaleDevice(TCPDevice):
                                 not necessarily linked.  Used here for writeToUsers
                                 reference.
         """
+        devCmdStr = devCmd.cmdStr
         log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         #print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
-        devCmd = DevCmd(cmdStr=devCmdStr)
         devCmd.cmdVerb = devCmdStr
         self.devCmdQueue.addCmd(devCmd, self.startDevCmd)
         return devCmd

@@ -692,7 +692,7 @@ class TCSDevice(TCPDevice):
 
                 userCmd.writeToUsers(
                     'w', 'text="target postion below flat field screen, '
-                         'modified target coords HA=%.4f, DEC=%.4f"' % (ha, dec), userCmd)
+                         'modified target coords HA=%.4f, DEC=%.4f"' % (ha, dec))
 
             userCmd.writeToUsers(
                 'i', 'text="setting FFS target to altitude %.2f deg"' % (ffs_altitude))
@@ -726,8 +726,8 @@ class TCSDevice(TCPDevice):
 
         # output please slew announce in stui
         if self.tccStatus is not None:
-            self.tccStatus.updateKW("pleaseSlew", "T") # for outputting slew sound in stui
-            self.tccStatus.updateKW("pleaseSlew", "F")
+            self.tccStatus.updateKW("pleaseSlew", "T", userCmd) # for outputting slew sound in stui
+            self.tccStatus.updateKW("pleaseSlew", "F", userCmd)
         return userCmd
 
     def slewOffset(self, ra, dec, userCmd=None):
@@ -783,12 +783,12 @@ class TCSDevice(TCPDevice):
         # if abs(rot) < MinRotOffset and not force:
         if not self.doGuideRot:
             # set command done, rotator offset is miniscule
-            userCmd.writeToUsers("w", "Guide rot not enabled, not applying", userCmd)
+            userCmd.writeToUsers("w", "Guide rot not enabled, not applying")
             userCmd.setState(userCmd.Done)
             return userCmd
         if abs(rot) > MaxRotOffset:
             # set command failed, rotator offset is too big
-            userCmd.writeToUsers("w", "Rot offset greater than max threshold", userCmd)
+            userCmd.writeToUsers("w", "Rot offset greater than max threshold")
             userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
             return userCmd
         ### print time since last rot applied from guider command

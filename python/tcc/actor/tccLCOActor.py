@@ -276,11 +276,11 @@ class TCCLCOActor(BaseActor):
                     ra = self.tcsDev.status.statusFieldDict["inpra"].value
                     ha = st - ra
                     dec = self.tcsDev.status.statusFieldDict["inpdc"].value
-                    self.writeToUsers("i", "collimate for target ha=%.2f, dec=%.2f"%(ha, dec))
+                    self.writeToUsers("i", "collimate for target ha=%.2f, dec=%.2f"%(ha, dec), cmd)
                 else:
                     # get current coords
                     ha, dec = self.tcsDev.status.statusFieldDict["pos"].value
-                    self.writeToUsers("i", "collimate for current ha=%.2f, dec=%.2f"%(ha, dec))
+                    self.writeToUsers("i", "collimate for current ha=%.2f, dec=%.2f"%(ha, dec), cmd)
                 # self.writeToUsers("i", "pos collimate for ha=%.2f, dec=%.2f"%(pos[0], pos[1]))
 
                 newOrient = self.collimationModel.getOrientation(ha, dec)
@@ -294,7 +294,7 @@ class TCCLCOActor(BaseActor):
                 doFlex = numpy.max(numpy.abs([dtiltX, dtiltY])) > self.collimationModel.minTilt or numpy.max(numpy.abs([dtransX, dtransY])) > self.collimationModel.minTrans
 
                 if force:
-                    self.writeToUsers("i", "collimation update forced")
+                    self.writeToUsers("i", "collimation update forced", cmd)
                 if not doFlex and not force:
                     self.writeToUsers("i", "collimation flex update too small: dTiltX=%.2f, dTiltY=%.2f, dTransX=%.2f, dTransY=%.2f"%(dtiltX, dtiltY, dtransX, dtransY))
                     cmd.setState(cmd.Done)
