@@ -89,6 +89,8 @@ class MeasScaleDevice(TCPDevice):
         # first flush the current status to ensure we don't
         # have stale values
         # print("reading migs!")
+        print("reading migs")
+        print("encPos", str(self.encPos))
         userCmd = expandCommand(userCmd)
         self.encPos = [None]*6
         statusDevCmd = DevCmd(cmdStr=READ_ENC)
