@@ -30,10 +30,16 @@ class CollimationModel(object):
         # tiltY = -52. # known as tilt in povilas's terms
 
         # values from April 5 2017
-        transX = -1918.2
-        transY = 615.5
+        #transX = -1918.2
+        #transY = 615.5
+        #tiltX = -100
+        #tiltY = -450
+
+        # April on sky with povilas, on axis camera work
+        transX = -616.51
+        transY = -536.59
         tiltX = -100
-        tiltY = -450
+        tiltY = -565
 
         self.baseOrientation = numpy.asarray([tiltX, tiltY, transX, transY])
         self.baseFocus = None
