@@ -283,7 +283,19 @@ class Status(object):
             "tccHA": self.tccHA(),
             "tccTemps": self.tccTemps(),
             "airmass": self.airmass(),
+            "axisErr": self.axisErr(),
         }
+
+    def axisErr(self):
+        rerr = self.statusFieldDict["rerr"].value
+        derr = self.statusFieldDict["derr"].value
+        errStrs = []
+        for err in [rerr, derr]:
+            if err is None:
+                errStrs.append("NaN")
+            else:
+                errStrs.append("%.4f"%err)
+        return "axisErr=%s"%(",".join(errStrs))
 
     def airmass(self):
         airmass = self.statusFieldDict["airmass"].value
@@ -307,7 +319,7 @@ class Status(object):
         rotPos = self.rotPos
         elStr = "%.4f"%elPos if elPos else "NaN"
         azStr = "%.4f"%azPos if azPos else "NaN"
-        rotStr = "%.4f"%rotPos if rotPos else "NaN"
+        rotStr = "%.8f"%rotPos if rotPos else "NaN"
         return ", ".join([azStr, elStr, rotStr])
 
     def tccPos(self):
@@ -786,11 +798,11 @@ class TCSDevice(TCPDevice):
             userCmd.writeToUsers("w", "Guide rot not enabled, not applying")
             userCmd.setState(userCmd.Done)
             return userCmd
-        if abs(rot) > MaxRotOffset:
-            # set command failed, rotator offset is too big
-            userCmd.writeToUsers("w", "Rot offset greater than max threshold")
-            userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
-            return userCmd
+        # if abs(rot) > MaxRotOffset:
+        #     # set command failed, rotator offset is too big
+        #     userCmd.writeToUsers("w", "Rot offset greater than max threshold")
+        #     userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
+        #     return userCmd
         ### print time since last rot applied from guider command
         if not force:
             if self.lastGuideRotApplied is None:

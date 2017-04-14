@@ -647,7 +647,6 @@ class ScaleDevice(TCPDevice):
         return userCmd
 
     def _moveCallback(self, moveCmd):
-        print("_moveCallback")
         if moveCmd.isActive:
             self.status.setThreadAxisCurrent() # should already be there but whatever
             # set state to moving, compute time, etc
@@ -664,7 +663,6 @@ class ScaleDevice(TCPDevice):
             moveStatusCmd.addCallback(self._readEncs)
 
     def _readEncs(self, moveStatusCmd):
-        print("_readEncs")
         if moveStatusCmd.didFail:
             self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "Failed to get scaling ring status after move.")
         elif moveStatusCmd.isDone:
@@ -677,7 +675,6 @@ class ScaleDevice(TCPDevice):
         """Encoders have been read, decide to move again or finish the user
         commanded move
         """
-        print("_moveIter")
         if readEncCmd.didFail:
             self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "Failed to read encoders after scaling ring move.")
         elif readEncCmd.isDone:
