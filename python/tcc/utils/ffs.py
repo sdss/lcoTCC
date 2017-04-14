@@ -69,4 +69,5 @@ def get_ffs_altitude(tel_altitude):
     if tel_altitude < telescope_alt_limit:
         return ffs_alt_limit, True
 
-    return ffs_alt_interp(tel_altitude), False
+    # -4 reported by obsevers to be usual required offset from model
+    return ffs_alt_interp(tel_altitude)-4, False
