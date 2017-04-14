@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import
 
-from twistedActor import UserCmd
+from twistedActor import expandCommand
 
 from .showScaleFactor import showScaleFactor
 
@@ -20,8 +20,8 @@ def setScaleFactor(tccActor, userCmd):
     M2.  To maintain current focus the M2 must also move fractionally in the
     same direction
     """
-    motionCmd = UserCmd() # to be set done when scale move is done
-    showScaleCmd = UserCmd() # to be set done when show scale is done
+    motionCmd = expandCommand() # to be set done when scale move is done
+    showScaleCmd = expandCommand() # to be set done when show scale is done
 
     def showScaleWhenDone(motionCmd):
         """@param[in] motionCmd, a twistedActor.UserCmd instance passed automatically via callback

@@ -17,8 +17,7 @@ def showStatus(tccActor, userCmd, setDone=True):
         """
         focusVal = tccActor.secDev.status.secFocus
         focusStr = "%0.4f"%focusVal if focusVal is not None else "NaN"
-        kwStr = "SecFocus=%s" % (focusStr,)
-        tccActor.writeToUsers('i', kwStr, cmd=userCmd)
+        tccActor.updateKW("secFocus", focusStr, userCmd)
         if setDone and not userCmd.isDone:
             userCmd.setState(userCmd.Done)
 

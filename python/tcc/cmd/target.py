@@ -1,6 +1,7 @@
 from __future__ import division, absolute_import
 
-from twistedActor import CommandError, UserCmd
+from twistedActor import CommandError, expandCommand
+
 
 __all__ = ["target"]
 
@@ -25,7 +26,6 @@ def target(tccActor, userCmd):
     if val.valueList:
         raise CommandError("%s coordSys date input not supported at LCO"%str(val.valueList[0]))
     if not tccActor.scaleDev.status.loaded:
-        # tccActor.writeToUsers("w", "Cart not loaded! Fix this when prox switches in", cmd=userCmd)
         raise CommandError("Cartridge not loaded")
     if not tccActor.scaleDev.status.locked:
         raise CommandError("Cartridge not locked")
@@ -35,8 +35,8 @@ def target(tccActor, userCmd):
     ra, dec = coordPair
     # if do screen, turn on the FF lamp
     # else turn it off
-    tcsCmd = UserCmd()
-    ffCmd = UserCmd()
+    tcsCmd = expandCommand()
+    ffCmd = expandCommand()
     userCmd.LinkCommands([tcsCmd, ffCmd])
     tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, tcsCmd)
     if doScreen:

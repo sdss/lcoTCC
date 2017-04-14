@@ -25,7 +25,7 @@ def guideoffset(tccActor, userCmd):
     if offFocus != 0:
         cmdList.append(tccActor.secDev.focus(offFocus, offset=True))
     if not cmdList:
-        tccActor.writeToUsers("w", "text='guideoffset command all zeros?'")
+        userCmd.writeToUsers("w", "text='guideoffset command all zeros?'")
         userCmd.setState(userCmd.Done)
     else:
         userCmd.linkCommands(cmdList)

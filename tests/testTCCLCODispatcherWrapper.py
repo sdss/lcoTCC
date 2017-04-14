@@ -4,6 +4,7 @@ from __future__ import division, absolute_import
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from twisted.trial.unittest import TestCase
+from twisted.internet import reactor
 
 from tcc.actor import TCCLCODispatcherWrapper
 
@@ -18,6 +19,10 @@ class TestMirrorDispatcherWrapper(TestCase):
         return self.dw.readyDeferred
 
     def tearDown(self):
+        self.dw.actorWrapper.actor.collimateStatusTimer.cancel()
+        delayedCalls = reactor.getDelayedCalls()
+        for call in delayedCalls:
+            call.cancel()
         return self.dw.close()
 
     def testSetUpTearDown(self):

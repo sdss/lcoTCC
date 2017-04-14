@@ -9,7 +9,7 @@ def help(tccActor, userCmd):
     for cmd, cmdObj in tccActor.cmdParser.cmdDefDict.iteritems():
         helpList = cmdObj.getFullHelp()
         for helpStr in helpList:
-            tccActor.writeToUsers("i", helpStr, userCmd)
-        tccActor.writeToUsers("i", "-----", userCmd)
+            userCmd.writeToUsers("i", helpStr)
+        userCmd.writeToUsers("i", "-----")
     userCmd.setState(userCmd.Done)
 

@@ -10,7 +10,7 @@ from RO.Comm.TwistedTimer import Timer
 import numpy
 from astropy.time import Time
 
-from twistedActor import CommandError, BaseActor, DeviceCollection, expandUserCmd
+from twistedActor import CommandError, BaseActor, DeviceCollection, expandCommand
 
 from .tccLCOCmdParser import TCCLCOCmdParser
 from ..version import __version__
@@ -47,8 +47,7 @@ So lets say that a scale change +8.45e05 as reported by the guider requires a pl
 # output TAI on a timer?
 
 class TCCStatus(object):
-    def __init__(self, writeToUsers):
-        self._writeToUsers = writeToUsers
+    def __init__(self):
         self.tccKWs = [
             "ScaleFac",
             "ScaleFacRange",
@@ -114,27 +113,26 @@ class TCCStatus(object):
         # if a userCmd is assocated,
         # output no matter what with info
         #level
+        assert level in [None, "i", "w", "d"]
         level = level
-        didChange = valueStr == self.kwDict[kw.lower()]
+        didChange = valueStr != self.kwDict[kw.lower()]
         self.kwDict[kw.lower()] = valueStr
-        print("updateKW", kw, valueStr, userCmd, level, didChange)
         output = False
-        if userCmd is not None and userCmd.cmdID != 0:
+        if userCmd is not None and userCmd.eldestParentCmd.userCommanded:
             output = True
-            level = "i"
+            level = "i" if level is None else level
         elif didChange:
-            level = "d"
+            level = "d" if level is None else level
             output = True
         elif level == "w":
             output = True
         if output:
-            userCmd.writeToUsers(level, "%s=%s"%(kw, self.kwDict[kw.lower()]), userCmd)
+            userCmd.writeToUsers(level, "%s=%s"%(kw, self.kwDict[kw.lower()]))
 
 
     def updateKWs(self, keyValDict, userCmd):
         for key, val in keyValDict.iteritems():
-            if not userCmd.cmdStr:
-                self.updateKW(key, val, userCmd)
+            self.updateKW(key, val, userCmd)
 
 
 class TCCLCOActor(BaseActor):
@@ -161,28 +159,26 @@ class TCCLCOActor(BaseActor):
         @param[in] tcsDev a TCSDevice instance
         @param[in] scaleDev  a ScaleDevice instance
         @param[in] m2Dev a M2Device instance
-        @param[in] m2Dev a MeasScaleDevice instance
+        @param[in] measScaleDev a MeasScaleDevice instance
+        @param[in] ffDev a ffDevice instance
         @param[in] name  actor name; used for logging
         """
-        self.status = TCCStatus(self.writeToUsers)
-        self.tcsDev = tcsDev
-        self.tcsDev.tccStatus = self.status
-        self.scaleDev = scaleDev
-        self.scaleDev.tccStatus = self.status
-        self.secDev = m2Dev
-        self.secDev.tccStatus = self.status
-        self.measScaleDev = measScaleDev
-        self.measScaleDev.tccStatus = self.status
-        self.ffDev = ffDev
-        self.ffDev.tccStatus = self.status
-        # auto connection looks for self.dev
-        self.dev = DeviceCollection([self.tcsDev, self.scaleDev, self.secDev, self.measScaleDev, self.ffDev])
-        # connect devices
-        self.tcsDev.connect()
-        self.scaleDev.connect()
-        self.secDev.connect()
-        self.measScaleDev.connect()
-        self.ffDev.connect()
+        devices = {
+            "tcsDev": tcsDev,
+            "scaleDev": scaleDev,
+            "secDev": m2Dev,
+            "measScaleDev": measScaleDev,
+            "ffDev": ffDev,
+        }
+
+        self.status = TCCStatus()
+        for devName, device in devices.iteritems():
+            setattr(self, devName, device)
+            device.tccStatus = self.status
+            device.connect()
+
+        self.dev = DeviceCollection(devices.values())
+
         self.cmdParser = TCCLCOCmdParser()
         self.collimationModel = CollimationModel()
         self.collimateTimer = Timer(0, self.updateCollimation)
@@ -253,7 +249,7 @@ class TCCLCOActor(BaseActor):
 
         LCO HACK!!! clean this stuff up!!!!
         """
-        cmd = expandUserCmd(cmd)
+        cmd = expandCommand(cmd)
         if not self.collimationModel.doCollimate and not force:
             cmd.setState(cmd.Failed, "collimation is disabled")
             return
@@ -321,5 +317,4 @@ class TCCLCOActor(BaseActor):
         if not self.collimateTimer.isActive and (self.tcsDev.isTracking or self.tcsDev.isSlewing):
             self.writeToUsers("w", "Text=Collimation is NOT active!!!")
         self.collimateStatusTimer.start(5, self.collimateStatus)
-
 

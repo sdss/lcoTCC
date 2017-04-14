@@ -5,7 +5,7 @@ import numpy
 from RO.Comm.TwistedTimer import Timer
 from RO.StringUtil import strFromException
 
-from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd
+from twistedActor import TCPDevice, DevCmd, CommandQueue, log, expandCommand
 
 __all__ = ["M2Device"]
 
@@ -155,13 +155,11 @@ class M2Device(TCPDevice):
                 note that it is NOT called when the connection state changes;
                 register a callback with "conn" for that task.
         """
+        self.tccStatus = None # set by lcoTCCActor
         self.status = Status()
         self._statusTimer = Timer()
-        self.waitMoveCmd = UserCmd()
+        self.waitMoveCmd = expandCommand()
         self.waitMoveCmd.setState(self.waitMoveCmd.Done)
-        # self.waitGalilCmd = UserCmd()
-        # self.waitGalilCmd.setState(self.waitGalilCmd.Done)
-        # give status commands equal priority so they don't kill eachother
         priorityDict = {
             "status": 1,
             "speed": 1,
@@ -215,53 +213,52 @@ class M2Device(TCPDevice):
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
         # print("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         # if not self.isConnected:
         #     return self.connect(userCmd=userCmd)
         # get the speed on startup
         # ignore getStatus flag, just do it always
-        self.queueDevCmd("speed")
-        return self.getStatus(userCmd=userCmd)
-        # userCmd.setState(userCmd.Done)
-        # return userCmd
+        speedCmd = DevCmd("speed")
+        statusCmd = DevCmd("status")
+        devCmds = [speedCmd, statusCmd]
+        userCmd.linkCommands(devCmds)
+        for cmd in devCmds:
+            self.queueDevCmd(cmd)
+        return userCmd
 
     def getStatus(self, userCmd=None):
         """Return current telescope status. Continuously poll.
         """
         # log.info("%s.getStatus(userCmd=%s)" % (self, userCmd)) # logging this will flood the log
         # print("%s.getStatus(userCmd=%s)" % (self, userCmd))
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to M2")
             return userCmd
         self._statusTimer.cancel() # incase a status is pending
-        userCmd = expandUserCmd(userCmd)
         # userCmd.addCallback(self._statusCallback)
         # gather list of status elements to get
-        statusCmd = self.queueDevCmd("status", userCmd)
+        statusCmd = DevCmd("status")
         userCmd.linkCommands([statusCmd])
+        self.queueDevCmd(statusCmd)
         return userCmd
 
     def processStatus(self, replyStr):
         # print("procesStatus", replyStr)
-
         self.status.parseStatus(replyStr)
         # do we want status output so frequently? probabaly not.
         # perhaps only write status if it has changed...
         # but so far status is a small amount of values
         # so its probably ok
         statusDict = self.status.getStatusDict()
-        userCmd = None
-        if self.currExeDevCmd.userCmd and not self.currExeDevCmd.userCmd.isDone:
-            userCmd = self.currExeDevCmd.userCmd
-        self.tccStatus.updateKWs(statusDict, userCmd)
-
+        if self.tccStatus is not None:
+            self.tccStatus.updateKWs(statusDict, self.currExeDevCmd)
         if self.waitMoveCmd.isActive:
             if not self.isBusy:
                 # move is done
                 if not self.isOff:
                     # move just finished but galil is not off, turn it off
-                    self.queueDevCmd("galil off")
+                    self.queueDevCmd(DevCmd("galil off"))
                 else:
                     # move is done and galil is off, set wait move command as done
                     self.waitMoveCmd.setState(self.waitMoveCmd.Done)
@@ -270,17 +267,19 @@ class M2Device(TCPDevice):
             self._statusTimer.start(PollTime, self.getStatus)
 
     def stop(self, userCmd=None):
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         if not self.waitMoveCmd.isDone:
             self.waitMoveCmd.setState(self.waitMoveCmd.Cancelled, "Stop commanded")
         #print("sec stop commanded")
-        stopCmd = self.queueDevCmd("stop", userCmd)
-        galilOffCmd = self.queueDevCmd("galil off", userCmd)
-        status = self.queueDevCmd("status", userCmd)
-        status2 = self.queueDevCmd("status", userCmd)
-        # first status gets the error state
-        # second status clears it
-        userCmd.linkCommands([stopCmd, status, galilOffCmd, status2])
+        devCmdList = [
+            DevCmd("stop"),
+            DevCmd("galil off"),
+            DevCmd("status"),
+            DevCmd("status2"),
+        ]
+        userCmd.linkCommands(devCmdList)
+        for devCmd in devCmdList:
+            self.queueDevCmd(devCmd)
         return userCmd
 
     def focus(self, focusValue, offset=False, userCmd=None):
@@ -296,7 +295,7 @@ class M2Device(TCPDevice):
         """
         log.info("%s.focus(userCmd=%s, focusValue=%.2f, offset=%s)" % (self, userCmd, focusValue, str(bool(offset))))
         # if this focus value is < 50 microns
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         if offset:
             deltaFocus = focusValue
         else:
@@ -317,14 +316,14 @@ class M2Device(TCPDevice):
         secondary mirrors.
         """
         log.info("%s.move(userCmd=%s, valueList=%s, offset=%s)" % (self, userCmd, str(valueList), str(bool(offset))))
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         if not self.waitMoveCmd.isDone:
             userCmd.setState(userCmd.Failed, "Mirror currently moving")
             return userCmd
         if not 1<=len(valueList)<=5:
             userCmd.setState(userCmd.Failed, "Must specify 1 to 5 numbers for a move")
             return userCmd
-        self.waitMoveCmd = UserCmd()
+        self.waitMoveCmd = expandCommand()
         self.waitMoveCmd.userCmd = userCmd # for write to users
         self.status.desOrientation = self.status.orientation[:]
         if offset:
@@ -339,17 +338,20 @@ class M2Device(TCPDevice):
         cmdType = "offset" if offset else "move"
         strValList = " ".join(["%.2f"%val for val in valueList])
         cmdStr = "%s %s"%(cmdType, strValList)
-        moveCmd = self.queueDevCmd(cmdStr, userCmd)
-        statusCmd = self.queueDevCmd("status", userCmd)
-        # status immediately to see moving state
-        # determine total time for move
-        # just use focus distance as proxy (ignore)
+        moveCmd = DevCmd(cmdStr)
+        statusCmd = DevCmd("status")
         galilOverHead = 2 # galil take roughly 2 secs to boot up.
         extraOverHead = 2 #
-        self.status._moveTimeTotal = self.getTimeForMove()
         timeout = self.status._moveTimeTotal+galilOverHead+extraOverHead
         userCmd.setTimeLimit(timeout)
         userCmd.linkCommands([moveCmd, statusCmd, self.waitMoveCmd])
+        for cmd in [moveCmd, statusCmd]:
+            self.queueDevCmd(cmd)
+        # status immediately to see moving state
+        # determine total time for move
+        # just use focus distance as proxy (ignore)
+        self.status._moveTimeTotal = self.getTimeForMove()
+
         return userCmd
 
     def getTimeForMove(self):
@@ -377,7 +379,9 @@ class M2Device(TCPDevice):
             return
         if "error" in replyStr.lower():
             # error
-            self.tccStatus.writeToUsers("w", "Error in M2 reply: %s, current cmd: %s"%(replyStr, self.currExeDevCmd.cmdStr))
+            errStr = "Error in M2 reply: %s, current cmd: %s"%(replyStr, self.currExeDevCmd.cmdStr)
+            log.info(errStr)
+            self.currExeDevCmd.writeToUsers("w", errStr)
         # if this was a speed command, set it
         if self.currDevCmdStr.lower() == "speed":
             self.status.speed = float(replyStr)
@@ -388,19 +392,17 @@ class M2Device(TCPDevice):
         self.currExeDevCmd.setState(self.currExeDevCmd.Done)
 
 
-    def queueDevCmd(self, cmdStr, userCmd=None):
+    def queueDevCmd(self, devCmd):
         """Add a device command to the device command queue
 
         @param[in] cmdStr, string to send to the device.
         """
+        cmdStr = devCmd.cmdStr
         log.info("%s.queueDevCmd(cmdStr=%r, cmdQueue: %r"%(self, cmdStr, self.devCmdQueue))
         # print("%s.queueDevCmd(devCmd=%r, devCmdStr=%r, cmdQueue: %r"%(self, devCmd, devCmd.cmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (other wise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
-        userCmd = expandUserCmd(userCmd)
-        devCmd = DevCmd(cmdStr)
         devCmd.cmdVerb = cmdStr.split()[0]
-        devCmd.userCmd = userCmd
         def queueFunc(devCmd):
             self.startDevCmd(devCmd)
         self.devCmdQueue.addCmd(devCmd, queueFunc)
@@ -421,7 +423,8 @@ class M2Device(TCPDevice):
                 if "move" in devCmdStr.lower() or "offset" in devCmdStr.lower():
                     self.waitMoveCmd.setState(self.waitMoveCmd.Running)
                     self.status.state = Moving
-                    self.tccStatus.updateKW("secState", self.status.secStateStr(), devCmd.userCmd)
+                    if self.tccStatus is not None:
+                        self.tccStatus.updateKW("secState", self.status.secStateStr(), devCmd)
                 # if "galil" in devCmdStr.lower():
                 #     self.waitGalilCmd.setState(self.waitGalilCmd.Running)
                 self.conn.writeLine(devCmdStr)

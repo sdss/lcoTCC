@@ -2,10 +2,9 @@ from __future__ import division, absolute_import
 
 import numpy
 
-from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue
+from twistedActor import TCPDevice, log, DevCmd, CommandQueue, expandCommand
 
 from RO.StringUtil import strFromException
-
 
 __all__ = ["MeasScaleDevice"]
 
@@ -33,6 +32,7 @@ class MeasScaleDevice(TCPDevice):
         # so this zero point keep track fo the offset.
         # if I could preset the mitutoyo's this would be unnecessary
         # the preset command "CP**" doesn't seem to work.
+        self.tccStatus = None # set by tccLCOActor
         self.zeroPoint = 20.0 # mm.  Position where scale = 1
         self.encPos = [None]*6
 
@@ -79,7 +79,7 @@ class MeasScaleDevice(TCPDevice):
         getStatus ignored?
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         self.getStatus(userCmd) # status links the userCmd
         return userCmd
 
@@ -89,9 +89,9 @@ class MeasScaleDevice(TCPDevice):
         # first flush the current status to ensure we don't
         # have stale values
         # print("reading migs!")
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         self.encPos = [None]*6
-        statusDevCmd = self.queueDevCmd(READ_ENC, userCmd)
+        statusDevCmd = self.queueDevCmd(READ_ENC)
         statusDevCmd.addCallback(self._statusCallback)
         statusDevCmd.setTimeLimit(timeLim)
         if linkState:
@@ -105,9 +105,9 @@ class MeasScaleDevice(TCPDevice):
         """!Set the Mitutoyo EV counter into the counting state, and the
         current display state, this is required after a power cycle
         """
-        userCmd = expandUserCmd(userCmd)
-        countDevCmd = self.queueDevCmd(COUNTING_STATE, userCmd)
-        currValDevCmd = self.queueDevCmd(DISPLAY_CURR, userCmd)
+        userCmd = expandCommand(userCmd)
+        countDevCmd = self.queueDevCmd(COUNTING_STATE)
+        currValDevCmd = self.queueDevCmd(DISPLAY_CURR)
         currValDevCmd.addCallback(self._statusCallback)
         countDevCmd.setTimeLimit(timeLim)
         currValDevCmd.setTimeLimit(timeLim)
@@ -117,8 +117,8 @@ class MeasScaleDevice(TCPDevice):
     def setZero(self, userCmd=None, timeLim=1):
         """!Zero set the mitutoyo gauges
         """
-        userCmd = expandUserCmd(userCmd)
-        zeroDevCmd = self.queueDevCmd(ZERO_SET, userCmd)
+        userCmd = expandCommand(userCmd)
+        zeroDevCmd = self.queueDevCmd(ZERO_SET)
         zeroDevCmd.setTimeLimit(timeLim)
         userCmd.linkCommands([zeroDevCmd])
         return userCmd
@@ -129,17 +129,18 @@ class MeasScaleDevice(TCPDevice):
         #     # but ensures we get a 100% fresh status
         #     self.status.flushStatus()
         if statusCmd.isDone and not statusCmd.didFail:
-            self.writeStatusToUsers(statusCmd.userCmd)
+            self.writeStatusToUsers(statusCmd)
             # print("mig values,", self.encPos)
             # print("done reading migs")
 
     def writeStatusToUsers(self, userCmd=None):
-        self.tccStatus.updateKW("ScaleZeroPos", "%.4f"%self.zeroPoint, userCmd)
-        self.tccStatus.updateKW("ScaleEncPos", "%s"%self.encPosStr, userCmd)
         severity = None
         if not self.isHomed:
             severity = "w"
-        self.tccStatus.updateKW("ScaleEncHomed", "%s"%self.encHomedStr, userCmd, level=severity)
+        if self.tccStatus is not None:
+            self.tccStatus.updateKW("ScaleZeroPos", "%.4f"%self.zeroPoint, userCmd)
+            self.tccStatus.updateKW("ScaleEncPos", "%s"%self.encPosStr, userCmd)
+            self.tccStatus.updateKW("ScaleEncHomed", "%s"%self.encHomedStr, userCmd, level=severity)
 
 
     @property
@@ -176,22 +177,20 @@ class MeasScaleDevice(TCPDevice):
         """
         log.info("%s.handleReply(replyStr=%s)" % (self, replyStr))
         replyStr = replyStr.strip()
-        # print(replyStr, self.currExeDevCmd.cmdStr)
         if not replyStr:
             return
         if self.currExeDevCmd.isDone:
             # ignore unsolicited output?
             log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
-            self.tccStatus.writeToUsers("i", "%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
 
         if "error 15" in replyStr.lower():
-            self.tccStatus.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing necessary.")
+            self.currExeDevCmd.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing necessary.")
             self.encPos = [None]*6
 
         elif "error" in replyStr.lower():
             # some other error?
-            self.tccStatus.writeToUsers("w", "Mitutoyo EV counter Error output: " + replyStr)
+            self.currExeDevCmd.writeToUsers("w", "Mitutoyo EV counter Error output: " + replyStr)
 
         if self.currExeDevCmd.cmdStr == READ_ENC:
             # check that the expected prefix is seen
@@ -210,7 +209,7 @@ class MeasScaleDevice(TCPDevice):
                 self.currExeDevCmd.setState(self.currExeDevCmd.Done)
 
 
-    def queueDevCmd(self, devCmdStr, userCmd):
+    def queueDevCmd(self, devCmdStr):
         """Add a device command to the device command queue
 
         @param[in] devCmdStr: a command string to send to the device.
@@ -223,7 +222,6 @@ class MeasScaleDevice(TCPDevice):
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd = DevCmd(cmdStr=devCmdStr)
-        devCmd.userCmd = userCmd
         devCmd.cmdVerb = devCmdStr
         self.devCmdQueue.addCmd(devCmd, self.startDevCmd)
         return devCmd

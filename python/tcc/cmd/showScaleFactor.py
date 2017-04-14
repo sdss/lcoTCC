@@ -16,8 +16,15 @@ def showScaleFactor(tccActor, userCmd, setDone=True):
         when the status is done show the current value to users
         then set the user command done.
         """
-        kwStr = 'ScaleFac=%0.6f; ScaleFacRange=%0.6f, %0.6f' % (tccActor.currentScaleFactor, tccActor.MIN_SF, tccActor.MAX_SF)
-        tccActor.writeToUsers('i', kwStr, userCmd)
+        scaleFacStr = "%.6f"%tccActor.currentScaleFactor if tccActor.currentScaleFactor is not None else "NaN"
+        scaleRangeStr = "%.6f, %.6f"%(tccActor.MIN_SF, tccActor.MAX_SF)
+        tccActor.status.updateKWs(
+            {
+            "scaleFac": scaleFacStr,
+            "scaleFacRange": scaleRangeStr,
+            },
+            userCmd,
+        )
         if setDone and not userCmd.isDone:
             userCmd.setState(userCmd.Done)
 

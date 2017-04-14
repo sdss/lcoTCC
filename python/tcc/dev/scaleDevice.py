@@ -9,7 +9,7 @@ from collections import Counter
 import numpy
 from twisted.internet import reactor
 
-from twistedActor import TCPDevice, log, DevCmd, expandUserCmd, CommandQueue
+from twistedActor import TCPDevice, log, DevCmd, CommandQueue, expandCommand
 
 from RO.StringUtil import strFromException
 
@@ -326,12 +326,13 @@ class ScaleDevice(TCPDevice):
                 note that it is NOT called when the connection state changes;
                 register a callback with "conn" for that task.
         """
+        self.tccStatus = None # set by tccLCOActor
         self.targetPos = None
         # holds a userCommand for "move"
         # set done only when move has reached maxIter
         # or is within tolerance
         self.iter = 0
-        self.moveUserCmd = expandUserCmd(None)
+        self.moveUserCmd = expandCommand(None)
         self.moveUserCmd
         self.nomSpeed = nomSpeed
         self.measScaleDev = measScaleDev
@@ -405,11 +406,11 @@ class ScaleDevice(TCPDevice):
         Only thing to do is query for status or connect if not connected
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         # stop, set speed, then status?
-        stopCmd = self.queueDevCmd("stop", userCmd)
-        speedCmd = self.queueDevCmd("speed %.4f"%self.nomSpeed, userCmd)
-        statusCmd = self.queueDevCmd("status", userCmd)
+        stopCmd = self.queueDevCmd("stop")
+        speedCmd = self.queueDevCmd("speed %.4f"%self.nomSpeed)
+        statusCmd = self.queueDevCmd("status")
         userCmd.linkCommands([stopCmd, speedCmd, statusCmd])
         return userCmd
         # if getStatus:
@@ -427,16 +428,16 @@ class ScaleDevice(TCPDevice):
 
         # note measScaleDevice could be read even if
         # scaling ring is moving.  do this at somepoint?
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         if timeLim is None:
             timeLim = 2
         if self.isMoving:
-            self.tccStatus.writeToUsers("i", "text=showing cached status", userCmd)
+            userCmd.writeToUsers("i", "text=showing cached status", userCmd)
             self.writeStatusToUsers(userCmd)
             userCmd.setState(userCmd.Done)
         else:
             # get a completely fresh status from the device
-            statusDevCmd = self.queueDevCmd("status", userCmd)
+            statusDevCmd = self.queueDevCmd("status")
             # get encoder values too
             encStatusDevCmd = self.measScaleDev.getStatus()
             statusDevCmd.addCallback(self._statusCallback)
@@ -451,7 +452,7 @@ class ScaleDevice(TCPDevice):
     def _statusCallback(self, statusCmd):
         if statusCmd.isDone and not statusCmd.didFail:
             self.status.setThreadAxisCurrent()
-            self.writeStatusToUsers(statusCmd.userCmd)
+            self.writeStatusToUsers(statusCmd)
 
     def getStateVal(self):
         # determine time remaining in this state
@@ -519,19 +520,21 @@ class ScaleDevice(TCPDevice):
             "ThreadRingState": self.getStateVal(),
         }
 
-    def writeStatusToUsers(self, userCmd=None):
+    def writeStatusToUsers(self, userCmd):
         """Write the current status to all users
         """
 
         faultStr = self.getFaultStr()
         if faultStr is not None:
-            self.tccStatus.writeToUsers("w", faultStr, userCmd)
-        self.tccStatus.updateKWs(self.statusDict(), userCmd)
+            userCmd.writeToUsers("w", faultStr, userCmd)
+        if self.tccStatus is not None:
+            self.tccStatus.updateKWs(self.statusDict(), userCmd)
         # output measScale KWs too
         self.measScaleDev.writeStatusToUsers(userCmd)
 
     def writeState(self, userCmd=None):
-        self.tccStatus.updateKW("ThreadRingState", self.getStateVal(), userCmd)
+        if self.tccStatus is not None:
+            self.tccStatus.updateKW("ThreadRingState", self.getStateVal(), userCmd)
 
 
     def speed(self, speedValue, userCmd=None):
@@ -540,7 +543,7 @@ class ScaleDevice(TCPDevice):
         @param[in] userCmd: a twistedActor BaseCommand
         """
         speedValue = float(speedValue)
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         if self.isMoving:
             userCmd.setState(userCmd.Failed, "Cannot set speed, device is busy moving")
             return userCmd
@@ -548,8 +551,8 @@ class ScaleDevice(TCPDevice):
             userCmd.setState(userCmd.Failed, "Max Speed Exceeded: %.4f > %.4f"%(speedValue, self.status.maxSpeed))
             return userCmd
         else:
-            speedDevCmd = self.queueDevCmd("speed %.6f"%speedValue, userCmd)
-            statusDevCmd = self.queueDevCmd("status", userCmd)
+            speedDevCmd = self.queueDevCmd("speed %.6f"%speedValue)
+            statusDevCmd = self.queueDevCmd("status")
             statusDevCmd.addCallback(self._statusCallback)
             userCmd.linkCommands([speedDevCmd, statusDevCmd])
         return userCmd
@@ -574,7 +577,7 @@ class ScaleDevice(TCPDevice):
         @param[in] userCmd: a twistedActor BaseCommand
         """
         log.info("%s.move(postion=%.6f, userCmd=%s)" % (self, position, userCmd))
-        userCmd=expandUserCmd(userCmd)
+        userCmd=expandCommand(userCmd)
         if self.isMoving:
             userCmd.setState(userCmd.Failed, "Cannot move, device is busy moving")
             return userCmd
@@ -589,8 +592,9 @@ class ScaleDevice(TCPDevice):
         print("moving threadring to: ", self.targetPos)
         if not self.moveUserCmd.isActive:
             self.moveUserCmd.setState(self.moveUserCmd.Running)
-        self.tccStatus.updateKW("DesThreadRingPos", self.targetPos, self.moveUserCmd)
-        moveDevCmd = self.queueDevCmd(self.getMoveCmdStr(), self.moveUserCmd)
+        if self.tccStatus is not None:
+            self.tccStatus.updateKW("DesThreadRingPos", self.targetPos, userCmd)
+        moveDevCmd = self.queueDevCmd(self.getMoveCmdStr())
         moveDevCmd.addCallback(self._moveCallback)
         return userCmd
 
@@ -647,7 +651,7 @@ class ScaleDevice(TCPDevice):
             self.moveUserCmd.setState(self.moveUserCmd.Failed, "Failed to move scaling ring.")
         elif moveCmd.isDone:
             # get the status of the scaling ring
-            moveStatusCmd = self.queueDevCmd("status", self.moveUserCmd)
+            moveStatusCmd = self.queueDevCmd("status")
             moveStatusCmd.addCallback(self._statusCallback)
             moveStatusCmd.addCallback(self._readEncs)
 
@@ -670,7 +674,7 @@ class ScaleDevice(TCPDevice):
             atMaxIter = self.iter > self.status.maxIter
             withinTol = numpy.abs(self.targetPos - self.encPos) < self.status.moveTol
             if atMaxIter:
-                self.tccStatus.writeToUsers("i", "text='Max iter reached for scaling ring move.'")
+                readEncCmd.writeToUsers("i", "text='Max iter reached for scaling ring move.'")
             if atMaxIter or withinTol:
                 # the move is done
                 self.iter = 0
@@ -680,8 +684,8 @@ class ScaleDevice(TCPDevice):
             else:
                 # command another move iteration
                 self.iter += 1
-                self.tccStatus.writeToUsers("i", "text='Begining scaling ring move iteration %i'"%self.iter)
-                moveDevCmd = self.queueDevCmd(self.getMoveCmdStr(), self.moveUserCmd)
+                readEncCmd.writeToUsers("i", "text='Begining scaling ring move iteration %i'"%self.iter)
+                moveDevCmd = self.queueDevCmd(self.getMoveCmdStr())
                 moveDevCmd.addCallback(self._moveCallback)
 
 
@@ -691,15 +695,11 @@ class ScaleDevice(TCPDevice):
 
         @param[in] userCmd: a twistedActor BaseCommand
         """
-        userCmd=expandUserCmd(userCmd)
-        # kill any commands pending on the queue
-        # nicely kill move command if it's running
-        # if not self.currExeDevCmd.userCmd.isDone:
-        #     self.currExeDevCmd.userCmd.setState(self.currExeDevCmd.userCmd.Failed, "Killed by stop")
+        userCmd=expandCommand(userCmd)
         if self.moveUserCmd.isActive:
             self.moveUserCmd.setState(self.moveUserCmd.Cancelled, "Scaling ring move cancelled by stop command.")
-        stopDevCmd = self.queueDevCmd("stop", userCmd)
-        statusDevCmd = self.queueDevCmd("status", userCmd)
+        stopDevCmd = self.queueDevCmd("stop")
+        statusDevCmd = self.queueDevCmd("status")
         statusDevCmd.addCallback(self._statusCallback)
         userCmd.linkCommand([stopDevCmd, statusDevCmd])
         return userCmd
@@ -717,7 +717,6 @@ class ScaleDevice(TCPDevice):
         if self.currExeDevCmd.isDone:
             # ignore unsolicited output?
             log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
-            self.tccStatus.writeToUsers("i", "%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
         if replyStr == "ok":
             # print("got ok", self.currExeDevCmd.cmdStr)
@@ -729,12 +728,10 @@ class ScaleDevice(TCPDevice):
                 except MungedStatusError as statusError:
                     # status was munged, try again
                     print("statusError", statusError)
-                    self.tccStatus.writeToUsers("d", statusError, self.currExeDevCmd.userCmd)
                     self.status.nIter += 1
                     if self.status.nIter > self.status.maxIter:
-                        self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Maximum status iter reached. Status output generally mangled?")
+                        self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "%s status mangled"%str(self))
                     else:
-                        self.tccStatus.writeToUsers("d", "scale status mangle trying again iter %i"%self.status.nIter, self.currExeDevCmd.userCmd)
                         print("status munged, rewriting status")
                         log.info("%s writing %r iter %i" % (self, "status", self.status.nIter))
                         self.conn.writeLine("status")
@@ -746,24 +743,22 @@ class ScaleDevice(TCPDevice):
             pass
         elif "error" in replyStr:
             self.currExeDevCmd.setState(self.currExeDevCmd.Failed, replyStr)
+
         elif self.currExeDevCmd.cmdStr == "status":
             # only parse lines if we asked for status
             try:
                 self.status.parseStatusLine(replyStr)
-            except Exception as e:
+            except:
                 errMsg = "Scale Device failed to parse: %s"%str(replyStr)
+                print("Exception parsing line in scaling ring (this is ok the code will try again if it's and important piece of status:")
                 print(traceback.print_exc(file=sys.stdout))
                 log.error(errMsg)
-                self.tccStatus.writeToUsers("w", errMsg)
 
 
-    def queueDevCmd(self, devCmdStr, userCmd):
+    def queueDevCmd(self, devCmdStr):
         """Add a device command to the device command queue
 
         @param[in] devCmdStr: a command string to send to the device.
-        @param[in] userCmd: a UserCmd associated with this device (probably but
-                                not necessarily linked.  Used here for writeToUsers
-                                reference.
         """
         log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
@@ -772,7 +767,6 @@ class ScaleDevice(TCPDevice):
         assert cmdVerb in self.validCmdVerbs
         devCmd = DevCmd(cmdStr=devCmdStr)
         devCmd.cmdVerb = cmdVerb
-        devCmd.userCmd = userCmd
         def queueFunc(devCmd):
             # when the command is ready run this
             # everything besides a move should return quickly

@@ -16,6 +16,7 @@ class TestTCCLCOActorCtrlWrapper(TestCase):
         return self.aw.readyDeferred
 
     def tearDown(self):
+        self.aw.actor.collimateStatusTimer.cancel()
         return self.aw.close()
 
     def testSetUpTearDown(self):

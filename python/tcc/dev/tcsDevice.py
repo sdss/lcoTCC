@@ -9,10 +9,9 @@ from RO.Astro.Sph.AzAltFromHADec import azAltFromHADec
 from RO.Astro.Sph.HADecFromAzAlt import haDecFromAzAlt
 from RO.StringUtil import strFromException, degFromDMSStr
 
-from twistedActor import TCPDevice, UserCmd, DevCmd, CommandQueue, log, expandUserCmd
+from twistedActor import TCPDevice, DevCmd, CommandQueue, log, expandCommand
 
 from tcc.utils.ffs import get_ffs_altitude, telescope_alt_limit
-
 #TODO: Combine offset wait command and rotation offset wait commands.
 # make queueDev command return a dev command rather than requiring one.
 # creat a command list where subsequent commands are not sent if the previous is not successful
@@ -250,13 +249,6 @@ class Status(object):
         """
         self.tcsDevice = tcsDevice
         # used to determine when offset is done, or AxisCmdState should be set to tracking/slewing.
-        self.previousRA = None
-        self.previousDec = None
-        # on target when within 0:0:01 degrees dec
-        # 0:0:0.2 seconds ra
-
-        # self.raOnTarg = castHoursToDeg("0:0:0.2")
-        # self.decOnTarg = degFromDMSStr("0:0:01")
 
 
         # for new axis state handling
@@ -278,7 +270,9 @@ class Status(object):
         self.offDec = None
         self.offRA = None
         self.telState = None
-        self.tccKWDict = {
+
+    def getTCCKWDict(self):
+        return {
             "axisCmdState": self.axisCmdState(),
             "axePos": self.axePos(),
             "tccPos": self.tccPos(),
@@ -431,18 +425,6 @@ class Status(object):
     def rotPos(self):
         return self.statusFieldDict["rawpos"].value
 
-    # @property
-    # def arcOff(self):
-    #     if None in [self.statusFieldDict["inpra"].value, self.statusFieldDict["mpos"].value[0]]:
-    #         raOff = 0
-    #     else:
-    #         raOff = self.statusFieldDict["inpra"].value - self.statusFieldDict["mpos"].value[0]
-    #     if None in [self.statusFieldDict["inpdc"].value, self.statusFieldDict["mpos"].value[1]]:
-    #         decOff = 0
-    #     else:
-    #         decOff = self.statusFieldDict["inpdc"].value - self.statusFieldDict["mpos"].value[1]
-    #     # return "%.6f, 0.0, 0.0, %.6f, 0.0, 0.0"%(raOff, decOff)
-    #     return "%.6f, %.6f"%(raOff, decOff)
 
     # @property
     # def rotOnTarget(self):
@@ -480,19 +462,6 @@ class Status(object):
         """
         return [self.raDecAxisState]*2 + [self.rotAxisStatus]
 
-
-
-    # def axesSlewing(self):
-    #     if self.previousDec == ForceSlew:
-    #         decSlewing = True
-    #     else:
-    #         decSlewing = abs(self.previousDec - self.statusFieldDict["mpos"].value[1]) > self.decOnTarg if self.previousDec is not None else False
-    #     if self.previousRA == ForceSlew:
-    #         raSlewing = True
-    #     else:
-    #         raSlewing = abs(self.previousRA - self.statusFieldDict["mpos"].value[0]) > self.raOnTarg if self.previousRA is not None else False
-    #     return [raSlewing, decSlewing]
-
     @property
     def trussTemp(self):
         return self.statusFieldDict["ttruss"].value
@@ -515,7 +484,8 @@ class Status(object):
     def updateTCCStatus(self, userCmd=None):
         """Grab and format tcc keywords, only output those which have changed
         """
-        self.tcsDevice.tccStatus.updateKWs(self.tccKWDict, userCmd)
+        if self.tcsDevice.tccStatus is not None:
+            self.tcsDevice.tccStatus.updateKWs(self.getTCCKWDict(), userCmd)
 
 
 class TCSDevice(TCPDevice):
@@ -531,19 +501,20 @@ class TCSDevice(TCPDevice):
                 note that it is NOT called when the connection state changes;
                 register a callback with "conn" for that task.
         """
+        self.tccStatus = None # set by the tccLCOActort
         self._statusTimer = Timer()
 
-        self.waitRotCmd = UserCmd()
+        self.waitRotCmd = expandCommand()
         self.waitRotCmd.setState(self.waitRotCmd.Done)
         self.waitRotTimer = Timer()
 
-        # self.waitFocusCmd = UserCmd()
+        # self.waitFocusCmd = expandCommand()
         # self.waitFocusCmd.setState(self.waitFocusCmd.Done)
 
-        self.waitOffsetCmd = UserCmd()
+        self.waitOffsetCmd = expandCommand()
         self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
-        self.waitSlewCmd = UserCmd()
+        self.waitSlewCmd = expandCommand()
         self.waitSlewCmd.setState(self.waitSlewCmd.Done)
         # self.waitOffsetTimer = Timer()
         self.rotDelay = False
@@ -593,13 +564,26 @@ class TCSDevice(TCPDevice):
         else:
             return False
 
+    @property
+    def pollTime(self):
+        if self.isSlewing:
+            # slewing, get status kinda frequently
+            pollTime = PollTimeSlew
+        elif self.isTracking:
+            # tracking, get status less frequently
+            pollTime = PollTimeTrack
+        else:
+            # idle, get status infrequently (as things shouldn't be changing fast)
+            pollTime = PollTimeIdle
+        return pollTime
+
     def init(self, userCmd=None, timeLim=None, getStatus=True):
         """Called automatically on startup after the connection is established.
         Only thing to do is query for status or connect if not connected
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
         # print("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         # if not self.isConnected:
         #     # time lim handled by lco.deviceCmd
         #     return self.connect(userCmd=userCmd)
@@ -613,43 +597,26 @@ class TCSDevice(TCPDevice):
         """Return current telescope status. Continuously poll.
         """
         log.info("%s.getStatus(userCmd=%s)" % (self, userCmd)) # logging this will flood the log
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS: try reconnecting (is the APOGEE TCS running!?)")
             return userCmd
         self._statusTimer.cancel() # incase a status is pending
-        userCmd = expandUserCmd(userCmd)
-        userCmd.addCallback(self._statusCallback)
-        # record the present RA, DEC (for determining when offsets are done)
-        # self.status.previousRA = self.status.statusFieldDict["ra"].value
-        # self.status.previousDec = self.status.statusFieldDict["dec"].value
-        if self.status.statusFieldDict["mpos"].value is None:
-            self.status.previousRA, self.status.previousDec = None, None
-        else:
-            self.status.previousRA = self.status.statusFieldDict["mpos"].value[0]
-            self.status.previousDec = self.status.statusFieldDict["mpos"].value[1]
+        statusCmd = expandCommand()
+        userCmd.linkCommands([statusCmd])
+        statusCmd.addCallback(self._statusCallback)
+
         # gather list of status elements to get
         devCmdList = [DevCmd(cmdStr=cmdVerb) for cmdVerb in self.status.statusFieldDict.keys()]
-        userCmd.linkCommands(devCmdList)
+        statusCmd.linkCommands(devCmdList)
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
-        if self.isSlewing:
-            # slewing, get status kinda frequently
-            pollTime = PollTimeSlew
-        elif self.isTracking:
-            # tracking, get status less frequently
-            pollTime = PollTimeTrack
-        else:
-            # idle, get status infrequently (as things shouldn't be changing fast)
-            pollTime = PollTimeIdle
-        self._statusTimer.start(pollTime, self.getStatus)
         return userCmd
 
     def _statusCallback(self, cmd):
         """! When status command is complete, send info to users, and check if any
         wait commands need to be set done
         """
-        # print("tcs status callback", cmd)
         if cmd.isDone and not cmd.didFail:
             # do we want status output so frequently? probabaly not.
             # perhaps only write status if it has changed...
@@ -657,7 +624,6 @@ class TCSDevice(TCPDevice):
             self.status.rerrQueue.append(self.status.statusFieldDict["rerr"].value)
             self.status.derrQueue.append(self.status.statusFieldDict["derr"].value)
             self.status.wsPosQueue.append(self.status.statusFieldDict["lplc"].value)
-            self.status.updateTCCStatus(cmd)
 
             if self.waitOffsetCmd.isActive and self.status.axesOnTarget:
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
@@ -669,8 +635,11 @@ class TCSDevice(TCPDevice):
                 self.waitSlewCmd.setState(self.waitSlewCmd.Done)
 
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
-                print("set rot command done", self.rotDelay, self.status.isClamped, self.status.rotMoving)
+                # print("set rot command done", self.rotDelay, self.status.isClamped, self.status.rotMoving)
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
+
+        self.status.updateTCCStatus(cmd)
+        self._statusTimer.start(self.pollTime, self.getStatus)
 
 
     def target(self, ra, dec, doHA, doScreen, userCmd=None):
@@ -684,7 +653,7 @@ class TCSDevice(TCPDevice):
         """
 
         log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         ffs_altitude = None
 
         if not self.conn.isConnected:
@@ -721,11 +690,11 @@ class TCSDevice(TCPDevice):
                 doHA = True
                 ra = ha
 
-                self.tccStatus.writeToUsers(
+                userCmd.writeToUsers(
                     'w', 'text="target postion below flat field screen, '
                          'modified target coords HA=%.4f, DEC=%.4f"' % (ha, dec), userCmd)
 
-            self.tccStatus.writeToUsers(
+            userCmd.writeToUsers(
                 'i', 'text="setting FFS target to altitude %.2f deg"' % (ffs_altitude))
 
         if doHA:
@@ -747,7 +716,7 @@ class TCSDevice(TCPDevice):
 
         if not self.waitSlewCmd.isDone:
             self.waitSlewCmd.setState(self.waitSlewCmd.Cancelled, "Superseded by new slew")
-        self.waitSlewCmd = UserCmd()
+        self.waitSlewCmd = expandCommand()
         userCmd.linkCommands(devCmdList + [self.waitSlewCmd])
 
         for devCmd in devCmdList:
@@ -756,8 +725,9 @@ class TCSDevice(TCPDevice):
         self.status.updateTCCStatus(userCmd)
 
         # output please slew announce in stui
-        self.tccStatus.updateKW("pleaseSlew", "T") # for outputting slew sound in stui
-        self.tccStatus.updateKW("pleaseSlew", "F")
+        if self.tccStatus is not None:
+            self.tccStatus.updateKW("pleaseSlew", "T") # for outputting slew sound in stui
+            self.tccStatus.updateKW("pleaseSlew", "F")
         return userCmd
 
     def slewOffset(self, ra, dec, userCmd=None):
@@ -770,11 +740,8 @@ class TCSDevice(TCPDevice):
         @todo, consolidate similar code with self.target?
         """
         log.info("%s.slewOffset(userCmd=%s, ra=%.6f, dec=%.6f)" % (self, userCmd, ra, dec))
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         # zero the delta computation so the offset isn't marked done immediately
-
-        # self.status.previousDec = ForceSlew
-        # self.status.previousRA = ForceSlew
 
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
@@ -784,7 +751,7 @@ class TCSDevice(TCPDevice):
         # clear the target error buffers
         self.status.rerrQueue.clear()
         self.status.derrQueue.clear()
-        waitOffsetCmd = UserCmd()
+        waitOffsetCmd = expandCommand()
         self.waitOffsetCmd = waitOffsetCmd
         enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg)
         enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
@@ -805,7 +772,7 @@ class TCSDevice(TCPDevice):
         @param[in] userCmd a twistedActor BaseCommand
         """
 
-        userCmd = expandUserCmd(userCmd)
+        userCmd = expandCommand(userCmd)
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
@@ -816,12 +783,12 @@ class TCSDevice(TCPDevice):
         # if abs(rot) < MinRotOffset and not force:
         if not self.doGuideRot:
             # set command done, rotator offset is miniscule
-            self.tccStatus.writeToUsers("w", "Guide rot not enabled, not applying", userCmd)
+            userCmd.writeToUsers("w", "Guide rot not enabled, not applying", userCmd)
             userCmd.setState(userCmd.Done)
             return userCmd
         if abs(rot) > MaxRotOffset:
             # set command failed, rotator offset is too big
-            self.tccStatus.writeToUsers("w", "Rot offset greater than max threshold", userCmd)
+            userCmd.writeToUsers("w", "Rot offset greater than max threshold", userCmd)
             userCmd.setState(userCmd.Failed, "Rot offset %.4f > %.4f"%(rot, MaxRotOffset))
             return userCmd
         ### print time since last rot applied from guider command
@@ -843,7 +810,7 @@ class TCSDevice(TCPDevice):
         #     if aCmd.isDone:
         #         rotTime = time.time() - rotStart
         #         print("rot: off, time, speed: %.5f %.5f %5f"%(newPos, rotTime, newPos/rotTime))
-        waitRotCmd = UserCmd()
+        waitRotCmd = expandCommand()
         self.waitRotCmd = waitRotCmd
         # calculate time limit for rot move:
         rotTimeLimBuffer = 2 # check for clamp after 4 seconds
