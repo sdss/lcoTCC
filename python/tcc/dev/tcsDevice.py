@@ -295,7 +295,7 @@ class Status(object):
                 errStrs.append("NaN")
             else:
                 errStrs.append("%.4f"%err)
-        return "axisErr=%s"%(",".join(errStrs))
+        return "%s"%(",".join(errStrs))
 
     def airmass(self):
         airmass = self.statusFieldDict["airmass"].value
