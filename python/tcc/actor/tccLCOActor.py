@@ -88,7 +88,8 @@ class TCCStatus(object):
             "airmass",
             "pleaseSlew",
             "TAI",
-            "UTC_TAI"
+            "UTC_TAI",
+            "axisErr",
         ]
         self.kwDict = {}
         for kw in self.tccKWs:
