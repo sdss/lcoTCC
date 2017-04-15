@@ -12,6 +12,7 @@ from twisted.internet import reactor
 from twistedActor import TCPDevice, log, DevCmd, CommandQueue, expandCommand
 
 from RO.StringUtil import strFromException
+from RO.Comm.TwistedTimer import Timer
 
 # tests:
 # fault an axis
@@ -55,6 +56,8 @@ NOM_SPEED = 0.1
 SEC_TIMEOUT = 2.0
 MAX_ITER = 3
 MOVE_TOL = 10 / 1000.0 # move tolerance (5 microns)
+POLL_TIME_IDLE = 4.
+POLL_TIME_MOVING = 1.
 
 class MungedStatusError(Exception):
     """The scaling ring occassionally returns a Munged status
@@ -337,7 +340,7 @@ class ScaleDevice(TCPDevice):
         self.nomSpeed = nomSpeed
         self.measScaleDev = measScaleDev
         self.status = Status()
-
+        self._statusTimer = Timer()
         # all commands of equal priority
         # except stop kills a running (or pending move) move
         # priorityDict = {"stop": CommandQueue.Immediate}
@@ -394,6 +397,27 @@ class ScaleDevice(TCPDevice):
         return self.devCmdQueue.currExeCmd.cmd
 
     @property
+    def isHomed(self):
+        return self.measScaleDev.isHomed
+
+    @property
+    def encHomedStr(self):
+        homedInt = 1 if self.isHomed else 0
+        return "%i"%homedInt
+
+
+    @property
+    def encPosStr(self):
+        encPosStr = []
+        for encPos in self.measScaleDev.encPos[:3]:
+            if encPos is None:
+                encPosStr.append("?")
+            else:
+                encPos += self.scaleZeroPos
+                encPosStr.append("%.3f"%encPos)
+        return ", ".join(encPosStr[:3])
+
+    @property
     def currDevCmdStr(self):
         return self.currExeDevCmd.cmdStr
 
@@ -419,7 +443,7 @@ class ScaleDevice(TCPDevice):
         #     userCmd.setState(userCmd.Done)
         #     return userCmd
 
-    def getStatus(self, userCmd=None, timeLim=None, linkState=True):
+    def getStatus(self, userCmd=None, timeLim=None):
         """!Get status of the device.  If the device is
         busy (eg moving), send the cached status
         note that during moves the thread_ring_axis actual_position gets
@@ -428,36 +452,39 @@ class ScaleDevice(TCPDevice):
 
         # note measScaleDevice could be read even if
         # scaling ring is moving.  do this at somepoint?
+        print("scaleDev get status.")
         userCmd = expandCommand(userCmd)
+        self._statusTimer.cancel() # incase a status is pending
         if timeLim is None:
             timeLim = 2
         if self.isMoving:
-            userCmd.writeToUsers("i", "text=showing cached status", userCmd)
-            self.writeStatusToUsers(userCmd)
-            userCmd.setState(userCmd.Done)
+            # userCmd.writeToUsers("i", "text=showing cached status", userCmd)
+            encStatusDevCmd = self.measScaleDev.getStatus()
+            encStatusDevCmd.addCallback(self._statusCallback)
+            userCmd.linkCommands([encStatusDevCmd])
+            return userCmd
         else:
             # get a completely fresh status from the device
             statusDevCmd = DevCmd(cmdStr="status")
-            self.queueDevCmd(statusDevCmd)
             # get encoder values too
             encStatusDevCmd = self.measScaleDev.getStatus()
             statusDevCmd.addCallback(self._statusCallback)
             statusDevCmd.setTimeLimit(timeLim)
-            if linkState:
-                userCmd.linkCommands([statusDevCmd, encStatusDevCmd])
-                return userCmd
-            else:
-                # return the device command to be linked outside
-                return statusDevCmd
+            userCmd.linkCommands([statusDevCmd, encStatusDevCmd])
+            self.queueDevCmd(statusDevCmd)
+            return userCmd
 
     def _statusCallback(self, statusCmd):
-        if statusCmd.isDone and not statusCmd.didFail:
+        if statusCmd.isDone:
             self.status.setThreadAxisCurrent()
             if self.waitMoveCmd.isActive:
+                self._statusTimer.start(POLL_TIME_MOVING, self.getStatus)
                 # moving write to this command
                 self.writeStatusToUsers(self.waitMoveCmd)
             else:
+                self._statusTimer.start(POLL_TIME_IDLE, self.getStatus)
                 self.writeStatusToUsers(statusCmd)
+
 
     def getStateVal(self):
         # determine time remaining in this state
@@ -523,19 +550,21 @@ class ScaleDevice(TCPDevice):
             "CartLoaded": cartLocked,
             "apogeeGang": self.gangVal(),
             "ThreadRingState": self.getStateVal(),
+            "ScaleEncPos": "%s"%self.encPosStr,
+            "ScaleEncHomed": "%s"%self.encHomedStr,
         }
 
     def writeStatusToUsers(self, userCmd):
         """Write the current status to all users
         """
-
+        print("writeStatusToUsers")
         faultStr = self.getFaultStr()
         if faultStr is not None:
             userCmd.writeToUsers("w", faultStr)
         if self.tccStatus is not None:
             self.tccStatus.updateKWs(self.statusDict(), userCmd)
         # output measScale KWs too
-        self.measScaleDev.writeStatusToUsers(userCmd)
+        # self.measScaleDev.writeStatusToUsers(userCmd)
 
     def writeState(self, userCmd=None):
         if self.tccStatus is not None:
@@ -625,6 +654,9 @@ class ScaleDevice(TCPDevice):
         """
         log.info("%s.move(postion=%.6f, userCmd=%s)" % (self, position, userCmd))
         userCmd=expandCommand(userCmd)
+        if not self.isHomed:
+            userCmd.setState(userCmd.Failed, "Scaling ring not homed.  Issue threadring home.")
+            return userCmd
         if self.isMoving:
             userCmd.setState(userCmd.Failed, "Cannot move, device is busy moving")
             return userCmd

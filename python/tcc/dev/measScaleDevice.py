@@ -35,7 +35,6 @@ class MeasScaleDevice(TCPDevice):
         self.tccStatus = None # set by tccLCOActor
         self.zeroPoint = 20.0 # mm.  Position where scale = 1
         self.encPos = [None]*6
-
         self.devCmdQueue = CommandQueue({})
 
         TCPDevice.__init__(self,
@@ -83,26 +82,19 @@ class MeasScaleDevice(TCPDevice):
         self.getStatus(userCmd) # status links the userCmd
         return userCmd
 
-    def getStatus(self, userCmd=None, timeLim=1, linkState=True):
+    def getStatus(self, userCmd=None, timeLim=2):
         """!Read all enc positions 1-6 channels, 3 physical gauges.
         """
         # first flush the current status to ensure we don't
         # have stale values
         # print("reading migs!")
-        print("reading migs")
-        print("encPos", str(self.encPos))
         userCmd = expandCommand(userCmd)
-        self.encPos = [None]*6
         statusDevCmd = DevCmd(cmdStr=READ_ENC)
-        statusDevCmd.addCallback(self._statusCallback)
+        # statusDevCmd.addCallback(self._statusCallback)
         statusDevCmd.setTimeLimit(timeLim)
+        userCmd.linkCommands([statusDevCmd])
         self.queueDevCmd(statusDevCmd)
-        if linkState:
-            userCmd.linkCommands([statusDevCmd])
-            return userCmd
-        else:
-            # return the device command to be linked outside
-            return statusDevCmd
+        return userCmd
 
     def setCountState(self, userCmd=None, timeLim=1):
         """!Set the Mitutoyo EV counter into the counting state, and the
@@ -126,41 +118,41 @@ class MeasScaleDevice(TCPDevice):
         self.queueDevCmd(zeroDevCmd)
         return userCmd
 
-    def _statusCallback(self, statusCmd):
-        # if statusCmd.isActive:
-        #     # not sure this is necessary
-        #     # but ensures we get a 100% fresh status
-        #     self.status.flushStatus()
-        if statusCmd.isDone and not statusCmd.didFail:
-            self.writeStatusToUsers(statusCmd)
-            # print("mig values,", self.encPos)
-            # print("done reading migs")
+    # def _statusCallback(self, statusCmd):
+    #     # if statusCmd.isActive:
+    #     #     # not sure this is necessary
+    #     #     # but ensures we get a 100% fresh status
+    #     #     self.status.flushStatus()
+    #     if statusCmd.isDone and not statusCmd.didFail:
+    #         self.writeStatusToUsers(statusCmd)
+    #         # print("mig values,", self.encPos)
+    #         # print("done reading migs")
 
-    def writeStatusToUsers(self, userCmd=None):
-        severity = None
-        if not self.isHomed:
-            severity = "w"
-        if self.tccStatus is not None:
-            self.tccStatus.updateKW("ScaleZeroPos", "%.4f"%self.zeroPoint, userCmd)
-            self.tccStatus.updateKW("ScaleEncPos", "%s"%self.encPosStr, userCmd)
-            self.tccStatus.updateKW("ScaleEncHomed", "%s"%self.encHomedStr, userCmd, level=severity)
+    # def writeStatusToUsers(self, userCmd=None):
+    #     severity = None
+    #     if not self.isHomed:
+    #         severity = "w"
+    #     if self.tccStatus is not None:
+    #         self.tccStatus.updateKW("ScaleZeroPos", "%.4f"%self.zeroPoint, userCmd)
+    #         self.tccStatus.updateKW("ScaleEncPos", "%s"%self.encPosStr, userCmd)
+    #         self.tccStatus.updateKW("ScaleEncHomed", "%s"%self.encHomedStr, userCmd, level=severity)
 
 
-    @property
-    def encPosStr(self):
-        encPosStr = []
-        for encPos in self.encPos[:3]:
-            if encPos is None:
-                encPosStr.append("?")
-            else:
-                encPos += self.zeroPoint
-                encPosStr.append("%.3f"%encPos)
-        return ", ".join(encPosStr[:3])
+    # @property
+    # def encPosStr(self):
+    #     encPosStr = []
+    #     for encPos in self.encPos[:3]:
+    #         if encPos is None:
+    #             encPosStr.append("?")
+    #         else:
+    #             encPos += self.zeroPoint
+    #             encPosStr.append("%.3f"%encPos)
+    #     return ", ".join(encPosStr[:3])
 
-    @property
-    def encHomedStr(self):
-        homedInt = 1 if self.isHomed else 0
-        return "%i"%homedInt
+    # @property
+    # def encHomedStr(self):
+    #     homedInt = 1 if self.isHomed else 0
+    #     return "%i"%homedInt
 
     def setEncValue(self, serialStr):
         """Figure out which gauge this line corresponds to and set the value
