@@ -269,7 +269,7 @@ def get_ffs_altitude(tel_altitude):
     out = 0
     pfitRev = reversed(pfitAll)
     for ii, coeff in enumerate(pfitRev):
-        out += x**ii*coeff
+        out += tel_altitude**ii*coeff
     return out, False
 
 # x = numpy.arange(min(allTelAlt), max(allTelAlt), 1)
