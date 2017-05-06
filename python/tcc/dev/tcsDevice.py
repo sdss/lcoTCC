@@ -653,6 +653,20 @@ class TCSDevice(TCPDevice):
         self.status.updateTCCStatus(cmd)
         self._statusTimer.start(self.pollTime, self.getStatus)
 
+    def abort_slews(self, userCmd=None):
+        """Aborts any slew running."""
+
+        userCmd = expandCommand(userCmd)
+
+        if not self.waitSlewCmd.isDone:
+            self.waitSlewCmd.setState(self.waitSlewCmd.Cancelled, 'Aborted slew.')
+        else:
+            userCmd.writeToUsers('w', 'there are not slews to abort or all slews are done.')
+
+        self.status.updateTCCStatus(userCmd)
+        userCmd.setState(userCmd.Done, 'Done aborting slews.')
+
+        return
 
     def target(self, ra, dec, doHA, doScreen, userCmd=None):
         """Set coordinates for a slew.

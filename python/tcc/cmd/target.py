@@ -20,7 +20,13 @@ def target(tccActor, userCmd):
     name = val.keyword
     doHA = userCmd.parsedCmd.qualDict['ha'].boolValue
     doScreen = userCmd.parsedCmd.qualDict['screen'].boolValue
+    abort = userCmd.parsedCmd.qualDict['abort'].boolValue
     #doBlock = userCmd.parsedCmd.qualDict['block'].boolValue
+
+    if abort:
+        tcsCmd = expandCommand()
+        tccActor.tcsDev.abort_slews(tcsCmd)
+
     if not name == "icrs":
         raise CommandError("%s coordSys not supported at LCO"%name)
     if val.valueList:
@@ -43,4 +49,3 @@ def target(tccActor, userCmd):
         tccActor.ffDev.powerOn(ffCmd)
     else:
         tccActor.ffDev.powerOff(ffCmd)
-
