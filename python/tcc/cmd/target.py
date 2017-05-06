@@ -26,6 +26,7 @@ def target(tccActor, userCmd):
     if abort:
         tcsCmd = expandCommand()
         tccActor.tcsDev.abort_slews(tcsCmd)
+        return
 
     if not name == "icrs":
         raise CommandError("%s coordSys not supported at LCO"%name)
