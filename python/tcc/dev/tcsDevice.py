@@ -643,7 +643,9 @@ class TCSDevice(TCPDevice):
             if not self.waitSlewCmd.isDone and self.status.statusFieldDict["state"].value==Slewing:
                 self.waitSlewCmd.setState(self.waitSlewCmd.Running)
 
-            if self.waitSlewCmd.isActive and self.status.statusFieldDict["state"].value==Tracking and not self.status.wsMoving:
+            if (self.waitSlewCmd.isActive and
+                    self.status.statusFieldDict["state"].value in [Tracking, Halted] and
+                    not self.status.wsMoving):
                 self.waitSlewCmd.setState(self.waitSlewCmd.Done)
 
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
