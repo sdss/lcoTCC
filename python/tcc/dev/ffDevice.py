@@ -82,6 +82,7 @@ class FFDevice(TCPDevice):
         userCmd = expandCommand(userCmd)
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to FF Lamp: is it on? try reconnecting")
+            return userCmd
         self.statusTimer.cancel()
         devCmdList = [DevCmd(cmdStr=cmdVerb) for cmdVerb in [REMOTE, PWR, ISET, VSET, VREAD, IREAD]]
         if not userCmd.isDone:
