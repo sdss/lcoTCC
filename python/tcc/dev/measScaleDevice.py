@@ -134,6 +134,7 @@ class MeasScaleDevice(TCPDevice):
         @param[in] replyStr   the reply, minus any terminating \n
         """
         log.info("%s.handleReply(replyStr=%s)" % (self, replyStr))
+        print("%s.handleReply(replyStr=%s)" % (self, replyStr))
         replyStr = replyStr.strip()
         if not replyStr:
             return
