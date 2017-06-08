@@ -253,7 +253,7 @@ class TestLCOCommands(TestCase):
         def checkScaleAndMotorPos(cmdVar):
             self.checkScale(cmdVar, scaleVal=scaleVal)
             pos = self.actor.scaleDev.encPos
-            zeropoint = self.actor.measScaleDev.zeroPoint
+            zeropoint = self.actor.scaleDev.scaleZeroPos
             self.assertAlmostEqual(float(pos), float(zeropoint), msg="pos: %.4f, zeropoint: %.4f"%(pos, zeropoint))
         return self.queueCmd(
             cmdStr = "set scale=%.6f"%scaleVal,

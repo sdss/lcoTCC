@@ -58,6 +58,7 @@ MAX_ITER = 3
 MOVE_TOL = 10 / 1000.0 # move tolerance (5 microns)
 POLL_TIME_IDLE = 4.
 POLL_TIME_MOVING = 1.
+ZERO_POINT = 20 # scale zeropoint
 
 class MungedStatusError(Exception):
     """The scaling ring occassionally returns a Munged status
@@ -390,7 +391,7 @@ class ScaleDevice(TCPDevice):
 
     @property
     def scaleZeroPos(self):
-        return self.measScaleDev.zeroPoint
+        return ZERO_POINT
 
     @property
     def currExeDevCmd(self):
@@ -637,14 +638,14 @@ class ScaleDevice(TCPDevice):
                     zeroEncCmd.addCallback(getStatus)
                 reactor.callLater(1., zeroEm)
 
-        def moveThreadRing(_setCountCmd):
+        def homeThreadRing(_setCountCmd):
             if _setCountCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
             elif _setCountCmd.isDone:
-                moveCmd = DevCmd(cmdStr="move %.6f"%self.measScaleDev.zeroPoint)
+                moveCmd = DevCmd(cmdStr="home")
                 self.queueDevCmd(moveCmd)
                 moveCmd.addCallback(zeroEncoders)
-        setCountCmd.addCallback(moveThreadRing)
+        setCountCmd.addCallback(homeThreadRing)
 
     def move(self, position, userCmd=None):
         """!Move to a position

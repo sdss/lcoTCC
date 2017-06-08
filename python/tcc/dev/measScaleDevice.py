@@ -33,7 +33,6 @@ class MeasScaleDevice(TCPDevice):
         # if I could preset the mitutoyo's this would be unnecessary
         # the preset command "CP**" doesn't seem to work.
         self.tccStatus = None # set by tccLCOActor
-        self.zeroPoint = 20.0 # mm.  Position where scale = 1
         self.encPos = [None]*6
         self.devCmdQueue = CommandQueue({})
 
@@ -53,7 +52,7 @@ class MeasScaleDevice(TCPDevice):
         if not self.isHomed:
             return None
         else:
-            return numpy.mean(self.encPos) + self.zeroPoint
+            return numpy.mean(self.encPos)
 
     @property
     def isHomed(self):
@@ -117,42 +116,6 @@ class MeasScaleDevice(TCPDevice):
         userCmd.linkCommands([zeroDevCmd])
         self.queueDevCmd(zeroDevCmd)
         return userCmd
-
-    # def _statusCallback(self, statusCmd):
-    #     # if statusCmd.isActive:
-    #     #     # not sure this is necessary
-    #     #     # but ensures we get a 100% fresh status
-    #     #     self.status.flushStatus()
-    #     if statusCmd.isDone and not statusCmd.didFail:
-    #         self.writeStatusToUsers(statusCmd)
-    #         # print("mig values,", self.encPos)
-    #         # print("done reading migs")
-
-    # def writeStatusToUsers(self, userCmd=None):
-    #     severity = None
-    #     if not self.isHomed:
-    #         severity = "w"
-    #     if self.tccStatus is not None:
-    #         self.tccStatus.updateKW("ScaleZeroPos", "%.4f"%self.zeroPoint, userCmd)
-    #         self.tccStatus.updateKW("ScaleEncPos", "%s"%self.encPosStr, userCmd)
-    #         self.tccStatus.updateKW("ScaleEncHomed", "%s"%self.encHomedStr, userCmd, level=severity)
-
-
-    # @property
-    # def encPosStr(self):
-    #     encPosStr = []
-    #     for encPos in self.encPos[:3]:
-    #         if encPos is None:
-    #             encPosStr.append("?")
-    #         else:
-    #             encPos += self.zeroPoint
-    #             encPosStr.append("%.3f"%encPos)
-    #     return ", ".join(encPosStr[:3])
-
-    # @property
-    # def encHomedStr(self):
-    #     homedInt = 1 if self.isHomed else 0
-    #     return "%i"%homedInt
 
     def setEncValue(self, serialStr):
         """Figure out which gauge this line corresponds to and set the value
