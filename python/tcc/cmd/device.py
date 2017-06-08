@@ -26,7 +26,7 @@ def device(tccActor, userCmd):
         "scale": tccActor.scaleDev,
         "sec": tccActor.secDev,
         "lamp": tccActor.ffDev,
-        "measScale": tccActor.measScaleDev,
+        "measscale": tccActor.measScaleDev,
     }
     if "all" in devNameList:
         devNameList = devDict.keys()
