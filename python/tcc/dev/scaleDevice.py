@@ -636,13 +636,13 @@ class ScaleDevice(TCPDevice):
             if _homeCmd.isDone:
                 self.status.setState(self.status.Done, 0)
                 self.writeState(userCmd)
-                print("thread home done")
+                self.writeToUsers("w", "text='thread home set'")
             if _homeCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
             elif _homeCmd.isDone:
                 # zero the encoders in 1 second (give the ring a chance to stop)
                 def zeroEm():
-                    print("setting zeros")
+                    self.writeToUsers("w", "text='setting zeros'")
                     zeroEncCmd = self.measScaleDev.setZero()
                     zeroEncCmd.addCallback(getStatus)
                 reactor.callLater(2., zeroEm)
