@@ -612,12 +612,6 @@ class ScaleDevice(TCPDevice):
     def home(self, userCmd=None):
         log.info("%s.home(userCmd=%s)" % (self, userCmd))
         userCmd = expandCommand(userCmd)
-        def setStateDone(_userCmd):
-            if _userCmd.isDone:
-                userCmd.writeToUsers("w", "text='home user command is done.'")
-                # when the user command finishes, set state to done
-                self.status.setState(self.statusDone, 0)
-                self.writeState(userCmd)
         # set state homing
         self.status.setState(self.status.Homing, 0)
         self.writeState(userCmd)
@@ -625,6 +619,8 @@ class ScaleDevice(TCPDevice):
         setCountCmd = self.measScaleDev.setCountState()
 
         def finishHome(_statusCmd):
+            self.status.setState(self.statusDone, 0)
+            self.writeState(userCmd)
             if _statusCmd.didFail:
                 userCmd.setState(userCmd.Failed, "status failed.")
             elif _statusCmd.isDone:
@@ -637,6 +633,8 @@ class ScaleDevice(TCPDevice):
 
         def getStatus(_zeroEncCmd):
             if _zeroEncCmd.didFail:
+                self.status.setState(self.statusDone, 0)
+                self.writeState(userCmd)
                 userCmd.setState(userCmd.Failed, "Encoder zero failed.")
             elif _zeroEncCmd.isDone:
                 statusCmd = self.getStatus()
@@ -644,6 +642,8 @@ class ScaleDevice(TCPDevice):
 
         def zeroEncoders(_homeCmd):
             if _homeCmd.didFail:
+                self.status.setState(self.statusDone, 0)
+                self.writeState(userCmd)
                 userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
             elif _homeCmd.isDone:
                 # zero the encoders in 1 second (give the ring a chance to stop)
@@ -655,6 +655,8 @@ class ScaleDevice(TCPDevice):
 
         def homeThreadRing(_setCountCmd):
             if _setCountCmd.didFail:
+                self.status.setState(self.statusDone, 0)
+                self.writeState(userCmd)
                 userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
             elif _setCountCmd.isDone:
                 moveHome = DevCmd(cmdStr="home")
