@@ -570,6 +570,7 @@ class ScaleDevice(TCPDevice):
 
     def writeState(self, userCmd=None):
         if self.tccStatus is not None:
+            print("scale dev write state", self.getStateVal())
             self.tccStatus.updateKW("ThreadRingState", self.getStateVal(), userCmd)
 
 
