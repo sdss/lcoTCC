@@ -480,7 +480,7 @@ class ScaleDevice(TCPDevice):
     def _statusCallback(self, statusCmd):
         if statusCmd.isDone:
             self.status.setThreadAxisCurrent()
-            if self.waitMoveCmd.isActive:
+            if self.waitMoveCmd.isActive or self.status._state == self.status.Homing:
                 self._statusTimer.start(POLL_TIME_MOVING, self.getStatus)
                 # moving write to this command
                 self.writeStatusToUsers(self.waitMoveCmd)
@@ -627,8 +627,8 @@ class ScaleDevice(TCPDevice):
             elif _statusCmd.isDone:
                 # assert that the encoders are really reading
                 # zeros
-                if not numpy.all(numpy.abs(self.measScaleDev.encPos) < 0.001):
-                    userCmd.setState(userCmd.Failed, "zeros failed to set: %s"%str(self.measScaleDev.encPos))
+                if not numpy.all(numpy.abs(self.measScaleDev.encPos) < 0.002):
+                    userCmd.setState(userCmd.Failed, "zeros failed to set, try re-issuing home: %s"%str(self.measScaleDev.encPos))
                 else:
                     userCmd.setState(userCmd.Done)
 
