@@ -455,7 +455,6 @@ class ScaleDevice(TCPDevice):
 
         # note measScaleDevice could be read even if
         # scaling ring is moving.  do this at somepoint?
-        print("scaleDev get status.")
         userCmd = expandCommand(userCmd)
         self._statusTimer.cancel() # incase a status is pending
         if timeLim is None:
@@ -620,7 +619,7 @@ class ScaleDevice(TCPDevice):
 
         def finishHome(_statusCmd):
             if _statusCmd.isDone:
-                userCmd.writeToUsers("w", "text='homing sequence done after status'")
+                userCmd.writeToUsers("d", "text='homing sequence done after status'")
                 self.status.setState(self.status.Done, 0)
                 self.writeState(userCmd)
             if _statusCmd.didFail:
@@ -650,7 +649,7 @@ class ScaleDevice(TCPDevice):
             elif _homeCmd.isDone:
                 # zero the encoders in 1 second (give the ring a chance to stop)
                 def zeroEm():
-                    userCmd.writeToUsers("w", "text='setting zeros'")
+                    userCmd.writeToUsers("d", "text='setting zeros'")
                     zeroEncCmd = self.measScaleDev.setZero()
                     zeroEncCmd.addCallback(getStatus)
                 reactor.callLater(3., zeroEm)
