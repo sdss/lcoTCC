@@ -71,6 +71,7 @@ class Status(object):
     Moving = "Moving"
     Done = "Done"
     Homing = "Homing"
+    NotHomed = "NotHomed"
     def __init__(self):
         self.flushStatus() # sets self.dict and a few other attrs
         self._state = self.Done
@@ -87,7 +88,7 @@ class Status(object):
         @param[in] state: one of self.Moving or self.Done
         @param[in] totalTime: total time for this state, 0 for indefinite
         """
-        assert state in [self.Moving, self.Done]
+        assert state in [self.Moving, self.Done, self.Homing, self.NotHomed]
         self.currIter = currIter
         self._state = state
         self._totalTime = totalTime
@@ -400,7 +401,12 @@ class ScaleDevice(TCPDevice):
 
     @property
     def isHomed(self):
-        return self.measScaleDev.isHomed
+        isHomed = self.measScaleDev.isHomed
+        if not isHomed:
+            self.setState(self.NotHomed, 0)
+        if isHomed and not self.isMoving:
+            self.setState(self.Done, 0)
+        return isHomed
 
     @property
     def encHomedStr(self):
