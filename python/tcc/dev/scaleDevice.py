@@ -611,10 +611,13 @@ class ScaleDevice(TCPDevice):
 
     def home(self, userCmd=None):
         log.info("%s.home(userCmd=%s)" % (self, userCmd))
+        userCmd = expandCommand(userCmd)
         def setStateDone(_userCmd):
             if _userCmd.isDone:
+                userCmd.writeToUsers("w", "text='home user command is done.'")
                 # when the user command finishes, set state to done
                 self.status.setState(self.statusDone, 0)
+                self.writeState(userCmd)
         # set state homing
         self.status.setState(self.status.Homing, 0)
         self.writeState(userCmd)
