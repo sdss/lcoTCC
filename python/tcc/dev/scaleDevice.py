@@ -638,7 +638,7 @@ class ScaleDevice(TCPDevice):
 
         def zeroEncoders(_moveCmd):
             self.status.setState(self.status.Done, 0)
-            self.status.writeState(self.status.Done, 0)
+            self.writeState(userCmd)
             if _moveCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
             elif _moveCmd.isDone:
@@ -655,7 +655,7 @@ class ScaleDevice(TCPDevice):
                 moveCmd = DevCmd(cmdStr="home")
                 self.queueDevCmd(moveCmd)
                 self.status.setState(self.status.Homing, 0)
-                self.status.writeState(userCmd)
+                self.writeState(userCmd)
                 moveCmd.addCallback(zeroEncoders)
         setCountCmd.addCallback(homeThreadRing)
 
