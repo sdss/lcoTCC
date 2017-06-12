@@ -70,6 +70,7 @@ class Status(object):
     LOCKED_TOL = 0.1 # mm
     Moving = "Moving"
     Done = "Done"
+    Homing = "Homing"
     def __init__(self):
         self.flushStatus() # sets self.dict and a few other attrs
         self._state = self.Done
@@ -629,6 +630,8 @@ class ScaleDevice(TCPDevice):
                 statusCmd.addCallback(finishHome)
 
         def zeroEncoders(_moveCmd):
+            self.status.setState(self.status.Done, 0)
+            self.status.writeState(self.status.Done, 0)
             if _moveCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
             elif _moveCmd.isDone:
@@ -636,7 +639,7 @@ class ScaleDevice(TCPDevice):
                 def zeroEm():
                     zeroEncCmd = self.measScaleDev.setZero()
                     zeroEncCmd.addCallback(getStatus)
-                reactor.callLater(1., zeroEm)
+                reactor.callLater(2., zeroEm)
 
         def homeThreadRing(_setCountCmd):
             if _setCountCmd.didFail:
@@ -644,6 +647,8 @@ class ScaleDevice(TCPDevice):
             elif _setCountCmd.isDone:
                 moveCmd = DevCmd(cmdStr="home")
                 self.queueDevCmd(moveCmd)
+                self.status.setState(self.status.Homing, 0)
+                self.status.writeState(userCmd)
                 moveCmd.addCallback(zeroEncoders)
         setCountCmd.addCallback(homeThreadRing)
 
