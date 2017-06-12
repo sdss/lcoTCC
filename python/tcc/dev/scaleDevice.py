@@ -632,12 +632,13 @@ class ScaleDevice(TCPDevice):
                 statusCmd = self.getStatus()
                 statusCmd.addCallback(finishHome)
 
-        def zeroEncoders(_moveCmd):
-            self.status.setState(self.status.Done, 0)
-            self.writeState(userCmd)
-            if _moveCmd.didFail:
+        def zeroEncoders(_homeCmd):
+            if _homeCmd.isDone:
+                self.status.setState(self.status.Done, 0)
+                self.writeState(userCmd)
+            if _homeCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
-            elif _moveCmd.isDone:
+            elif _homeCmd.isDone:
                 # zero the encoders in 1 second (give the ring a chance to stop)
                 def zeroEm():
                     zeroEncCmd = self.measScaleDev.setZero()
@@ -648,11 +649,11 @@ class ScaleDevice(TCPDevice):
             if _setCountCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
             elif _setCountCmd.isDone:
-                moveCmd = DevCmd(cmdStr="home")
-                self.queueDevCmd(moveCmd)
+                moveHome = DevCmd(cmdStr="home")
+                self.queueDevCmd(moveHome)
+                moveHome.addCallback(zeroEncoders)
                 self.status.setState(self.status.Homing, 0)
                 self.writeState(userCmd)
-                moveCmd.addCallback(zeroEncoders)
         setCountCmd.addCallback(homeThreadRing)
 
     def move(self, position, userCmd=None):
