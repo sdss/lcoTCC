@@ -620,7 +620,7 @@ class ScaleDevice(TCPDevice):
         def finishHome(_statusCmd):
             if _statusCmd.isDone:
                 userCmd.writeToUsers("w", "text='homing sequence done after status'")
-                self.status.setState(self.statusDone, 0)
+                self.status.setState(self.status.Done, 0)
                 self.writeState(userCmd)
             if _statusCmd.didFail:
                 userCmd.setState(userCmd.Failed, "status failed.")
