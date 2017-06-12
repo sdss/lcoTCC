@@ -460,7 +460,7 @@ class ScaleDevice(TCPDevice):
         self._statusTimer.cancel() # incase a status is pending
         if timeLim is None:
             timeLim = 2
-        if self.isMoving:
+        if self.isMoving or self.status._state == self.status.Homing:
             # userCmd.writeToUsers("i", "text=showing cached status", userCmd)
             encStatusDevCmd = self.measScaleDev.getStatus()
             encStatusDevCmd.addCallback(self._statusCallback)
