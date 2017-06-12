@@ -190,7 +190,8 @@ class M2Device(TCPDevice):
     @property
     def isDone(self):
         # only done when state=done and galil=off
-        return not self.isBusy and self.isOff
+        return not self.isBusy
+        #return not self.isBusy and self.isOff
 
     @property
     def currExeDevCmd(self):
@@ -256,12 +257,16 @@ class M2Device(TCPDevice):
         if self.waitMoveCmd.isActive:
             if not self.isBusy:
                 # move is done
-                if not self.isOff:
-                    # move just finished but galil is not off, turn it off
-                    self.queueDevCmd(DevCmd("galil off"))
-                else:
-                    # move is done and galil is off, set wait move command as done
-                    self.waitMoveCmd.setState(self.waitMoveCmd.Done)
+                # no longer send galil off
+                self.waitMoveCmd.setState(self.waitMoveCmd.Done)
+
+                # if not self.isOff:
+                #     # move just finished but galil is not off, turn it off
+                #     self.queueDevCmd(DevCmd("galil off"))
+                # else:
+                #     # move is done and galil is off, set wait move command as done
+                #     self.waitMoveCmd.setState(self.waitMoveCmd.Done)
+
         if not self.isDone:
             # keep polling until done
             self._statusTimer.start(PollTime, self.getStatus)
