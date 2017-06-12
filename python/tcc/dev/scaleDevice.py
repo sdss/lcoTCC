@@ -612,6 +612,14 @@ class ScaleDevice(TCPDevice):
 
     def home(self, userCmd=None):
         log.info("%s.home(userCmd=%s)" % (self, userCmd))
+        def setStateDone(_userCmd):
+            if _userCmd.isDone:
+                # when the user command finishes, set state to done
+                self.status.setState(self.statusDone, 0)
+        # set state homing
+        self.status.setState(self.status.Homing, 0)
+        self.writeState(userCmd)
+        userCmd.addCallback(setStateDone)
         setCountCmd = self.measScaleDev.setCountState()
 
         def finishHome(_statusCmd):
@@ -645,7 +653,7 @@ class ScaleDevice(TCPDevice):
                     userCmd.writeToUsers("w", "text='setting zeros'")
                     zeroEncCmd = self.measScaleDev.setZero()
                     zeroEncCmd.addCallback(getStatus)
-                reactor.callLater(2., zeroEm)
+                reactor.callLater(3., zeroEm)
 
         def homeThreadRing(_setCountCmd):
             if _setCountCmd.didFail:
@@ -654,8 +662,7 @@ class ScaleDevice(TCPDevice):
                 moveHome = DevCmd(cmdStr="home")
                 self.queueDevCmd(moveHome)
                 moveHome.addCallback(zeroEncoders)
-                self.status.setState(self.status.Homing, 0)
-                self.writeState(userCmd)
+
         setCountCmd.addCallback(homeThreadRing)
 
     def move(self, position, userCmd=None):
