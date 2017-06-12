@@ -2,6 +2,7 @@ from __future__ import division, absolute_import
 
 
 __all__ = ["threadRing"]
+UM_PER_MM = 1000.
 
 def threadRing(tccActor, userCmd):
     """Implement direct thread ring commands
@@ -19,9 +20,17 @@ def threadRing(tccActor, userCmd):
     elif "move" in parsedKeys:
         value = params["movevalue"].valueList[0]
         offset = quals["incremental"].boolValue
+        doSec = quals["secondary"].boolValue
         if offset:
             value += tccActor.scaleDev.encPos
-        tccActor.scaleDev.move(value, userCmd)
+        if not doSec:
+            tccActor.scaleDev.move(value, userCmd)
+        else:
+            # move M2 to maintain current focus
+            scaleCmd = tccActor.scaleDev.move(value)
+            focusOffset = (value - tccActor.scaleDev.encPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
+            focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
+            userCmd.linkCommands([focusCmd, scaleCmd])
 
     elif "speed" in parsedKeys:
         value = params["speedvalue"].valueList[0]

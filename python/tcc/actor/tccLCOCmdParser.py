@@ -255,6 +255,10 @@ TCCLCOCmdList = (
                         name = "incremental",
                         help = "move as offset rather than abs move.",
                     ),
+                    parseDefs.Qualifier(
+                        name = "secondary",
+                        help = "move secondary mirror to maintain current focus.",
+                    ),
                 ],
                 help = "directly move the scaling ring",
             ),
