@@ -615,7 +615,6 @@ class ScaleDevice(TCPDevice):
         # set state homing
         self.status.setState(self.status.Homing, 0)
         self.writeState(userCmd)
-        userCmd.addCallback(setStateDone)
         setCountCmd = self.measScaleDev.setCountState()
 
         def finishHome(_statusCmd):
