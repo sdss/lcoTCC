@@ -401,7 +401,6 @@ class ScaleDevice(TCPDevice):
 
     @property
     def isHomed(self):
-        isHomed = self.measScaleDev.isHomed
         return self.measScaleDev.isHomed
 
     @property
@@ -641,10 +640,6 @@ class ScaleDevice(TCPDevice):
                 statusCmd.addCallback(finishHome)
 
         def zeroEncoders(_homeCmd):
-            if _homeCmd.isDone:
-                self.status.setState(self.status.Done, 0)
-                self.writeState(userCmd)
-                userCmd.writeToUsers("w", "text='thread home set'")
             if _homeCmd.didFail:
                 userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
             elif _homeCmd.isDone:
