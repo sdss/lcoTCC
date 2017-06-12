@@ -618,8 +618,10 @@ class ScaleDevice(TCPDevice):
         setCountCmd = self.measScaleDev.setCountState()
 
         def finishHome(_statusCmd):
-            self.status.setState(self.statusDone, 0)
-            self.writeState(userCmd)
+            if _statusCmd.isDone:
+                userCmd.writeToUsers("w", "text='homing sequence done after status'")
+                self.status.setState(self.statusDone, 0)
+                self.writeState(userCmd)
             if _statusCmd.didFail:
                 userCmd.setState(userCmd.Failed, "status failed.")
             elif _statusCmd.isDone:
