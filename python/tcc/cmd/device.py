@@ -31,6 +31,14 @@ def device(tccActor, userCmd):
     if "all" in devNameList:
         devNameList = devDict.keys()
 
+    # scale device explicitly get status from meas scale
+    # so if this is status and both those devs are present
+    # remove the meas scale
+    if cmdVerb == "status" and "measscale" in devNameList and "scale" in devNameList:
+        print("removing measscale from devNameList")
+        devNameList = list(set(devNameList) - set(["measscale"]))
+        print("devNameList", devNameList)
+
     # was a time limit specified?
     if userCmd.parsedCmd.qualDict['timelimit'].boolValue:
         userCmd.setTimeLimit(userCmd.parsedCmd.qualDict['timelimit'].valueList[0])

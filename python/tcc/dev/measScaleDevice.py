@@ -78,12 +78,13 @@ class MeasScaleDevice(TCPDevice):
         """
         log.info("%s.init(userCmd=%s, timeLim=%s, getStatus=%s)" % (self, userCmd, timeLim, getStatus))
         userCmd = expandCommand(userCmd)
-        self.getStatus(userCmd) # status links the userCmd
+        #self.getStatus(userCmd) # status links the userCmd
         return userCmd
 
     def getStatus(self, userCmd=None, timeLim=2):
         """!Read all enc positions 1-6 channels, 3 physical gauges.
         """
+        print("getStatus measScaleDev")
         # first flush the current status to ensure we don't
         # have stale values
         # print("reading migs!")
@@ -143,20 +144,24 @@ class MeasScaleDevice(TCPDevice):
             log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
 
-        if "error 15" in replyStr.lower():
-            self.currExeDevCmd.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing necessary.")
+	if "error" in replyStr.lower():
             self.encPos = [None]*6
 
-        elif "error" in replyStr.lower():
-            # some other error?
-            self.currExeDevCmd.writeToUsers("w", "Mitutoyo EV counter Error output: " + replyStr)
+            if "error 15" in replyStr.lower():
+                self.currExeDevCmd.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing threadring necessary.")
+            else:
+                # some other error?
+                self.currExeDevCmd.writeToUsers("w", "Mitutoyo EV counter Error output: " + replyStr)
+            if not self.currExeDevCmd.isDone:
+                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Error from Mitutoyos, homing threadring probably necessary.")
+                return
 
         if self.currExeDevCmd.cmdStr == READ_ENC:
             # check that the expected prefix is seen
             # if not we are not in the 'current value state probably'
             if not replyStr.startswith(ENCVAL_PREFIX):
                 self.encPos = [None]*6
-                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Mitutoyo gauges not in expected read state.  Homing necessary.")
+                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Mitutoyo gauges not in expected read state.  Homing thread necessary.")
             else:
                 self.setEncValue(replyStr)
                 # was this the 6th value read? if so we are done
@@ -178,7 +183,7 @@ class MeasScaleDevice(TCPDevice):
         """
         devCmdStr = devCmd.cmdStr
         log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
-        # print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
+        print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd.cmdVerb = devCmdStr
@@ -195,6 +200,7 @@ class MeasScaleDevice(TCPDevice):
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmd.cmdStr))
+                print("meas scale writing", devCmd.cmdStr)
                 devCmd.setState(devCmd.Running)
                 self.conn.writeLine(devCmd.cmdStr)
             else:

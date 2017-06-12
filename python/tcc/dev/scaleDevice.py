@@ -316,7 +316,7 @@ class Status(object):
 
 class ScaleDevice(TCPDevice):
     """!A Device for communicating with the LCO Scaling ring."""
-    validCmdVerbs = ["move", "stop", "status", "speed"]
+    validCmdVerbs = ["move", "stop", "status", "speed", "home"]
     def __init__(self, name, host, port, measScaleDev=None, nomSpeed=NOM_SPEED, callFunc=None):
         """!Construct a ScaleDevice
 
