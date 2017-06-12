@@ -403,9 +403,9 @@ class ScaleDevice(TCPDevice):
     def isHomed(self):
         isHomed = self.measScaleDev.isHomed
         if not isHomed:
-            self.setState(self.status.NotHomed, 0)
+            self.status.setState(self.status.NotHomed, 0)
         if isHomed and not self.isMoving:
-            self.setState(self.status.Done, 0)
+            self.status.setState(self.status.Done, 0)
         return isHomed
 
     @property
