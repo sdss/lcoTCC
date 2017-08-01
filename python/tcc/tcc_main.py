@@ -12,7 +12,7 @@ from twisted.internet import reactor
 from twistedActor import startFileLogging
 
 from tcc.actor.tccLCOActor import TCCLCOActor
-from tcc.dev import TCSDevice, ScaleDevice, M2Device, MeasScaleDevice, FFDevice
+from tcc.dev import TCSDevice, ScaleDevice, M2Device, MeasScaleDevice #, FFDevice
 
 rolloverDatetime = datetime.time(hour=13, minute=0, second=0)
 
@@ -33,8 +33,8 @@ M2DeviceHost = "vinchuca"
 M2DevicePort = 52001
 MeasScaleDeviceHost = "10.1.1.41"
 MeasScaleDevicePort = 10001
-FFDeviceHost = "139.229.101.122"
-FFDevicePort = 23
+# FFDeviceHost = "139.229.101.122"
+# FFDevicePort = 23
 
 measScaleDevice = MeasScaleDevice("measScaleDev", MeasScaleDeviceHost, MeasScaleDevicePort)
 scaleDevice = ScaleDevice("scaleDev", ScaleDeviceHost, ScaleDevicePort, measScaleDevice)
@@ -48,7 +48,7 @@ def startTCCLCO(*args):
             scaleDev = scaleDevice,
             m2Dev = M2Device("m2Dev", M2DeviceHost, M2DevicePort),
             measScaleDev = measScaleDevice,
-            ffDev = FFDevice("ffDev", FFDeviceHost, FFDevicePort),
+            # ffDev = FFDevice("ffDev", FFDeviceHost, FFDevicePort),
             )
     except Exception:
         print >>sys.stderr, "Error lcoTCC"

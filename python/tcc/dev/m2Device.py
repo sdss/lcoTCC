@@ -16,6 +16,7 @@ PollTime = 0.5 #seconds, LCO says status is updated no more frequently that 5 ti
 # PollTime = 1
 # Speed = 25.0 # microns per second for focus
 DefaultTimeout = 2 # seconds
+RelayPosM2 = 5 # our FF lamp is wired to the 5th relay on the du Pont M2
 
 Done = "Done"
 Moving = "Moving"
@@ -24,7 +25,8 @@ Failed = "Failed"
 On = "on"
 Off = "off"
 validMotionStates = [Done, Moving, Failed]
-validGalilStates = [On, Off]
+validStates = [On, Off]
+
 
 class Status(object):
     def __init__(self):
@@ -75,6 +77,10 @@ class Status(object):
         galil = "?" if self.galil is None else "%s"%self.galil
         return "%s"%galil
 
+    def ffPowerStr(self):
+        lamps = "?" if self.lamps is None else "%s"%self.lamps
+        return "%s"%lamps
+
     def _getOrientStr(self, orientation):
         orientStrs = []
         # add an aditional 0 for rotation about z to
@@ -112,6 +118,7 @@ class Status(object):
             "Galil": self.galilStr(),
             "secOrient": self.secOrientStr(),
             "secDesOrient": self.secDesOrientStr(),
+            "ffPower": self.ffPowerStr(),
         }
         return statusDict
 
@@ -135,8 +142,10 @@ class Status(object):
                 val = [float(x) for x in val.split(",")]
                 assert len(val) == 5
             elif key == "galil":
-                assert val in validGalilStates
-            # note don't really care about lamps
+                assert val in validStates
+            elif key == "lamps":
+                if val != "off":
+                    val = "on"
             # set the status values as attrs on this
             # object
             assert key in dir(self)
@@ -363,6 +372,28 @@ class M2Device(TCPDevice):
         dist2Move = numpy.max(numpy.abs(numpy.subtract(self.status.desOrientation, self.status.orientation)))
         time4Move = dist2Move / self.status.speed
         return time4Move
+
+    def lampOn(self, userCmd=None):
+        """Toggle power to the ff lamp (the 5th relay at the M2 position)
+        """
+        log.info("%s.lampOn(userCmd=%s)" % (self, userCmd))
+        userCmd = expandCommand(userCmd)
+        userCmd.setTimeLimit(2)
+        lampCmd = DevCmd("lamp %i 1"%RelayPosM2)
+        userCmd.linkCommands([lampCmd])
+        self.queueDevCmd(lampCmd)
+        return userCmd
+
+    def lampOff(self, userCmd=None):
+        """Toggle power to the ff lamp (the 5th relay at the M2 position)
+        """
+        log.info("%s.lampOff(userCmd=%s)" % (self, userCmd))
+        userCmd = expandCommand(userCmd)
+        lampCmd = DevCmd("lamp %i 0"%RelayPosM2)
+        userCmd.linkCommands([lampCmd])
+        self.queueDevCmd(lampCmd)
+        return userCmd
+
 
     def handleReply(self, replyStr):
         """Handle a line of output from the device. Called whenever the device outputs a new line of data.

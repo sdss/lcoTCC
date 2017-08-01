@@ -47,7 +47,8 @@ def target(tccActor, userCmd):
     ffCmd = expandCommand()
     userCmd.linkCommands([tcsCmd, ffCmd])
     tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, tcsCmd)
+
     if doScreen:
-        tccActor.ffDev.powerOn(ffCmd)
+        tccActor.secDev.lampOn(ffCmd)
     else:
-        tccActor.ffDev.powerOff(ffCmd)
+        tccActor.secDev.lampOff(ffCmd)

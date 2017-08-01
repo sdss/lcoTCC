@@ -12,11 +12,11 @@ def lamp(tccActor, userCmd):
     params = userCmd.parsedCmd.paramDict
     action = params["action"].valueList[0].keyword
     if action == "off":
-        tccActor.ffDev.powerOff(userCmd)
+        tccActor.secDev.lampOff(userCmd)
     elif action == "on":
-        tccActor.ffDev.powerOn(userCmd)
+        tccActor.secDev.lampOn(userCmd)
     else:
-        tccActor.ffDev.getStatus(userCmd)
+        tccActor.secDev.getStatus(userCmd)
 
 
 

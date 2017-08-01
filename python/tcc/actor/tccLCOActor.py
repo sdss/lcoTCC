@@ -151,7 +151,7 @@ class TCCLCOActor(BaseActor):
         scaleDev,
         m2Dev,
         measScaleDev,
-        ffDev,
+        # ffDev,
         name = "tcc",
     ):
         """Construct a TCCActor
@@ -169,7 +169,7 @@ class TCCLCOActor(BaseActor):
             "scaleDev": scaleDev,
             "secDev": m2Dev,
             "measScaleDev": measScaleDev,
-            "ffDev": ffDev,
+            # "ffDev": ffDev,
         }
 
         self.status = TCCStatus()
