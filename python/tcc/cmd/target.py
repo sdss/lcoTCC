@@ -26,7 +26,7 @@ def target(tccActor, userCmd):
     if abort:
         tcsCmd = expandCommand()
         tccActor.tcsDev.abort_slews(tcsCmd)
-        userCmd.setStage(userCmd.Done)
+        userCmd.setState(userCmd.Done)
         return
 
     if not name == "icrs":
