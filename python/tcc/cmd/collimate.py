@@ -36,10 +36,16 @@ class CollimationModel(object):
         #tiltY = -450
 
         # April on sky with povilas, on axis camera work
-        transX = -616.51
-        transY = -536.59
-        tiltX = -100
-        tiltY = -565
+        # transX = -616.51
+        # transY = -536.59
+        # tiltX = -100
+        # tiltY = -565
+
+        #07/29/2017 -- du Pont engineering
+        tiltX =  -76.0
+        tiltY =  -560.0
+        transX =  -1165.4
+        transY =  -544.0
 
         self.baseOrientation = numpy.asarray([tiltX, tiltY, transX, transY])
         self.baseFocus = None
@@ -126,9 +132,12 @@ class CollimationModel(object):
         # tiltX = 1.14 + 29.03*sinDec + 9.86*cosDec + -0.46*sinHA + -10.21*cosHA
         # tiltY = 6.45 + -13.56*sinDec + -4.28*cosDec + 4.84*sinHA + -1.09*cosHA
 
+        # 07/29/2017 - Povilas discovered a sign error in tip or tilt about X
+        # was: tiltX =  29.03*sinDec + 9.86*(cosDec-1.) + -0.46*sinHA + -10.21*(cosHA-1.)
+
         transY = 679*sinDec + 407.8*(cosDec-1.) + -39.71*sinHA + -334.7*(cosHA-1) + 833.6*sinDecCosHA + 153.1*cosDecSinHA
         transX = -132.1*sinDec + 182.3*(cosDec-1.) + -589.6*sinHA + 141.1*(cosHA-1.)
-        tiltX =  29.03*sinDec + 9.86*(cosDec-1.) + -0.46*sinHA + -10.21*(cosHA-1.)
+        tiltX =  -1*(29.03*sinDec + 9.86*(cosDec-1.) + -0.46*sinHA + -10.21*(cosHA-1.))
         tiltY = -13.56*sinDec + -4.28*(cosDec-1) + 4.84*sinHA + -1.09*(cosHA-1.)
 
         flexTerms = self.baseOrientation - numpy.asarray([tiltX, tiltY, transX, transY])
