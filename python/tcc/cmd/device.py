@@ -35,9 +35,9 @@ def device(tccActor, userCmd):
     # so if this is status and both those devs are present
     # remove the meas scale
     if cmdVerb == "status" and "measscale" in devNameList and "scale" in devNameList:
-        print("removing measscale from devNameList")
+        # print("removing measscale from devNameList")
         devNameList = list(set(devNameList) - set(["measscale"]))
-        print("devNameList", devNameList)
+        # print("devNameList", devNameList)
 
     # was a time limit specified?
     if userCmd.parsedCmd.qualDict['timelimit'].boolValue:

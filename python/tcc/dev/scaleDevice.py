@@ -418,7 +418,7 @@ class ScaleDevice(TCPDevice):
             if encPos is None:
                 encPosStr.append("?")
             else:
-                encPos += self.scaleZeroPos
+                # encPos += self.scaleZeroPos
                 encPosStr.append("%.3f"%encPos)
         return ", ".join(encPosStr[:3])
 
@@ -554,7 +554,7 @@ class ScaleDevice(TCPDevice):
             "CartLoaded": cartLocked,
             "apogeeGang": self.gangVal(),
             "ThreadRingState": self.getStateVal(),
-            "ScaleEncPos": "%s"%self.encPosStr,
+            "MitutoyoRawPos": "%s"%self.encPosStr,
             "ScaleEncHomed": "%s"%self.encHomedStr,
         }
 
