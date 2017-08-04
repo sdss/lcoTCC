@@ -760,6 +760,8 @@ class ScaleDevice(TCPDevice):
         userCmd=expandCommand(userCmd)
         if self.waitMoveCmd.isActive:
             self.waitMoveCmd.setState(self.waitMoveCmd.Cancelled, "Scaling ring move cancelled by stop command.")
+        # write out threadring state!
+        self.writeState(userCmd)
         devCmds = [DevCmd(cmdStr=cmdStr) for cmdStr in ["stop", "status"]]
         devCmds[-1].addCallback(self._statusCallback)
         userCmd.linkCommands(devCmds)
