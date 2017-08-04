@@ -704,7 +704,8 @@ class ScaleDevice(TCPDevice):
         if moveCmd.isActive:
             self.status.setThreadAxisCurrent() # should already be there but whatever
             # set state to moving, compute time, etc
-            time4move = abs(self.targetPos-self.status.position)/float(self.status.speed)
+            time4move = abs(self.targetPos-self.encPos)/float(self.status.speed)
+            # time4move = abs(self.targetPos-self.status.position)/float(self.status.speed)
             # update command timeout
             moveCmd.setTimeLimit(time4move+2)
             self.status.setState(self.status.Moving, self.iter, time4move)
