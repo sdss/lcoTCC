@@ -84,7 +84,7 @@ class MeasScaleDevice(TCPDevice):
     def getStatus(self, userCmd=None, timeLim=2):
         """!Read all enc positions 1-6 channels, 3 physical gauges.
         """
-        print("getStatus measScaleDev")
+        # print("getStatus measScaleDev")
         # first flush the current status to ensure we don't
         # have stale values
         # print("reading migs!")
@@ -135,7 +135,7 @@ class MeasScaleDevice(TCPDevice):
         @param[in] replyStr   the reply, minus any terminating \n
         """
         log.info("%s.handleReply(replyStr=%s)" % (self, replyStr))
-        print("%s.handleReply(replyStr=%s)" % (self, replyStr))
+        # print("%s.handleReply(replyStr=%s)" % (self, replyStr))
         replyStr = replyStr.strip()
         if not replyStr:
             return
@@ -183,7 +183,7 @@ class MeasScaleDevice(TCPDevice):
         """
         devCmdStr = devCmd.cmdStr
         log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
-        print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
+        # print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd.cmdVerb = devCmdStr
@@ -200,7 +200,7 @@ class MeasScaleDevice(TCPDevice):
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmd.cmdStr))
-                print("meas scale writing", devCmd.cmdStr)
+                # print("meas scale writing", devCmd.cmdStr)
                 devCmd.setState(devCmd.Running)
                 self.conn.writeLine(devCmd.cmdStr)
             else:

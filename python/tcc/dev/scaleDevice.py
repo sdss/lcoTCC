@@ -97,7 +97,9 @@ class Status(object):
     @property
     def moveRange(self):
         # in mm
-        return self.dict["thread_ring_axis"]["move_range"]
+        # hardcode move range
+        return (0.0, 40.0)
+        # return self.dict["thread_ring_axis"]["move_range"]
 
     @property
     def speed(self):
