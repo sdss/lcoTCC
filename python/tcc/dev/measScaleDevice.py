@@ -156,7 +156,7 @@ class MeasScaleDevice(TCPDevice):
             return
 
         if "error" in replyStr.lower():
-            self.encPos = [None]*6
+            self.encPos = [None]*3
 
             if "error 15" in replyStr.lower():
                 self.currExeDevCmd.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing threadring necessary.")
@@ -171,7 +171,7 @@ class MeasScaleDevice(TCPDevice):
             # check that the expected prefix is seen
             # if not we are not in the 'current value state probably'
             if not replyStr.startswith(ENCVAL_PREFIX):
-                self.encPos = [None]*6
+                self.encPos = [None]*3
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Mitutoyo gauges not in expected read state.  Homing thread necessary.")
             else:
                 self.setEncValue(replyStr)
