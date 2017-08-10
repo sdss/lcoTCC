@@ -78,8 +78,13 @@ class Status(object):
         return "%s"%galil
 
     def ffPowerStr(self):
-        lamps = "?" if self.lamps is None else "%s"%self.lamps
-        return "%s"%lamps
+        if self.lamps is None:
+            val = "?"
+        elif self.lamps.lower() == "on":
+            val = "T"
+        else:
+            val = "F"
+        return "%s"%val
 
     def _getOrientStr(self, orientation):
         orientStrs = []
