@@ -72,6 +72,7 @@ class Status(object):
     Done = "Done"
     Homing = "Homing"
     NotHomed = "NotHomed"
+    Failed = "Failed"
     def __init__(self):
         self.flushStatus() # sets self.dict and a few other attrs
         self._state = self.Done
@@ -88,7 +89,7 @@ class Status(object):
         @param[in] state: one of self.Moving or self.Done
         @param[in] totalTime: total time for this state, 0 for indefinite
         """
-        assert state in [self.Moving, self.Done, self.Homing, self.NotHomed]
+        assert state in [self.Failed, self.Moving, self.Done, self.Homing, self.NotHomed]
         self.currIter = currIter
         self._state = state
         self._totalTime = totalTime
@@ -692,6 +693,12 @@ class ScaleDevice(TCPDevice):
         print("moving threadring to: ", self.targetPos)
         if self.tccStatus is not None:
             self.tccStatus.updateKW("DesThreadRingPos", self.targetPos, userCmd)
+
+        def waitMoveCB(aCmd):
+           if aCmd.didFail:
+              self.status.setState(self.status.Failed, 0)
+              self.writeState(userCmd)
+
         def startMove(aCmd):
             if aCmd.didFail:
                 userCmd.setState(userCmd.Failed("Failed to read Mitutoyos before move"))
@@ -705,6 +712,7 @@ class ScaleDevice(TCPDevice):
                     userCmd.setState(userCmd.Failed, "NaN value computed for move")
                     return
                 self.waitMoveCmd = expandCommand()
+                self.waitMoveCmd.addCallback(waitMoveCB)
                 self.waitMoveCmd.setState(self.waitMoveCmd.Running)
                 moveDevCmd = DevCmd(cmdStr=moveCmdStr)
                 self.queueDevCmd(moveDevCmd)
