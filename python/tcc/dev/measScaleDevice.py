@@ -33,7 +33,8 @@ class MeasScaleDevice(TCPDevice):
         # if I could preset the mitutoyo's this would be unnecessary
         # the preset command "CP**" doesn't seem to work.
         self.tccStatus = None # set by tccLCOActor
-        self.encPos = [None]*6
+        self.encPos = [None]*3
+        self.readGauge = {0: False, 1:False, 2:False}
         self.devCmdQueue = CommandQueue({})
 
         TCPDevice.__init__(self,
@@ -69,6 +70,9 @@ class MeasScaleDevice(TCPDevice):
     def currDevCmdStr(self):
         return self.currExeDevCmd.cmdStr
 
+    def readComplete(self):
+        return not (False in self.readGauge.values())
+
 
     def init(self, userCmd=None, timeLim=3, getStatus=True):
         """Called automatically on startup after the connection is established.
@@ -90,6 +94,9 @@ class MeasScaleDevice(TCPDevice):
         # print("reading migs!")
         userCmd = expandCommand(userCmd)
         statusDevCmd = DevCmd(cmdStr=READ_ENC)
+        self.readGauge[0] = False
+        self.readGauge[1] = False
+        self.readGauge[2] = False
         # statusDevCmd.addCallback(self._statusCallback)
         statusDevCmd.setTimeLimit(timeLim)
         userCmd.linkCommands([statusDevCmd])
@@ -127,6 +134,10 @@ class MeasScaleDevice(TCPDevice):
         else:
             gaugeVal = float(gaugeVal)
         gaugeInd = int(gaugeStr.strip("GN0")) - 1
+        # 6 values are reported 1==4, 2==5, 3==6
+        # so take the modulo
+        gaugeInd = gaugeInd % 6
+        self.readGauge[gaugeInd] = True
         self.encPos[gaugeInd] = gaugeVal
 
     def handleReply(self, replyStr):
@@ -144,7 +155,7 @@ class MeasScaleDevice(TCPDevice):
             log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
 
-	if "error" in replyStr.lower():
+        if "error" in replyStr.lower():
             self.encPos = [None]*6
 
             if "error 15" in replyStr.lower():
@@ -164,8 +175,8 @@ class MeasScaleDevice(TCPDevice):
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Mitutoyo gauges not in expected read state.  Homing thread necessary.")
             else:
                 self.setEncValue(replyStr)
-                # was this the 6th value read? if so we are done
-                if replyStr.startswith(ENCVAL_PREFIX+"%i"%6):
+                # check if we've seen all 3 readings
+                if self.readComplete():
                     self.currExeDevCmd.setState(self.currExeDevCmd.Done)
         if self.currExeDevCmd.cmdStr in [COUNTING_STATE, ZERO_SET, DISPLAY_CURR]:
             if replyStr == SUCESS:

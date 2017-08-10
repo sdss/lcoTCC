@@ -357,7 +357,7 @@ class M2Device(TCPDevice):
         galilOverHead = 2 # galil take roughly 2 secs to boot up.
         extraOverHead = 2 #
         timeout = self.status._moveTimeTotal+galilOverHead+extraOverHead
-        userCmd.setTimeLimit(timeout*2) # double the time out time
+        userCmd.setTimeLimit(timeout*3) # triple the time out time
         userCmd.linkCommands([moveCmd, statusCmd, self.waitMoveCmd])
         for cmd in [moveCmd, statusCmd]:
             self.queueDevCmd(cmd)

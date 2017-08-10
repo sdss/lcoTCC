@@ -414,13 +414,13 @@ class ScaleDevice(TCPDevice):
     @property
     def encPosStr(self):
         encPosStr = []
-        for encPos in self.measScaleDev.encPos[:3]:
+        for encPos in self.measScaleDev.encPos:
             if encPos is None:
                 encPosStr.append("?")
             else:
                 # encPos += self.scaleZeroPos
                 encPosStr.append("%.3f"%encPos)
-        return ", ".join(encPosStr[:3])
+        return ", ".join(encPosStr)
 
     @property
     def currDevCmdStr(self):
@@ -689,15 +689,30 @@ class ScaleDevice(TCPDevice):
             return userCmd
         self.iter = 1
         self.targetPos = position
-        self.waitMoveCmd = expandCommand()
-        self.waitMoveCmd.setState(self.waitMoveCmd.Running)
         print("moving threadring to: ", self.targetPos)
         if self.tccStatus is not None:
             self.tccStatus.updateKW("DesThreadRingPos", self.targetPos, userCmd)
-        moveDevCmd = DevCmd(cmdStr=self.getMoveCmdStr())
-        self.queueDevCmd(moveDevCmd)
-        moveDevCmd.addCallback(self._moveCallback)
-        userCmd.linkCommands([self.waitMoveCmd, moveDevCmd])
+        def startMove(aCmd):
+            if aCmd.didFail:
+                userCmd.setState(userCmd.Failed("Failed to read Mitutoyos before move"))
+            else:
+                # encoders read sucessfully
+                moveCmdStr = self.getMoveCmdStr()
+                if "nan" in moveCmdStr.lower():
+                    # saw this happen once, think it's handled now
+                    # but for paranoia's sake fail a command if you try to
+                    # send a nan position!
+                    userCmd.setState(userCmd.Failed, "NaN value computed for move")
+                    return
+                self.waitMoveCmd = expandCommand()
+                self.waitMoveCmd.setState(self.waitMoveCmd.Running)
+                moveDevCmd = DevCmd(cmdStr=moveCmdStr)
+                self.queueDevCmd(moveDevCmd)
+                moveDevCmd.addCallback(self._moveCallback)
+                userCmd.linkCommands([self.waitMoveCmd, moveDevCmd])
+        # force a enc read before moving (move is based of the encoder position)
+        readEncCmd = self.measScaleDev.getStatus()
+        readEncCmd.addCallback(startMove)
         return userCmd
 
     def _moveCallback(self, moveCmd):
@@ -745,9 +760,17 @@ class ScaleDevice(TCPDevice):
                 self.waitMoveCmd.setState(self.waitMoveCmd.Done)
             else:
                 # command another move iteration
+                # encoders read sucessfully
+                moveCmdStr = self.getMoveCmdStr()
+                if "nan" in moveCmdStr.lower():
+                    # saw this happen once, think it's handled now
+                    # but for paranoia's sake fail a command if you try to
+                    # send a nan position!
+                    self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "NaN value computed for move iteration")
+                    return
                 self.iter += 1
                 self.waitMoveCmd.writeToUsers("i", "text='Begining scaling ring move iteration %i'"%self.iter)
-                moveDevCmd = DevCmd(cmdStr=self.getMoveCmdStr())
+                moveDevCmd = DevCmd(cmdStr=moveCmdStr)
                 self.queueDevCmd(moveDevCmd)
                 moveDevCmd.addCallback(self._moveCallback)
 
