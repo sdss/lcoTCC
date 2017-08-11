@@ -137,7 +137,6 @@ class MeasScaleDevice(TCPDevice):
         # 6 values are reported 1==4, 2==5, 3==6
         # so take the modulo
         gaugeInd = gaugeInd % 3
-        print("gaugeIND", gaugeInd)
         self.readGauge[gaugeInd] = True
         self.encPos[gaugeInd] = gaugeVal
 
@@ -147,12 +146,13 @@ class MeasScaleDevice(TCPDevice):
         @param[in] replyStr   the reply, minus any terminating \n
         """
         log.info("%s.handleReply(replyStr=%s)" % (self, replyStr))
-        # print("%s.handleReply(replyStr=%s)" % (self, replyStr))
+        print("%s.handleReply(replyStr=%s)" % (self, replyStr))
         replyStr = replyStr.strip()
         if not replyStr:
             return
         if self.currExeDevCmd.isDone:
             # ignore unsolicited output?
+            print("unsolicited!")
             log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
 
@@ -172,6 +172,7 @@ class MeasScaleDevice(TCPDevice):
             # check that the expected prefix is seen
             # if not we are not in the 'current value state probably'
             if not replyStr.startswith(ENCVAL_PREFIX):
+                print("BAD PREFIX", replyStr)
                 self.encPos = [None]*3
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Mitutoyo gauges not in expected read state.  Homing thread necessary.")
             else:
