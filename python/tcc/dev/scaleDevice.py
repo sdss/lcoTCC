@@ -740,7 +740,7 @@ class ScaleDevice(TCPDevice):
         commanded move
         """
         if readEncCmd.didFail:
-            self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "Failed to read encoders after scaling ring move.")
+            self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "Failed to read encoders after scaling ring move. %s"%readEncCmd.textMsg)
         elif readEncCmd.isDone:
             atMaxIter = self.iter > self.status.maxIter
             withinTol = numpy.abs(self.targetPos - self.encPos) < self.status.moveTol
