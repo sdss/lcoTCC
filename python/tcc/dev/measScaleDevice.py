@@ -1,5 +1,7 @@
 from __future__ import division, absolute_import
 
+import re
+
 import numpy
 
 from twistedActor import TCPDevice, log, DevCmd, CommandQueue, expandCommand
@@ -13,7 +15,9 @@ COUNTING_STATE = "CS00"
 DISPLAY_CURR = "CN00" # all axes to display current value (not max, etc)
 ZERO_SET = "CR00"
 SUCESS = "CH00"
-ENCVAL_PREFIX = "GN0"
+# ENCVAL_PREFIX = "GN"
+
+gaugeRE = re.compile("GN0(?P<gauge>[1-6]),(?P<value>[+-]?([0-9]*[.])?[0-9]+)")
 
 class MeasScaleDevice(TCPDevice):
     """!A Device for communicating with the LCO Scaling ring."""
@@ -125,21 +129,6 @@ class MeasScaleDevice(TCPDevice):
         self.queueDevCmd(zeroDevCmd)
         return userCmd
 
-    def setEncValue(self, serialStr):
-        """Figure out which gauge this line corresponds to and set the value
-        """
-        gaugeStr, gaugeVal = serialStr.split(",")
-        if "error" in gaugeVal.lower():
-            gaugeVal = None
-        else:
-            gaugeVal = float(gaugeVal)
-        gaugeInd = int(gaugeStr.strip("GN0")) - 1
-        # 6 values are reported 1==4, 2==5, 3==6
-        # so take the modulo
-        gaugeInd = gaugeInd % 3
-        self.readGauge[gaugeInd] = True
-        self.encPos[gaugeInd] = gaugeVal
-
     def handleReply(self, replyStr):
         """Handle a line of output from the device.
 
@@ -171,15 +160,22 @@ class MeasScaleDevice(TCPDevice):
         if self.currExeDevCmd.cmdStr == READ_ENC:
             # check that the expected prefix is seen
             # if not we are not in the 'current value state probably'
-            if not replyStr.startswith(ENCVAL_PREFIX):
-                print("BAD PREFIX", replyStr)
-                self.encPos = [None]*3
-                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Mitutoyo gauges not in expected read state.  Homing thread necessary.")
+            # try to match a gauge value
+            gaugeMatch = gaugeRE.search(replyStr)
+            if gaugeMatch is None:
+                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Failed to match mitutoyo output: %s. Are they in counting state? Homing may be necessary."%replyStr)
             else:
-                self.setEncValue(replyStr)
-                # check if we've seen all 3 readings
-                if self.readComplete():
-                    self.currExeDevCmd.setState(self.currExeDevCmd.Done)
+                # match was successful
+                gaugeNumber = int(gaugeMatch.group("gauge")) - 1 # zero index gauges
+                # 6 values are reported 1==4, 2==5, 3==6
+                # so take the modulo
+                gaugeNumber = gaugeNumber % 3
+                gaugeValue = float(gaugeMatch.group("value"))
+                self.readGauge[gaugeNumber] = True # towards completing the command
+                self.encPos[gaugeNumber] = gaugeValue
+            if self.readComplete():
+                self.currExeDevCmd.setState(self.currExeDevCmd.Done)
+
         if self.currExeDevCmd.cmdStr in [COUNTING_STATE, ZERO_SET, DISPLAY_CURR]:
             if replyStr == SUCESS:
                 # successful set into counting state
