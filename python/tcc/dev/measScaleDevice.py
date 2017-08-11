@@ -136,7 +136,8 @@ class MeasScaleDevice(TCPDevice):
         gaugeInd = int(gaugeStr.strip("GN0")) - 1
         # 6 values are reported 1==4, 2==5, 3==6
         # so take the modulo
-        gaugeInd = gaugeInd % 6
+        gaugeInd = gaugeInd % 3
+        print("gaugeIND", gaugeInd)
         self.readGauge[gaugeInd] = True
         self.encPos[gaugeInd] = gaugeVal
 
