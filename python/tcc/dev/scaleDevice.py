@@ -672,7 +672,7 @@ class ScaleDevice(TCPDevice):
     def move(self, position, userCmd=None):
         """!Move to a position
 
-        @param[in] postion: a float, position to move to (mm)
+        @param[in] postion: a float, position to move (the encoder!) to (mm)
         @param[in] userCmd: a twistedActor BaseCommand
         """
         log.info("%s.move(postion=%.6f, userCmd=%s)" % (self, position, userCmd))
@@ -688,9 +688,8 @@ class ScaleDevice(TCPDevice):
         if not minPos<=position<=maxPos:
             userCmd.setState(userCmd.Failed, "Move %.6f not in range [%.4f, %.4f]"%(position, minPos, maxPos))
             return userCmd
-        self.iter = 1
+        self.iter = 0
         self.targetPos = position
-        print("moving threadring to: ", self.targetPos)
         if self.tccStatus is not None:
             self.tccStatus.updateKW("DesThreadRingPos", self.targetPos, userCmd)
 
@@ -699,28 +698,15 @@ class ScaleDevice(TCPDevice):
               self.status.setState(self.status.Failed, 0)
               self.writeState(userCmd)
 
-        def startMove(aCmd):
-            if aCmd.didFail:
-                userCmd.setState(userCmd.Failed("Failed to read Mitutoyos before move"))
-            else:
-                # encoders read sucessfully
-                moveCmdStr = self.getMoveCmdStr()
-                if "nan" in moveCmdStr.lower():
-                    # saw this happen once, think it's handled now
-                    # but for paranoia's sake fail a command if you try to
-                    # send a nan position!
-                    userCmd.setState(userCmd.Failed, "NaN value computed for move")
-                    return
-                self.waitMoveCmd = expandCommand()
-                self.waitMoveCmd.addCallback(waitMoveCB)
-                self.waitMoveCmd.setState(self.waitMoveCmd.Running)
-                moveDevCmd = DevCmd(cmdStr=moveCmdStr)
-                self.queueDevCmd(moveDevCmd)
-                moveDevCmd.addCallback(self._moveCallback)
-                userCmd.linkCommands([self.waitMoveCmd, moveDevCmd])
+
+        self.waitMoveCmd = expandCommand()
+        self.waitMoveCmd.addCallback(waitMoveCB)
+        self.waitMoveCmd.setState(self.waitMoveCmd.Running)
+
+        userCmd.linkCommands([self.waitMoveCmd])
         # force a enc read before moving (move is based of the encoder position)
         readEncCmd = self.measScaleDev.getStatus()
-        readEncCmd.addCallback(startMove)
+        readEncCmd.addCallback(self._moveIter)
         return userCmd
 
     def _moveCallback(self, moveCmd):
