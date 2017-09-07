@@ -209,7 +209,7 @@ class MeasScaleDevice(TCPDevice):
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmd.cmdStr))
-                # print("meas scale writing", devCmd.cmdStr)
+                print("meas scale writing", devCmd.cmdStr)
                 devCmd.setState(devCmd.Running)
                 self.conn.writeLine(devCmd.cmdStr)
             else:

@@ -125,6 +125,9 @@ class Status(object):
         id3 = self.dict["id_sw"][6:]
         # determine the integer value (from 3 binary bits) for the set of 3 in theory they should all match
         intVals = []
+        if None in id1+id2+id3:
+            cartID = -1
+            return cartID
         for switchSet in [id1, id2, id3]:
             intVal = int("%i%i%i"%tuple(switchSet), 2)
             intVals.append(intVal)
@@ -637,7 +640,7 @@ class ScaleDevice(TCPDevice):
 
         def getStatus(_zeroEncCmd):
             if _zeroEncCmd.didFail:
-                self.status.setState(self.statusDone, 0)
+                self.status.setState(self.status.Done, 0)
                 self.writeState(userCmd)
                 userCmd.setState(userCmd.Failed, "Encoder zero failed.")
             elif _zeroEncCmd.isDone:
@@ -646,7 +649,7 @@ class ScaleDevice(TCPDevice):
 
         def zeroEncoders(_homeCmd):
             if _homeCmd.didFail:
-                self.status.setState(self.statusDone, 0)
+                self.status.setState(self.status.Done, 0)
                 self.writeState(userCmd)
                 userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
             elif _homeCmd.isDone:
@@ -659,7 +662,7 @@ class ScaleDevice(TCPDevice):
 
         def homeThreadRing(_setCountCmd):
             if _setCountCmd.didFail:
-                self.status.setState(self.statusDone, 0)
+                self.status.setState(self.status.Done, 0)
                 self.writeState(userCmd)
                 userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
             elif _setCountCmd.isDone:
@@ -793,6 +796,7 @@ class ScaleDevice(TCPDevice):
 
         @param[in] replyStr   the reply, minus any terminating \n
         """
+        print("scaling ring reply: %s"%replyStr)
         log.info("%s.handleReply(replyStr=%s)" % (self, replyStr))
         replyStr = replyStr.strip().lower()
         # print(replyStr, self.currExeDevCmd.cmdStr)
@@ -873,6 +877,7 @@ class ScaleDevice(TCPDevice):
         log.info("%s.startDevCmd(%r)" % (self, devCmdStr))
         try:
             if self.conn.isConnected:
+                print("writing to scaling ring: %s"%devCmdStr)
                 log.info("%s writing %r" % (self, devCmdStr))
                 self.conn.writeLine(devCmdStr)
             else:
