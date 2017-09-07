@@ -37,8 +37,8 @@ class MeasScaleDevice(TCPDevice):
         # if I could preset the mitutoyo's this would be unnecessary
         # the preset command "CP**" doesn't seem to work.
         self.tccStatus = None # set by tccLCOActor
-        self.encPos = [None]*3
-        self.readGauge = {0: False, 1:False, 2:False}
+        self.encPos = [None]*6
+        self.readGauge = {0: False, 1:False, 2:False, 3:False, 4:False, 5:False}
         self.devCmdQueue = CommandQueue({})
 
         TCPDevice.__init__(self,
@@ -101,6 +101,9 @@ class MeasScaleDevice(TCPDevice):
         self.readGauge[0] = False
         self.readGauge[1] = False
         self.readGauge[2] = False
+        self.readGauge[3] = False
+        self.readGauge[4] = False
+        self.readGauge[5] = False
         # statusDevCmd.addCallback(self._statusCallback)
         statusDevCmd.setTimeLimit(timeLim)
         userCmd.linkCommands([statusDevCmd])
@@ -146,7 +149,7 @@ class MeasScaleDevice(TCPDevice):
             return
 
         if "error" in replyStr.lower():
-            self.encPos = [None]*3
+            self.encPos = [None]*6
 
             if "error 15" in replyStr.lower():
                 self.currExeDevCmd.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing threadring necessary.")
@@ -169,7 +172,6 @@ class MeasScaleDevice(TCPDevice):
                 gaugeNumber = int(gaugeMatch.group("gauge")) - 1 # zero index gauges
                 # 6 values are reported 1==4, 2==5, 3==6
                 # so take the modulo
-                gaugeNumber = gaugeNumber % 3
                 gaugeValue = float(gaugeMatch.group("value"))
                 self.readGauge[gaugeNumber] = True # towards completing the command
                 self.encPos[gaugeNumber] = gaugeValue
