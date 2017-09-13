@@ -10,7 +10,7 @@ from RO.StringUtil import strFromException
 
 __all__ = ["MeasScaleDevice"]
 
-READ_PREFIX = "GA0"
+READ_PREFIX = "GN0"
 READ_ENC1 = "GA01"
 READ_ENC2 = "GA02"
 READ_ENC3 = "GA03"
