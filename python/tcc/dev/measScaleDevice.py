@@ -10,11 +10,14 @@ from RO.StringUtil import strFromException
 
 __all__ = ["MeasScaleDevice"]
 
-READ_ENC = "GA00"
+READ_PREFIX = "GA0"
+READ_ENC1 = "GA01"
+READ_ENC2 = "GA02"
+READ_ENC3 = "GA03"
 COUNTING_STATE = "CS00"
 DISPLAY_CURR = "CN00" # all axes to display current value (not max, etc)
 ZERO_SET = "CR00"
-SUCESS = "CH00"
+SUCCESS = "CH00"
 # ENCVAL_PREFIX = "GN"
 
 gaugeRE = re.compile("GN0(?P<gauge>[1-6]),(?P<value>[+-]?([0-9]*[.])?[0-9]+)")
@@ -37,8 +40,7 @@ class MeasScaleDevice(TCPDevice):
         # if I could preset the mitutoyo's this would be unnecessary
         # the preset command "CP**" doesn't seem to work.
         self.tccStatus = None # set by tccLCOActor
-        self.encPos = [None]*6
-        self.readGauge = {0: False, 1:False, 2:False, 3:False, 4:False, 5:False}
+        self.encPos = [None]*3
         self.devCmdQueue = CommandQueue({})
 
         TCPDevice.__init__(self,
@@ -74,9 +76,6 @@ class MeasScaleDevice(TCPDevice):
     def currDevCmdStr(self):
         return self.currExeDevCmd.cmdStr
 
-    def readComplete(self):
-        return not (False in self.readGauge.values())
-
 
     def init(self, userCmd=None, timeLim=3, getStatus=True):
         """Called automatically on startup after the connection is established.
@@ -97,17 +96,15 @@ class MeasScaleDevice(TCPDevice):
         # have stale values
         # print("reading migs!")
         userCmd = expandCommand(userCmd)
-        statusDevCmd = DevCmd(cmdStr=READ_ENC)
-        self.readGauge[0] = False
-        self.readGauge[1] = False
-        self.readGauge[2] = False
-        self.readGauge[3] = False
-        self.readGauge[4] = False
-        self.readGauge[5] = False
+        readGauge1 = DevCmd(cmdStr=READ_ENC1)
+        readGauge2 = DevCmd(cmdStr=READ_ENC2)
+        readGauge3 = DevCmd(cmdStr=READ_ENC3)
+        readDevCmds = [readGauge1, readGauge2, readGauge3]
         # statusDevCmd.addCallback(self._statusCallback)
-        statusDevCmd.setTimeLimit(timeLim)
-        userCmd.linkCommands([statusDevCmd])
-        self.queueDevCmd(statusDevCmd)
+        userCmd.linkCommands(readDevCmds)
+        for devCmd in readDevCmds:
+            devCmd.setTimeLimit(timeLim)
+            self.queueDevCmd(devCmd)
         return userCmd
 
     def setCountState(self, userCmd=None, timeLim=1):
@@ -148,8 +145,19 @@ class MeasScaleDevice(TCPDevice):
             log.info("%s usolicited reply: %s for done command %s" % (self, replyStr, str(self.currExeDevCmd)))
             return
 
+        if self.currExeDevCmd.cmdStr in [COUNTING_STATE, ZERO_SET, DISPLAY_CURR]:
+            if SUCCESS in replyStr:
+                # successful set into counting state
+                # check for CHOO in the line (saw one instance of it getting appended)
+                # to a previous output to a GAOO command which contained an error 15
+                # so mark any of these commands as done if CHOO is in the line,
+                # regardless of if there is an error in it
+                # any error without
+                self.currExeDevCmd.setState(self.currExeDevCmd.Done)
+                return
+
         if "error" in replyStr.lower():
-            self.encPos = [None]*6
+            self.encPos = [None]*3
 
             if "error 15" in replyStr.lower():
                 self.currExeDevCmd.writeToUsers("w", "Mitutoyo Error 15, not in counting state (was it power cycled?). Homing threadring necessary.")
@@ -158,9 +166,9 @@ class MeasScaleDevice(TCPDevice):
                 self.currExeDevCmd.writeToUsers("w", "Mitutoyo EV counter Error output: " + replyStr)
             if not self.currExeDevCmd.isDone:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Error from Mitutoyos, homing threadring probably necessary.")
-                return
+            return
 
-        if self.currExeDevCmd.cmdStr == READ_ENC:
+        if self.currExeDevCmd.cmdStr.startswith(READ_PREFIX):
             # check that the expected prefix is seen
             # if not we are not in the 'current value state probably'
             # try to match a gauge value
@@ -170,18 +178,8 @@ class MeasScaleDevice(TCPDevice):
             else:
                 # match was successful
                 gaugeNumber = int(gaugeMatch.group("gauge")) - 1 # zero index gauges
-                # 6 values are reported 1==4, 2==5, 3==6
-                # so take the modulo
                 gaugeValue = float(gaugeMatch.group("value"))
-                self.readGauge[gaugeNumber] = True # towards completing the command
                 self.encPos[gaugeNumber] = gaugeValue
-            if self.readComplete():
-                self.currExeDevCmd.setState(self.currExeDevCmd.Done)
-
-        if self.currExeDevCmd.cmdStr in [COUNTING_STATE, ZERO_SET, DISPLAY_CURR]:
-            if replyStr == SUCESS:
-                # successful set into counting state
-                self.currExeDevCmd.setState(self.currExeDevCmd.Done)
 
 
     def queueDevCmd(self, devCmd):
