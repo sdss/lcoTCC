@@ -10,7 +10,7 @@ from RO.StringUtil import strFromException
 
 __all__ = ["MeasScaleDevice"]
 
-READ_PREFIX = "GN0"
+READ_PREFIX = "GA0"
 READ_ENC1 = "GA01"
 READ_ENC2 = "GA02"
 READ_ENC3 = "GA03"
@@ -174,13 +174,14 @@ class MeasScaleDevice(TCPDevice):
             # try to match a gauge value
             gaugeMatch = gaugeRE.search(replyStr)
             if gaugeMatch is None:
+                print("gauge match failed")
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Failed to match mitutoyo output: %s. Are they in counting state? Homing may be necessary."%replyStr)
             else:
                 # match was successful
                 gaugeNumber = int(gaugeMatch.group("gauge")) - 1 # zero index gauges
                 gaugeValue = float(gaugeMatch.group("value"))
                 self.encPos[gaugeNumber] = gaugeValue
-
+                self.currExeDevCmd.setState(self.currExeDevCmd.Done)
 
     def queueDevCmd(self, devCmd):
         """Add a device command to the device command queue
@@ -192,7 +193,7 @@ class MeasScaleDevice(TCPDevice):
         """
         devCmdStr = devCmd.cmdStr
         log.info("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
-        # print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
+        print("%s.queueDevCmd(devCmdStr=%r, cmdQueue: %r"%(self, devCmdStr, self.devCmdQueue))
         # append a cmdVerb for the command queue (otherwise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd.cmdVerb = devCmdStr

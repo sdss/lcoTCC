@@ -801,7 +801,7 @@ class ScaleDevice(TCPDevice):
 
         @param[in] replyStr   the reply, minus any terminating \n
         """
-        print("scaling ring reply: %s"%replyStr)
+        #print("scaling ring reply: %s"%replyStr)
         log.info("%s.handleReply(replyStr=%s)" % (self, replyStr))
         replyStr = replyStr.strip().lower()
         # print(replyStr, self.currExeDevCmd.cmdStr)
