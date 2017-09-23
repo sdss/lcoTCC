@@ -63,6 +63,7 @@ class MeasScaleDevice(TCPDevice):
 
     @property
     def isHomed(self):
+        print("scaleIs homed, ", self.encPos)
         if None in self.encPos:
             return False
         else:
@@ -172,14 +173,21 @@ class MeasScaleDevice(TCPDevice):
             # check that the expected prefix is seen
             # if not we are not in the 'current value state probably'
             # try to match a gauge value
+            gaugeNumQueried = int(self.currExeDevCmd.cmdStr[-1]) - 1
             gaugeMatch = gaugeRE.search(replyStr)
             if gaugeMatch is None:
                 print("gauge match failed")
-                self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Failed to match mitutoyo output: %s. Are they in counting state? Homing may be necessary."%replyStr)
+                self.encPos[gaugeNumQueried] = None
+                self.currExeDevCmd.writeToUsers("w",  "Failed to match mitutoyo output: %s. Are they in counting state? Homing may be necessary."%replyStr)
+                self.currExeDevCmd.setState(self.currExeDevCmd.Done, "Failed to match mitutoyo output: %s. Are they in counting state? Homing may be necessary."%replyStr)
             else:
                 # match was successful
+                # make sure we got the right number response
                 gaugeNumber = int(gaugeMatch.group("gauge")) - 1 # zero index gauges
                 gaugeValue = float(gaugeMatch.group("value"))
+                if gaugeNumber != gaugeNumQueried:
+                    gaugeValue=None
+                    self.currExeDevCmd.writeToUsers("w", "Missmatch between mitutoyo gauge queried and gauge number received, something may be out of sync, try ressiuing status.")
                 self.encPos[gaugeNumber] = gaugeValue
                 self.currExeDevCmd.setState(self.currExeDevCmd.Done)
 

@@ -499,6 +499,9 @@ class ScaleDevice(TCPDevice):
         timeElapsed = time.time() - self.status._timeStamp
         # cannot have negative time remaining
         timeRemaining = max(0, self.status._totalTime - timeElapsed)
+        # explicitly check for isHomed and set accordingly
+        if not self.isHomed:
+            self.status.setState(self.status.NotHomed, 0)
         return "%s, %i, %i, %.2f, %.2f"%(
             self.status._state, self.status.currIter, self.status.maxIter, timeRemaining, self.status._totalTime
             )
@@ -571,6 +574,7 @@ class ScaleDevice(TCPDevice):
             userCmd.writeToUsers("w", faultStr)
         if self.tccStatus is not None:
             self.tccStatus.updateKWs(self.statusDict(), userCmd)
+        self.writeState(userCmd)
         # output measScale KWs too
         # self.measScaleDev.writeStatusToUsers(userCmd)
 
