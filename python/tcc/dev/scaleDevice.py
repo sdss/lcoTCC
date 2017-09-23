@@ -671,12 +671,8 @@ class ScaleDevice(TCPDevice):
                 userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
             elif _setCountCmd.isDone:
 
-                # moveHome = DevCmd(cmdStr="home")
-                # self.queueDevCmd(moveHome)
-
-                # temporary hack, issue status instead of home
-                # to verify if all is working without moving the ring
-                moveHome = self.getStatus()
+                moveHome = DevCmd(cmdStr="home")
+                self.queueDevCmd(moveHome)
                 moveHome.addCallback(zeroEncoders)
 
         setCountCmd.addCallback(homeThreadRing)
