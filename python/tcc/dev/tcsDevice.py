@@ -40,7 +40,8 @@ DECSP=225000
 # IR Scale - encoder counts per degree
 IRSCALE = -0.00015263375
 # IR Offset - encoder counts, to match mechanical readout
-IROFFSET = 405.447
+# IROFFSET = 405.447
+IROFFSET = 408.653
 # IR motor steps per encoder count
 IRSCALE = -0.00015263375
 # IR acceleration (motor encoder counts / sec2)
