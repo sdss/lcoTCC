@@ -395,7 +395,9 @@ class ScaleDevice(TCPDevice):
     def encPos(self):
         """Average position of the 3 mitutoyo encoders
         """
-        return self.measScaleDev.position
+        # ditching mitutoyos
+        return self.status.position
+        #return self.measScaleDev.position
 
     @property
     def scaleZeroPos(self):
@@ -614,9 +616,12 @@ class ScaleDevice(TCPDevice):
         on the scaling ring so i need to determine the absolute position wanted
         based on the offset I measure...gah.
         """
-        offset = self.targetPos - self.encPos
-        absMovePos = self.status.position + offset
-        return "move %.6f"%(absMovePos)
+        # if first iter, intentionally move to +0.1mm from desired position
+        # so second iteration always approaches from the same direction
+        targetPos = self.targetPos
+        if self.iter == 0:
+            targetPos += 0.1
+        return "move %.6f"%(targetPos)
 
     def home(self, userCmd=None):
         log.info("%s.home(userCmd=%s)" % (self, userCmd))
