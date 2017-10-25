@@ -325,6 +325,7 @@ class Status(object):
 class ScaleDevice(TCPDevice):
     """!A Device for communicating with the LCO Scaling ring."""
     validCmdVerbs = ["move", "stop", "status", "speed", "home"]
+    SCALE_PER_MM = 8.45e-05 # more MM per scale
     def __init__(self, name, host, port, measScaleDev=None, nomSpeed=NOM_SPEED, callFunc=None):
         """!Construct a ScaleDevice
 
@@ -546,9 +547,13 @@ class ScaleDevice(TCPDevice):
         return "%i"%val
 
 
+    def mm2scale(self, mm):
+        return -1 * (mm - self.scaleZeroPos) * self.SCALE_PER_MM + 1.0
+
     def statusDict(self):
         desThreadRingPos = "%.4f"%self.targetPos if self.targetPos is not None else "NaN"
         threadRingPos = "%.4f"%self.encPos if self.encPos is not None else "NaN"
+        scaleFactor = "%.8f"%self.mm2scale(self.encPos) if self.encPos is not None else "NaN"
         cartLoaded = "T" if self.status.loaded else "F"
         cartLocked = "T" if self.status.locked else "F"
         return {
@@ -558,6 +563,7 @@ class ScaleDevice(TCPDevice):
             "ThreadRingMaxSpeed": "%.4f"%self.status.maxSpeed,
             "DesThreadRingPos": "%s"%desThreadRingPos,
             "ScaleZeroPos": "%.4f"%self.scaleZeroPos,
+            "ScaleFac": "%s"%scaleFactor,
             "instrumentNum": "%i"%self.status.cartID,
             "CartLocked": cartLoaded,
             "CartLoaded": cartLocked,
