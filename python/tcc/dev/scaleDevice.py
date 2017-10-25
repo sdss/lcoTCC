@@ -732,7 +732,10 @@ class ScaleDevice(TCPDevice):
         if moveCmd.isActive:
             self.status.setThreadAxisCurrent() # should already be there but whatever
             # set state to moving, compute time, etc
-            time4move = abs(self.targetPos-self.encPos)/float(self.status.speed)
+            targetPos = self.targetPos
+            if self.iter == 1:
+                targetPos += 0.1
+            time4move = abs(targetPos-self.encPos)/float(self.status.speed)
             # time4move = abs(self.targetPos-self.status.position)/float(self.status.speed)
             # update command timeout
             moveCmd.setTimeLimit(time4move+2)
@@ -857,8 +860,8 @@ class ScaleDevice(TCPDevice):
                 print("Exception parsing line in scaling ring (this is ok the code will try again if it's and important piece of status:")
                 print(traceback.print_exc(file=sys.stdout))
                 log.error(errMsg)
-        elif "move" in self.currExeDevCmd.cmdStr.lower():   
-            print("move reply", replyStr) 
+        elif "move" in self.currExeDevCmd.cmdStr.lower():
+            print("move reply", replyStr)
             if "actual_position" in replyStr:
                 print("actuatl pos in reply", replyStr)
                 junk, val = replyStr.split("actual_position")
