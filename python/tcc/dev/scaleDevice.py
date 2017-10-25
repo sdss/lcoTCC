@@ -857,7 +857,7 @@ class ScaleDevice(TCPDevice):
                 print("Exception parsing line in scaling ring (this is ok the code will try again if it's and important piece of status:")
                 print(traceback.print_exc(file=sys.stdout))
                 log.error(errMsg)
-        elif "move" in self.currExeDevCmd.cmsStr.lower():
+        elif "move" in self.currExeDevCmd.cmdStr.lower():    
             if "actual_position" in replyStr:
                 junk, val = replyStr.split("actual_position")
                 self.status.position = float(val)
