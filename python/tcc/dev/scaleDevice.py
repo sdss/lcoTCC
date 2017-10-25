@@ -857,12 +857,16 @@ class ScaleDevice(TCPDevice):
                 print("Exception parsing line in scaling ring (this is ok the code will try again if it's and important piece of status:")
                 print(traceback.print_exc(file=sys.stdout))
                 log.error(errMsg)
-        elif "move" in self.currExeDevCmd.cmdStr.lower():    
+        elif "move" in self.currExeDevCmd.cmdStr.lower():   
+            print("move reply", replyStr) 
             if "actual_position" in replyStr:
+                print("actuatl pos in reply", replyStr)
                 junk, val = replyStr.split("actual_position")
-                self.status.position = float(val)
-                valueStr = "%.4f"%self.encPos if self.encPos is not None else "NaN"
-                self.tccStatus.updateKW("ThreadRingEncPos", valueStr, self.waitMoveCmd)
+                try:
+                    val = float(val)
+                    self.status.dict["thread_ring_axis"]["actual_position"] = val
+                except:
+                   pass
 
 
     def queueDevCmd(self, devCmd):
