@@ -725,7 +725,8 @@ class ScaleDevice(TCPDevice):
         userCmd.linkCommands([self.waitMoveCmd])
         # force a enc read before moving (move is based of the encoder position)
         readEncCmd = self.measScaleDev.getStatus()
-        readEncCmd.addCallback(self._moveIter)
+        # readEncCmd.addCallback(self._moveIter)
+        self._moveIter()
         return userCmd
 
     def _moveCallback(self, moveCmd):
@@ -746,7 +747,7 @@ class ScaleDevice(TCPDevice):
             moveStatusCmd = DevCmd(cmdStr="status")
             self.queueDevCmd(moveStatusCmd)
             moveStatusCmd.addCallback(self._statusCallback)
-            moveStatusCmd.addCallback(self._readEncs)
+            # moveStatusCmd.addCallback(self._readEncs)
 
     def _readEncs(self, moveStatusCmd):
         if moveStatusCmd.didFail:
@@ -757,38 +758,35 @@ class ScaleDevice(TCPDevice):
             readEncCmd = self.measScaleDev.getStatus()
             readEncCmd.addCallback(self._moveIter)
 
-    def _moveIter(self, readEncCmd):
+    def _moveIter(self):
         """Encoders have been read, decide to move again or finish the user
         commanded move
         """
-        if readEncCmd.didFail:
-            self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "Failed to read encoders after scaling ring move. %s"%readEncCmd.textMsg)
-        elif readEncCmd.isDone:
-            atMaxIter = self.iter > self.status.maxIter
-            withinTol = numpy.abs(self.targetPos - self.encPos) < self.status.moveTol
-            if atMaxIter:
-                self.waitMoveCmd.writeToUsers("i", "text='Max iter reached for scaling ring move.'")
-            if atMaxIter or withinTol:
-                # the move is done
-                self.iter = 0
-                self.status.setState(self.status.Done, self.iter)
-                self.writeState(self.waitMoveCmd)
-                self.waitMoveCmd.setState(self.waitMoveCmd.Done)
-            else:
-                # command another move iteration
-                # encoders read sucessfully
-                moveCmdStr = self.getMoveCmdStr()
-                if "nan" in moveCmdStr.lower():
-                    # saw this happen once, think it's handled now
-                    # but for paranoia's sake fail a command if you try to
-                    # send a nan position!
-                    self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "NaN value computed for move iteration")
-                    return
-                self.iter += 1
-                self.waitMoveCmd.writeToUsers("i", "text='Begining scaling ring move iteration %i'"%self.iter)
-                moveDevCmd = DevCmd(cmdStr=moveCmdStr)
-                self.queueDevCmd(moveDevCmd)
-                moveDevCmd.addCallback(self._moveCallback)
+        atMaxIter = self.iter > self.status.maxIter
+        withinTol = numpy.abs(self.targetPos - self.encPos) < self.status.moveTol
+        if atMaxIter:
+            self.waitMoveCmd.writeToUsers("i", "text='Max iter reached for scaling ring move.'")
+        if atMaxIter or withinTol:
+            # the move is done
+            self.iter = 0
+            self.status.setState(self.status.Done, self.iter)
+            self.writeState(self.waitMoveCmd)
+            self.waitMoveCmd.setState(self.waitMoveCmd.Done)
+        else:
+            # command another move iteration
+            # encoders read sucessfully
+            moveCmdStr = self.getMoveCmdStr()
+            if "nan" in moveCmdStr.lower():
+                # saw this happen once, think it's handled now
+                # but for paranoia's sake fail a command if you try to
+                # send a nan position!
+                self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "NaN value computed for move iteration")
+                return
+            self.iter += 1
+            self.waitMoveCmd.writeToUsers("i", "text='Begining scaling ring move iteration %i'"%self.iter)
+            moveDevCmd = DevCmd(cmdStr=moveCmdStr)
+            self.queueDevCmd(moveDevCmd)
+            moveDevCmd.addCallback(self._moveCallback)
 
 
     def stop(self, userCmd=None):
