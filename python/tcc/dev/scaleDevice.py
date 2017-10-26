@@ -719,6 +719,13 @@ class ScaleDevice(TCPDevice):
         secondMoveDevCmd = DevCmd(cmdStr=secondMoveCmdStr)
         secondMoveTime = 0.05/float(self.status.speed)
 
+        def getStatusAfterMove(_userCmd):
+            # always get status after the command finishes
+            print("getting status after move")
+            self.getStatus()
+
+        userCmd.addCallback(getStatusAfterMove)
+
         userCmd.linkCommands([firstMoveDevCmd, secondMoveDevCmd])
 
         def moveCmd1CB(moveCmd1):
