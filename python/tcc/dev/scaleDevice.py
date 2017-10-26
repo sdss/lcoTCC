@@ -345,8 +345,8 @@ class ScaleDevice(TCPDevice):
         # set done only when move has reached maxIter
         # or is within tolerance
         self.iter = 0
-        self.waitMoveCmd = expandCommand()
-        self.waitMoveCmd.setState(self.waitMoveCmd.Done)
+        #self.waitMoveCmd = expandCommand()
+        #self.waitMoveCmd.setState(self.waitMoveCmd.Done)
         self.nomSpeed = nomSpeed
         self.measScaleDev = measScaleDev
         self.status = Status()
@@ -435,7 +435,8 @@ class ScaleDevice(TCPDevice):
 
     @property
     def isMoving(self):
-        return self.waitMoveCmd.isActive
+        return self.currExeDevCmd.isActive and "move" in self.currExeDevCmd.cmdStr.lower()
+        #return self.waitMoveCmd.isActive
 
     def init(self, userCmd=None, timeLim=None, getStatus=False):
         """Called automatically on startup after the connection is established.
@@ -488,10 +489,10 @@ class ScaleDevice(TCPDevice):
     def _statusCallback(self, statusCmd):
         if statusCmd.isDone:
             self.status.setThreadAxisCurrent()
-            if self.waitMoveCmd.isActive or self.status._state == self.status.Homing:
+            if self.isMoving or self.status._state == self.status.Homing:
                 self._statusTimer.start(POLL_TIME_MOVING, self.getStatus)
                 # moving write to this command
-                self.writeStatusToUsers(self.waitMoveCmd)
+                self.writeStatusToUsers(statusCmd)
             else:
                 self._statusTimer.start(POLL_TIME_IDLE, self.getStatus)
                 self.writeStatusToUsers(statusCmd)
@@ -720,7 +721,6 @@ class ScaleDevice(TCPDevice):
         secondMoveCmdStr = "move %.6f"%(self.targetPos)
         secondMoveDevCmd = DevCmd(cmdStr=secondMoveCmdStr)
         secondMoveTime = 0.05/float(self.status.speed)
-        secondMoveDevCmd.setTimeLimit(secondMoveTime+2)
 
         userCmd.linkCommands([firstMoveDevCmd, secondMoveDevCmd])
 
@@ -729,6 +729,8 @@ class ScaleDevice(TCPDevice):
                 self.status.setState(self.status.Moving, self.iter, firstMoveTime)
                 self.writeState(userCmd)
             elif moveCmd1.isDone and not moveCmd1.didFail:
+                self.status.setState(self.status.Done, self.iter)
+                secondMoveDevCmd.setTimeLimit(secondMoveTime + 2)
                 self.queueDevCmd(secondMoveDevCmd)
             elif moveCmd1.didFail:
                 self.iter = 0
@@ -740,18 +742,18 @@ class ScaleDevice(TCPDevice):
             if moveCmd2.isActive:
                 self.iter = 2
                 self.status.setState(self.status.Moving, self.iter, secondMoveTime)
-                self.writeState(self.waitMoveCmd)
+                self.writeState(userCmd)
             elif moveCmd2.isDone and not moveCmd2.didFail:
                 self.iter = 0
                 self.status.setState(self.status.Done, self.iter)
                 self.writeState(userCmd)
-                self.waitMoveCmd.setState(self.waitMoveCmd.Done)
             elif moveCmd2.didFail:
                 self.iter = 0
                 self.status.setState(self.status.Failed, 0)
                 self.writeState(userCmd)
 
         firstMoveDevCmd.addCallback(moveCmd1CB)
+        secondMoveDevCmd.addCallback(moveCmd2CB)
         self.queueDevCmd(firstMoveDevCmd)
 
         return userCmd
@@ -912,7 +914,8 @@ class ScaleDevice(TCPDevice):
         def queueFunc(devCmd):
             # when the command is ready run this
             # everything besides a move should return quickly
-            devCmd.setTimeLimit(SEC_TIMEOUT)
+            if not "move" in devCmd.cmdStr.lower():
+                devCmd.setTimeLimit(SEC_TIMEOUT)
             devCmd.setState(devCmd.Running)
             if cmdVerb == "status":
                 # wipe status, to ensure we've
