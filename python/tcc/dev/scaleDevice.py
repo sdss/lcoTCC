@@ -707,26 +707,53 @@ class ScaleDevice(TCPDevice):
         if not minPos<=position<=maxPos:
             userCmd.setState(userCmd.Failed, "Move %.6f not in range [%.4f, %.4f]"%(position, minPos, maxPos))
             return userCmd
-        self.iter = 0
+        self.iter = 1
         self.targetPos = position
         if self.tccStatus is not None:
             self.tccStatus.updateKW("DesThreadRingPos", self.targetPos, userCmd)
 
-        def waitMoveCB(aCmd):
-           if aCmd.didFail:
-              self.status.setState(self.status.Failed, 0)
-              self.writeState(userCmd)
+        firstMoveCmdStr = "move %.6f"%(self.targetPos + 0.05)
+        firstMoveDevCmd = DevCmd(cmdStr=firstMoveCmdStr)
+        firstMoveTime = abs(self.targetPos + 0.05 - self.encPos)/float(self.status.speed)
+        firstMoveDevCmd.setTimeLimit(firstMoveTime+2)
 
+        secondMoveCmdStr = "move %.6f"%(self.targetPos)
+        secondMoveDevCmd = DevCmd(cmdStr=secondMoveCmdStr)
+        secondMoveTime = 0.05/float(self.status.speed)
+        secondMoveDevCmd.setTimeLimit(secondMoveTime+2)
 
-        self.waitMoveCmd = expandCommand()
-        self.waitMoveCmd.addCallback(waitMoveCB)
-        self.waitMoveCmd.setState(self.waitMoveCmd.Running)
+        userCmd.linkCommands([firstMoveDevCmd, secondMoveDevCmd])
 
-        userCmd.linkCommands([self.waitMoveCmd])
-        # force a enc read before moving (move is based of the encoder position)
-        readEncCmd = self.measScaleDev.getStatus()
-        # readEncCmd.addCallback(self._moveIter)
-        self._moveIter()
+        def moveCmd1CB(moveCmd1):
+            if moveCmd1.isActive:
+                self.status.setState(self.status.Moving, self.iter, firstMoveTime)
+                self.writeState(userCmd)
+            elif moveCmd1.isDone and not moveCmd1.didFail:
+                self.queueDevCmd(secondMoveDevCmd)
+            elif moveCmd1.didFail:
+                self.iter = 0
+                secondMoveDevCmd.setState(secondMoveDevCmd.Cancelled, "First Move iteration failed")
+                self.status.setState(self.status.Failed, 0)
+                self.writeState(userCmd)
+
+        def moveCmd2CB(moveCmd2):
+            if moveCmd2.isActive:
+                self.iter = 2
+                self.status.setState(self.status.Moving, self.iter, secondMoveTime)
+                self.writeState(self.waitMoveCmd)
+            elif moveCmd2.isDone and not moveCmd2.didFail:
+                self.iter = 0
+                self.status.setState(self.status.Done, self.iter)
+                self.writeState(userCmd)
+                self.waitMoveCmd.setState(self.waitMoveCmd.Done)
+            elif moveCmd2.didFail:
+                self.iter = 0
+                self.status.setState(self.status.Failed, 0)
+                self.writeState(userCmd)
+
+        firstMoveDevCmd.addCallback(moveCmd1CB)
+        self.queueDevCmd(firstMoveDevCmd)
+
         return userCmd
 
     def _moveCallback(self, moveCmd):
@@ -747,7 +774,7 @@ class ScaleDevice(TCPDevice):
             moveStatusCmd = DevCmd(cmdStr="status")
             self.queueDevCmd(moveStatusCmd)
             moveStatusCmd.addCallback(self._statusCallback)
-            # moveStatusCmd.addCallback(self._readEncs)
+            moveStatusCmd.addCallback(self._readEncs)
 
     def _readEncs(self, moveStatusCmd):
         if moveStatusCmd.didFail:
