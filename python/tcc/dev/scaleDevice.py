@@ -345,8 +345,6 @@ class ScaleDevice(TCPDevice):
         # set done only when move has reached maxIter
         # or is within tolerance
         self.iter = 0
-        #self.waitMoveCmd = expandCommand()
-        #self.waitMoveCmd.setState(self.waitMoveCmd.Done)
         self.nomSpeed = nomSpeed
         self.measScaleDev = measScaleDev
         self.status = Status()
@@ -436,7 +434,6 @@ class ScaleDevice(TCPDevice):
     @property
     def isMoving(self):
         return self.currExeDevCmd.isActive and "move" in self.currExeDevCmd.cmdStr.lower()
-        #return self.waitMoveCmd.isActive
 
     def init(self, userCmd=None, timeLim=None, getStatus=False):
         """Called automatically on startup after the connection is established.
@@ -758,66 +755,6 @@ class ScaleDevice(TCPDevice):
 
         return userCmd
 
-    def _moveCallback(self, moveCmd):
-        if moveCmd.isActive:
-            self.status.setThreadAxisCurrent() # should already be there but whatever
-            # set state to moving, compute time, etc
-            targetPos = self.targetPos
-            if self.iter == 1:
-                targetPos += 0.1
-            time4move = abs(targetPos-self.encPos)/float(self.status.speed)
-            # time4move = abs(self.targetPos-self.status.position)/float(self.status.speed)
-            # update command timeout
-            moveCmd.setTimeLimit(time4move+2)
-            self.status.setState(self.status.Moving, self.iter, time4move)
-            self.writeState(self.waitMoveCmd)
-        elif moveCmd.isDone and not moveCmd.didFail:
-            # get the status of the scaling ring
-            moveStatusCmd = DevCmd(cmdStr="status")
-            self.queueDevCmd(moveStatusCmd)
-            moveStatusCmd.addCallback(self._statusCallback)
-            moveStatusCmd.addCallback(self._readEncs)
-
-    def _readEncs(self, moveStatusCmd):
-        if moveStatusCmd.didFail:
-            self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "Failed to get scaling ring status after move.")
-        elif moveStatusCmd.isDone:
-            # move's done, read the encoders
-            # and get scaling ring status
-            readEncCmd = self.measScaleDev.getStatus()
-            readEncCmd.addCallback(self._moveIter)
-
-    def _moveIter(self):
-        """Encoders have been read, decide to move again or finish the user
-        commanded move
-        """
-        atMaxIter = self.iter > self.status.maxIter
-        withinTol = numpy.abs(self.targetPos - self.encPos) < self.status.moveTol
-        if atMaxIter:
-            self.waitMoveCmd.writeToUsers("i", "text='Max iter reached for scaling ring move.'")
-        if atMaxIter or withinTol:
-            # the move is done
-            self.iter = 0
-            self.status.setState(self.status.Done, self.iter)
-            self.writeState(self.waitMoveCmd)
-            self.waitMoveCmd.setState(self.waitMoveCmd.Done)
-        else:
-            # command another move iteration
-            # encoders read sucessfully
-            moveCmdStr = self.getMoveCmdStr()
-            if "nan" in moveCmdStr.lower():
-                # saw this happen once, think it's handled now
-                # but for paranoia's sake fail a command if you try to
-                # send a nan position!
-                self.waitMoveCmd.setState(self.waitMoveCmd.Failed, "NaN value computed for move iteration")
-                return
-            self.iter += 1
-            self.waitMoveCmd.writeToUsers("i", "text='Begining scaling ring move iteration %i'"%self.iter)
-            moveDevCmd = DevCmd(cmdStr=moveCmdStr)
-            self.queueDevCmd(moveDevCmd)
-            moveDevCmd.addCallback(self._moveCallback)
-
-
     def stop(self, userCmd=None):
         """Stop any scaling movement, cancelling any currently executing
         command and any commands waiting on queue
@@ -825,8 +762,8 @@ class ScaleDevice(TCPDevice):
         @param[in] userCmd: a twistedActor BaseCommand
         """
         userCmd=expandCommand(userCmd)
-        if self.waitMoveCmd.isActive:
-            self.waitMoveCmd.setState(self.waitMoveCmd.Cancelled, "Scaling ring move cancelled by stop command.")
+        if self.isMoving:
+            self.currExeDevCmd.setState(self.currExeDevCmd.Cancelled, "Scaling ring move cancelled by stop command.")
         # write out threadring state!
         self.status.setState(self.status.Done, 0)
         self.writeState(userCmd)
