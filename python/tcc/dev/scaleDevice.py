@@ -59,6 +59,17 @@ MOVE_TOL = 10 / 1000.0 # move tolerance (5 microns)
 POLL_TIME_IDLE = 4.
 POLL_TIME_MOVING = 1.
 ZERO_POINT = 20 # scale zeropoint
+LOCKED_SETPOINT = 25 # from privite conversation with J.D.:
+"""
+the overwrites the setpoint found in the keithly status.
+
+Hello Conor.
+I had forgotten about the latch ring value that you asked me a while back.
+So close position is set to 20 mm but anything past 25 it's fully latched.
+Open is at 143 mm so it works back to 20 when closing. It starts latching
+at like 32 and it's fully latched at 25. The last 5 mm are just overhead
+or cuz 20 was a nice round number
+"""
 
 class MungedStatusError(Exception):
     """The scaling ring occassionally returns a Munged status
@@ -66,8 +77,6 @@ class MungedStatusError(Exception):
     pass
 
 class Status(object):
-    # how close you must be to the locked setpoint to be considered "locked"
-    LOCKED_TOL = 0.1 # mm
     Moving = "Moving"
     Done = "Done"
     Homing = "Homing"
@@ -158,8 +167,7 @@ class Status(object):
         pos = self.dict["lock_ring_axis"]["actual_position"]
         if pos is None:
             return False
-        lockedPos = self.dict["lock_ring_axis"]["locked_setpoint"]
-        return abs(pos-lockedPos) < self.LOCKED_TOL
+        return pos < LOCKED_SETPOINT
 
     @property
     def lockedAndLoaded(self):
