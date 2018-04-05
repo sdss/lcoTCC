@@ -798,7 +798,7 @@ class ScaleDevice(TCPDevice):
         def queueFunc(devCmd):
             # when the command is ready run this
             # everything besides a move should return quickly
-            if not "move" in devCmd.cmdStr.lower() or not "home" in devCmd.cmdStr.lower():
+            if not ("move" in devCmd.cmdStr.lower() or "home" in devCmd.cmdStr.lower()):
                 devCmd.setTimeLimit(SEC_TIMEOUT)
             devCmd.setState(devCmd.Running)
             if cmdVerb == "status":
