@@ -53,7 +53,7 @@ def setScaleFactor(tccActor, userCmd):
             userCmd.setState(userCmd.Failed, "Cannot set scale, M2 is moving.")
             return
 
-        focusOffset = (absPosMM - tccActor.scaleDev.encPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
+        focusOffset = (absPosMM - tccActor.scaleDev.motorPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
         focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
         scaleCmd = tccActor.scaleDev.move(absPosMM)
         userCmd.linkCommands([motionCmd, showScaleCmd])

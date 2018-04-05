@@ -190,7 +190,7 @@ class TCCLCOActor(BaseActor):
 
     @property
     def currentScaleFactor(self):
-        return self.mm2scale(self.scaleDev.encPos)
+        return self.mm2scale(self.scaleDev.motorPos)
 
     def scale2mm(self, scaleValue):
         # scale=1 device is at zero point
@@ -208,7 +208,7 @@ class TCCLCOActor(BaseActor):
         # works just fine, and it is simpler
         m = multiplier
         z = self.scaleDev.scaleZeroPos
-        p = self.scaleDev.encPos
+        p = self.scaleDev.motorPos
         alpha = self.SCALE_PER_MM
         return m*(p-z)+(1.0/alpha)*(m-1.0)+z
 

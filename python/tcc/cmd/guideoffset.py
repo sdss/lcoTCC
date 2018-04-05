@@ -19,7 +19,7 @@ def guideoffset(tccActor, userCmd):
     if multScale !=0:
         # move scale, and update the focus offset
         absPosMM = tccActor.scaleMult2mm(multScale)
-        extraFocusOffset = (absPosMM - tccActor.scaleDev.encPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
+        extraFocusOffset = (absPosMM - tccActor.scaleDev.motorPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
         offFocus += extraFocusOffset
         cmdList.append(tccActor.scaleDev.move(absPosMM))
     if offFocus != 0:

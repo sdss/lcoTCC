@@ -22,13 +22,13 @@ def threadRing(tccActor, userCmd):
         offset = quals["incremental"].boolValue
         doSec = quals["secondary"].boolValue
         if offset:
-            value += tccActor.scaleDev.encPos
+            value += tccActor.scaleDev.motorPos
         if not doSec:
             tccActor.scaleDev.move(value, userCmd)
         else:
             # move M2 to maintain current focus
             scaleCmd = tccActor.scaleDev.move(value)
-            focusOffset = (value - tccActor.scaleDev.encPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
+            focusOffset = (value - tccActor.scaleDev.motorPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
             focusCmd = tccActor.secDev.focus(focusOffset, offset=True)
             userCmd.linkCommands([focusCmd, scaleCmd])
 
