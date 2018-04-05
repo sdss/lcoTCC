@@ -686,13 +686,14 @@ class ScaleDevice(TCPDevice):
         moveTime = abs(self.targetPos - self.motorPos)/float(self.status.speed)
         moveDevCmd.setTimeLimit(moveTime+2)
 
-        def getStatusAfterMove(_userCmd):
-            if _userCmd.isDone:
-                # always get status after the command finishes
-                print("getting status after move")
+        def moveCB(_moveCmd):
+            if _moveCmd.isActive:
+                self.status.setState(self.status.Moving, 1, moveTime)
+            elif _moveCmd.isDone:
+                self.status.setState(self.status.Done, 1)
                 self.getStatus()
 
-        userCmd.addCallback(getStatusAfterMove)
+        moveDevCmd.addCallback(moveCB)
         userCmd.linkCommands([moveDevCmd])
         self.queueDevCmd(moveDevCmd)
 
