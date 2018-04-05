@@ -689,8 +689,10 @@ class ScaleDevice(TCPDevice):
         def moveCB(_moveCmd):
             if _moveCmd.isActive:
                 self.status.setState(self.status.Moving, 1, moveTime)
+                self.writeState(userCmd)
             elif _moveCmd.isDone:
                 self.status.setState(self.status.Done, 1)
+                self.writeState(userCmd)
                 self.getStatus()
 
         moveDevCmd.addCallback(moveCB)
