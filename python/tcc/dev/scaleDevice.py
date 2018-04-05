@@ -651,7 +651,7 @@ class ScaleDevice(TCPDevice):
                 self.writeState(userCmd)
 
         moveTime = abs(0 - self.motorPos)/float(self.status.speed)
-        moveTimeout = moveTime + 5
+        moveTimeout = moveTime + 10
         moveHome = DevCmd(cmdStr="home")
         moveHome.setTimeLimit(moveTimeout)
         moveHome.addCallback(getStatus)
@@ -798,7 +798,7 @@ class ScaleDevice(TCPDevice):
         def queueFunc(devCmd):
             # when the command is ready run this
             # everything besides a move should return quickly
-            if not "move" in devCmd.cmdStr.lower():
+            if not "move" in devCmd.cmdStr.lower() or not "home" in devCmd.cmdStr.lower():
                 devCmd.setTimeLimit(SEC_TIMEOUT)
             devCmd.setState(devCmd.Running)
             if cmdVerb == "status":
