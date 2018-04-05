@@ -687,12 +687,13 @@ class ScaleDevice(TCPDevice):
         moveDevCmd.setTimeLimit(moveTime+2)
 
         def getStatusAfterMove(_userCmd):
-            # always get status after the command finishes
-            print("getting status after move")
-            self.getStatus()
+            if _userCmd.isDone:
+                # always get status after the command finishes
+                print("getting status after move")
+                self.getStatus()
 
         userCmd.addCallback(getStatusAfterMove)
-        userCmd.linkCommands(moveDevCmd)
+        userCmd.linkCommands([moveDevCmd])
         self.queueDevCmd(moveDevCmd)
 
         return userCmd
