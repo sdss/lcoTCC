@@ -63,7 +63,7 @@ class TCCStatus(object):
             "SecFocus",
             "Galil",
             "ScaleZeroPos", #Measscale Dev
-            "MitutoyoRawPos",
+            # "MitutoyoRawPos", # removed!
             "ScaleEncHomed",
             "ThreadRingMotorPos", #Threadring Dev
             "ThreadRingEncPos",
@@ -150,7 +150,7 @@ class TCCLCOActor(BaseActor):
         tcsDev,
         scaleDev,
         m2Dev,
-        measScaleDev,
+        # measScaleDev,
         # ffDev,
         name = "tcc",
     ):
@@ -168,7 +168,7 @@ class TCCLCOActor(BaseActor):
             "tcsDev": tcsDev,
             "scaleDev": scaleDev,
             "secDev": m2Dev,
-            "measScaleDev": measScaleDev,
+            # "measScaleDev": measScaleDev,
             # "ffDev": ffDev,
         }
 

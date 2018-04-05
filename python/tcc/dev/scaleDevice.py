@@ -334,14 +334,13 @@ class ScaleDevice(TCPDevice):
     """!A Device for communicating with the LCO Scaling ring."""
     validCmdVerbs = ["move", "stop", "status", "speed", "home"]
     SCALE_PER_MM = 8.45e-05 # more MM per scale
-    def __init__(self, name, host, port, measScaleDev=None, nomSpeed=NOM_SPEED, callFunc=None):
+    def __init__(self, name, host, port, nomSpeed=NOM_SPEED, callFunc=None):
         """!Construct a ScaleDevice
 
         Inputs:
         @param[in] name  name of device
         @param[in] host  host address of scaling ring controller
         @param[in] port  port of scaling ring controller
-        @param[in] measScaleDev  instance of a MeasScaleDev (access to the mitutoyos for servoing)
         @param[in] nom_speed nominal speed at which to move (this can be modified via the speed command)
         @param[in] callFunc  function to call when state of device changes;
                 note that it is NOT called when the connection state changes;
@@ -354,7 +353,7 @@ class ScaleDevice(TCPDevice):
         # or is within tolerance
         self.iter = 0
         self.nomSpeed = nomSpeed
-        self.measScaleDev = measScaleDev
+        # self.measScaleDev = measScaleDev
         self.status = Status()
         self._statusTimer = Timer()
         # all commands of equal priority
@@ -382,12 +381,12 @@ class ScaleDevice(TCPDevice):
             cmdInfo = (),
         )
 
-    def _addMeasScaleDev(self, measScaleDev):
-        """Add a way to add a measScaleDev exposfacto,
-        really this is only for use with the device wrappers.
-        Any real use should specify measScaleDev in __init__
-        """
-        self.measScaleDev = measScaleDev
+    # def _addMeasScaleDev(self, measScaleDev):
+    #     """Add a way to add a measScaleDev exposfacto,
+    #     really this is only for use with the device wrappers.
+    #     Any real use should specify measScaleDev in __init__
+    #     """
+    #     self.measScaleDev = measScaleDev
 
     def killFunc(self, doomedCmd, killerCmd):
         doomedCmd.setState(doomedCmd.Failed, "Killed by %s"%(str(killerCmd)))
@@ -398,13 +397,13 @@ class ScaleDevice(TCPDevice):
         """
         return self.status.position
 
-    @property
-    def encPos(self):
-        """Average position of the 3 mitutoyo encoders
-        """
-        # ditching mitutoyos
-        return self.status.position
-        #return self.measScaleDev.position
+    # @property
+    # def encPos(self):
+    #     """Average position of the 3 mitutoyo encoders
+    #     """
+    #     # ditching mitutoyos
+    #     return self.status.position
+    #     #return self.measScaleDev.position
 
     @property
     def scaleZeroPos(self):
@@ -416,7 +415,9 @@ class ScaleDevice(TCPDevice):
 
     @property
     def isHomed(self):
-        return self.measScaleDev.isHomed
+        # hack homed to always be true, remove mitutoyos from loop
+        return True
+        # return self.measScaleDev.isHomed
 
     @property
     def encHomedStr(self):
@@ -424,16 +425,16 @@ class ScaleDevice(TCPDevice):
         return "%i"%homedInt
 
 
-    @property
-    def encPosStr(self):
-        encPosStr = []
-        for encPos in self.measScaleDev.encPos:
-            if encPos is None:
-                encPosStr.append("?")
-            else:
-                # encPos += self.scaleZeroPos
-                encPosStr.append("%.3f"%encPos)
-        return ", ".join(encPosStr)
+    # @property
+    # def encPosStr(self):
+    #     encPosStr = []
+    #     for encPos in self.measScaleDev.encPos:
+    #         if encPos is None:
+    #             encPosStr.append("?")
+    #         else:
+    #             # encPos += self.scaleZeroPos
+    #             encPosStr.append("%.3f"%encPos)
+    #     return ", ".join(encPosStr)
 
     @property
     def currDevCmdStr(self):
@@ -441,7 +442,9 @@ class ScaleDevice(TCPDevice):
 
     @property
     def isMoving(self):
-        return self.currExeDevCmd.isActive and "move" in self.currExeDevCmd.cmdStr.lower()
+        return self.currExeDevCmd.isActive and \
+            ("move" in self.currExeDevCmd.cmdStr.lower() or \
+            "home" in self.currExeDevCmd.cmdStr.lower())
 
     def init(self, userCmd=None, timeLim=None, getStatus=False):
         """Called automatically on startup after the connection is established.
@@ -476,18 +479,16 @@ class ScaleDevice(TCPDevice):
             timeLim = 2
         if self.isMoving or self.status._state == self.status.Homing:
             # userCmd.writeToUsers("i", "text=showing cached status", userCmd)
-            encStatusDevCmd = self.measScaleDev.getStatus()
-            encStatusDevCmd.addCallback(self._statusCallback)
-            userCmd.linkCommands([encStatusDevCmd])
+            self._statusCallback(userCmd)
             return userCmd
         else:
             # get a completely fresh status from the device
             statusDevCmd = DevCmd(cmdStr="status")
             # get encoder values too
-            encStatusDevCmd = self.measScaleDev.getStatus()
+            # encStatusDevCmd = self.measScaleDev.getStatus()
             statusDevCmd.addCallback(self._statusCallback)
             statusDevCmd.setTimeLimit(timeLim)
-            userCmd.linkCommands([statusDevCmd, encStatusDevCmd])
+            userCmd.linkCommands([statusDevCmd])
             self.queueDevCmd(statusDevCmd)
             return userCmd
 
@@ -558,13 +559,13 @@ class ScaleDevice(TCPDevice):
 
     def statusDict(self):
         desThreadRingPos = "%.4f"%self.targetPos if self.targetPos is not None else "NaN"
-        threadRingPos = "%.4f"%self.encPos if self.encPos is not None else "NaN"
-        scaleFactor = "%.8f"%self.mm2scale(self.encPos) if self.encPos is not None else "NaN"
+        # threadRingPos = "%.4f"%self.encPos if self.encPos is not None else "NaN"
+        scaleFactor = "%.8f"%self.mm2scale(self.motorPos) if self.motorPos is not None else "NaN"
         cartLoaded = "T" if self.status.loaded else "F"
         cartLocked = "T" if self.status.locked else "F"
         return {
             "ThreadRingMotorPos": "%.4f"%self.motorPos,
-            "ThreadRingEncPos": "%s"%threadRingPos,
+            "ThreadRingEncPos": "%.4f"%self.motorPos, # replace mitutoyo
             "ThreadRingSpeed": "%.4f"%self.status.speed,
             "ThreadRingMaxSpeed": "%.4f"%self.status.maxSpeed,
             "DesThreadRingPos": "%s"%desThreadRingPos,
@@ -575,7 +576,7 @@ class ScaleDevice(TCPDevice):
             "CartLoaded": cartLocked,
             "apogeeGang": self.gangVal(),
             "ThreadRingState": self.getStateVal(),
-            "MitutoyoRawPos": "%s"%self.encPosStr,
+            # "MitutoyoRawPos": "%s"%self.encPosStr,
             "ScaleEncHomed": "%s"%self.encHomedStr,
         }
 
@@ -641,58 +642,20 @@ class ScaleDevice(TCPDevice):
         # set state homing
         self.status.setState(self.status.Homing, 0)
         self.writeState(userCmd)
-        self.getStatus()
-        setCountCmd = self.measScaleDev.setCountState()
 
-        def finishHome(_statusCmd):
-            if _statusCmd.isDone:
-                userCmd.writeToUsers("d", "text='homing sequence done after status'")
-                self.status.setState(self.status.Done, 0)
-                self.writeState(userCmd)
-            if _statusCmd.didFail:
-                userCmd.setState(userCmd.Failed, "status failed.")
-            elif _statusCmd.isDone:
-                # assert that the encoders are really reading
-                # zeros
-                if not numpy.all(numpy.abs(self.measScaleDev.encPos) < 0.002):
-                    userCmd.setState(userCmd.Failed, "zeros failed to set, try re-issuing home: %s"%str(self.measScaleDev.encPos))
-                else:
-                    userCmd.setState(userCmd.Done)
 
-        def getStatus(_zeroEncCmd):
-            if _zeroEncCmd.didFail:
-                self.status.setState(self.status.Done, 0)
-                self.writeState(userCmd)
-                userCmd.setState(userCmd.Failed, "Encoder zero failed.")
-            elif _zeroEncCmd.isDone:
-                statusCmd = self.getStatus()
-                statusCmd.addCallback(finishHome)
-
-        def zeroEncoders(_homeCmd):
+        def getStatus(_homeCmd):
+            self.getStatus()
             if _homeCmd.didFail:
                 self.status.setState(self.status.Done, 0)
                 self.writeState(userCmd)
-                userCmd.setState(userCmd.Failed, "Failed to move scaling ring to home position")
+                userCmd.setState(userCmd.Failed, "Home failed.")
             elif _homeCmd.isDone:
-                # zero the encoders in 1 second (give the ring a chance to stop)
-                def zeroEm():
-                    userCmd.writeToUsers("d", "text='setting zeros'")
-                    zeroEncCmd = self.measScaleDev.setZero()
-                    zeroEncCmd.addCallback(getStatus)
-                reactor.callLater(3., zeroEm)
+                userCmd.setState(userCmd.Done)
 
-        def homeThreadRing(_setCountCmd):
-            if _setCountCmd.didFail:
-                self.status.setState(self.status.Done, 0)
-                self.writeState(userCmd)
-                userCmd.setState(userCmd.Failed, "Failed to set Mitutoyo EV counter into counting state")
-            elif _setCountCmd.isDone:
-
-                moveHome = DevCmd(cmdStr="home")
-                self.queueDevCmd(moveHome)
-                moveHome.addCallback(zeroEncoders)
-
-        setCountCmd.addCallback(homeThreadRing)
+        moveHome = DevCmd(cmdStr="home")
+        self.queueDevCmd(moveHome)
+        moveHome.addCallback(getStatus)
 
     def move(self, position, userCmd=None):
         """!Move to a position
@@ -713,19 +676,14 @@ class ScaleDevice(TCPDevice):
         if not minPos<=position<=maxPos:
             userCmd.setState(userCmd.Failed, "Move %.6f not in range [%.4f, %.4f]"%(position, minPos, maxPos))
             return userCmd
-        self.iter = 1
         self.targetPos = position
         if self.tccStatus is not None:
             self.tccStatus.updateKW("DesThreadRingPos", self.targetPos, userCmd)
 
-        firstMoveCmdStr = "move %.6f"%(self.targetPos + 0.05)
-        firstMoveDevCmd = DevCmd(cmdStr=firstMoveCmdStr)
-        firstMoveTime = abs(self.targetPos + 0.05 - self.encPos)/float(self.status.speed)
-        firstMoveDevCmd.setTimeLimit(firstMoveTime+2)
-
-        secondMoveCmdStr = "move %.6f"%(self.targetPos)
-        secondMoveDevCmd = DevCmd(cmdStr=secondMoveCmdStr)
-        secondMoveTime = 0.05/float(self.status.speed)
+        moveCmdStr = "move %.6f"%(self.targetPos)
+        moveDevCmd = DevCmd(cmdStr=moveCmdStr)
+        moveTime = abs(self.targetPos - self.motorPos)/float(self.status.speed)
+        moveDevCmd.setTimeLimit(moveTime+2)
 
         def getStatusAfterMove(_userCmd):
             # always get status after the command finishes
@@ -733,40 +691,8 @@ class ScaleDevice(TCPDevice):
             self.getStatus()
 
         userCmd.addCallback(getStatusAfterMove)
-
-        userCmd.linkCommands([firstMoveDevCmd, secondMoveDevCmd])
-
-        def moveCmd1CB(moveCmd1):
-            if moveCmd1.isActive:
-                self.status.setState(self.status.Moving, self.iter, firstMoveTime)
-                self.writeState(userCmd)
-            elif moveCmd1.isDone and not moveCmd1.didFail:
-                self.status.setState(self.status.Done, self.iter)
-                secondMoveDevCmd.setTimeLimit(secondMoveTime + 2)
-                self.queueDevCmd(secondMoveDevCmd)
-            elif moveCmd1.didFail:
-                self.iter = 0
-                secondMoveDevCmd.setState(secondMoveDevCmd.Cancelled, "First Move iteration failed")
-                self.status.setState(self.status.Failed, 0)
-                self.writeState(userCmd)
-
-        def moveCmd2CB(moveCmd2):
-            if moveCmd2.isActive:
-                self.iter = 2
-                self.status.setState(self.status.Moving, self.iter, secondMoveTime)
-                self.writeState(userCmd)
-            elif moveCmd2.isDone and not moveCmd2.didFail:
-                self.iter = 0
-                self.status.setState(self.status.Done, self.iter)
-                self.writeState(userCmd)
-            elif moveCmd2.didFail:
-                self.iter = 0
-                self.status.setState(self.status.Failed, 0)
-                self.writeState(userCmd)
-
-        firstMoveDevCmd.addCallback(moveCmd1CB)
-        secondMoveDevCmd.addCallback(moveCmd2CB)
-        self.queueDevCmd(firstMoveDevCmd)
+        userCmd.linkCommands(moveDevCmd)
+        self.queueDevCmd(moveDevCmd)
 
         return userCmd
 
