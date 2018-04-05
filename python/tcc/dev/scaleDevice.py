@@ -647,15 +647,15 @@ class ScaleDevice(TCPDevice):
         def getStatus(_homeCmd):
             if _homeCmd.isDone:
                 self.getStatus()
-                if _homeCmd.didFail:
-                    self.status.setState(self.status.Done, 0)
-                    self.writeState(userCmd)
-                    userCmd.setState(userCmd.Failed, "Home failed.")
-                else:
-                    userCmd.setState(userCmd.Done)
+                self.status.setState(self.status.Done, 0)
+                self.writeState(userCmd)
 
+        moveTime = abs(0 - self.motorPos)/float(self.status.speed)
+        moveTimeout = moveTime + 5
         moveHome = DevCmd(cmdStr="home")
+        moveHome.setTimeLimit(moveTimeout)
         moveHome.addCallback(getStatus)
+        userCmd.linkCommands([moveHome])
         self.queueDevCmd(moveHome)
 
 
