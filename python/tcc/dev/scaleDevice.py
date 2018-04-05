@@ -655,8 +655,9 @@ class ScaleDevice(TCPDevice):
                     userCmd.setState(userCmd.Done)
 
         moveHome = DevCmd(cmdStr="home")
-        self.queueDevCmd(moveHome)
         moveHome.addCallback(getStatus)
+        self.queueDevCmd(moveHome)
+
 
     def move(self, position, userCmd=None):
         """!Move to a position
