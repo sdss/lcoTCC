@@ -645,13 +645,14 @@ class ScaleDevice(TCPDevice):
 
 
         def getStatus(_homeCmd):
-            self.getStatus()
-            if _homeCmd.didFail:
-                self.status.setState(self.status.Done, 0)
-                self.writeState(userCmd)
-                userCmd.setState(userCmd.Failed, "Home failed.")
-            elif _homeCmd.isDone:
-                userCmd.setState(userCmd.Done)
+            if _homeCmd.isDone:
+                self.getStatus()
+                if _homeCmd.didFail:
+                    self.status.setState(self.status.Done, 0)
+                    self.writeState(userCmd)
+                    userCmd.setState(userCmd.Failed, "Home failed.")
+                else:
+                    userCmd.setState(userCmd.Done)
 
         moveHome = DevCmd(cmdStr="home")
         self.queueDevCmd(moveHome)
