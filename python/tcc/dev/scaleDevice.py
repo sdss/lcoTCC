@@ -532,7 +532,7 @@ class ScaleDevice(TCPDevice):
                 for key, value in val.iteritems():
                     if "_fault" in key and bool(value):
                         # fault value is non zero or not None
-                        faultList.append("%s %s %i"%(axis, key, val))
+                        faultList.append("%s %s %s"%(str(axis), str(key), str(val)))
         if not faultList:
             # no faults
             return None
@@ -651,7 +651,7 @@ class ScaleDevice(TCPDevice):
                 self.writeState(userCmd)
 
         moveTime = abs(0 - self.motorPos)/float(self.status.speed)
-        moveTimeout = moveTime + 10
+        moveTimeout = moveTime + 60
         moveHome = DevCmd(cmdStr="home")
         moveHome.setTimeLimit(moveTimeout)
         moveHome.addCallback(getStatus)
@@ -685,7 +685,7 @@ class ScaleDevice(TCPDevice):
         moveCmdStr = "move %.6f"%(self.targetPos)
         moveDevCmd = DevCmd(cmdStr=moveCmdStr)
         moveTime = abs(self.targetPos - self.motorPos)/float(self.status.speed)
-        moveDevCmd.setTimeLimit(moveTime+2)
+        moveDevCmd.setTimeLimit(moveTime+60)
 
         def moveCB(_moveCmd):
             if _moveCmd.isActive:
@@ -726,7 +726,7 @@ class ScaleDevice(TCPDevice):
 
         @param[in] replyStr   the reply, minus any terminating \n
         """
-        #print("scaling ring reply: %s"%replyStr)
+        print("scaling ring reply: %s"%replyStr)
         log.info("%s.handleReply(replyStr=%s)" % (self, replyStr))
         replyStr = replyStr.strip().lower()
         # print(replyStr, self.currExeDevCmd.cmdStr)
