@@ -63,7 +63,7 @@ class TCCStatus(object):
             "SecFocus",
             "Galil",
             "ScaleZeroPos", #Measscale Dev
-            # "MitutoyoRawPos", # removed!
+            "MitutoyoRawPos", # removed!
             "ScaleEncHomed",
             "ThreadRingMotorPos", #Threadring Dev
             "ThreadRingEncPos",

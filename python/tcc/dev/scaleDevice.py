@@ -425,16 +425,19 @@ class ScaleDevice(TCPDevice):
         return "%i"%homedInt
 
 
-    # @property
-    # def encPosStr(self):
-    #     encPosStr = []
-    #     for encPos in self.measScaleDev.encPos:
-    #         if encPos is None:
-    #             encPosStr.append("?")
-    #         else:
-    #             # encPos += self.scaleZeroPos
-    #             encPosStr.append("%.3f"%encPos)
-    #     return ", ".join(encPosStr)
+    @property
+    def encPosStr(self):
+        # hacked to show motor position
+        # since we ripped out the mitutoyos.
+        # left this kw in to maintain the data model
+        # in the guider image header
+        encPosStr = []
+        for encPos in [self.motorPos]*3:
+            if encPos is None:
+                encPosStr.append("?")
+            else:
+                encPosStr.append("%.3f"%encPos)
+        return ", ".join(encPosStr)
 
     @property
     def currDevCmdStr(self):
@@ -576,7 +579,7 @@ class ScaleDevice(TCPDevice):
             "CartLoaded": cartLocked,
             "apogeeGang": self.gangVal(),
             "ThreadRingState": self.getStateVal(),
-            # "MitutoyoRawPos": "%s"%self.encPosStr,
+            "MitutoyoRawPos": "%s"%self.encPosStr,
             "ScaleEncHomed": "%s"%self.encHomedStr,
         }
 
