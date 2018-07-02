@@ -1,4 +1,7 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division
+
+import numpy
+
 
 __all__ = ["guideoffset"]
 # m2 and scale directions need to be determined.
@@ -14,19 +17,18 @@ def guideoffset(tccActor, userCmd):
     if offRA != 0 or offDec != 0:
         # ra dec offset wanted
         cmdList.append(tccActor.tcsDev.slewOffset(offRA, offDec))
-    if offRot != 0:
+    if numpy.abso(offRot) > 1e-6:
         cmdList.append(tccActor.tcsDev.rotOffset(offRot))
-    if multScale !=0:
+    if numpy.abs(multScale) > 1e-6:
         # move scale, and update the focus offset
         absPosMM = tccActor.scaleMult2mm(multScale)
         extraFocusOffset = (absPosMM - tccActor.scaleDev.motorPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
         offFocus += extraFocusOffset
         cmdList.append(tccActor.scaleDev.move(absPosMM))
-    if offFocus != 0:
+    if numpy.abs(offFocus) > 1e-6:
         cmdList.append(tccActor.secDev.focus(offFocus, offset=True))
     if not cmdList:
         userCmd.writeToUsers("w", "text='guideoffset command all zeros?'")
         userCmd.setState(userCmd.Done)
     else:
         userCmd.linkCommands(cmdList)
-
