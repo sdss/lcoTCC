@@ -26,7 +26,7 @@ class TCCLCOActorWrapper(ActorWrapper):
         self.scaleWrapper = ScaleDeviceWrapper(name="scaleWrapper", debug=debug)
         self.m2Wrapper = M2DeviceWrapper(name="m2Wrapper", debug=debug)
         # self.ffWrapper = FFDeviceWrapper(name="ffWrapper", debug=debug)
-        deviceWrapperList = [self.tcsWrapper, self.scaleWrapper, self.m2Wrapper, self.measScaleWrapper, self.ffWrapper]
+        deviceWrapperList = [self.tcsWrapper, self.scaleWrapper, self.m2Wrapper, self.measScaleWrapper]#, self.ffWrapper]
         ActorWrapper.__init__(self,
             deviceWrapperList = deviceWrapperList,
             name = name,
