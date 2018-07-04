@@ -178,6 +178,12 @@ class Status(object):
         "thread_ring_axis", "lock_ring_axis", or "winch_axis"
         """
         assert axisName in ["thread_ring_axis", "lock_ring_axis", "winch_axis"]
+        if axisName == "thread_ring_axis":
+            self.gotThreadRingAxis = True
+        elif axisName == "lock_ring_axis":
+            self.gotLockRingAxis = True
+        else:
+            self.gotWinchAxis = True
         self._currentAxis = axisName
 
     def setThreadAxisCurrent(self):
@@ -196,6 +202,9 @@ class Status(object):
         self.idSwNext = False
         self.nIter = 0
         self.maxIter = 4 # try at most status iterations before giving up
+        self.gotThreadRingAxis = False
+        self.gotLockRingAxis = False
+        self.gotWinchAxis = False
 
     def _getEmptyStatusDict(self):
         """Return an empty status dict to be popuated
@@ -239,6 +248,9 @@ class Status(object):
         """Verify that every piece of status we expect is found in
         statusDict
         """
+        if False in [self.gotThreadRingAxis, self.gotLockRingAxis, self.gotWinchAxis]:
+            self.flushStatus()
+            raise MungedStatusError("Failed to recieve values for a single axis")
         if statusDict is None:
             statusDict = self.dict
         for key, val in statusDict.iteritems():
