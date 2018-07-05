@@ -22,6 +22,7 @@ from twisted.internet import reactor
 # to clamp!!!
 
 SEC_TIMEOUT = 2.0
+MAX_OFFSET_WAIT = 60.0
 LCO_LATITUDE = -29.0146
 
 def tai():
@@ -255,7 +256,7 @@ class Status(object):
 
 
         # for new axis state handling
-        self.errBufferLen = 3
+        self.errBufferLen = 2
         self.rerrQueue = collections.deque(maxlen=self.errBufferLen)
         self.derrQueue = collections.deque(maxlen=self.errBufferLen)
         self.wsPosQueue = collections.deque(maxlen=self.errBufferLen)
@@ -788,7 +789,7 @@ class TCSDevice(TCPDevice):
         enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
 
-        self.waitOffsetCmd.setTimeLimit(60)
+        self.waitOffsetCmd.setTimeLimit(MAX_OFFSET_WAIT)
         userCmd.linkCommands(devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
