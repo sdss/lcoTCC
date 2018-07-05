@@ -7,7 +7,6 @@ from collections import Counter
 
 # from RO.StringUtil import strFromException
 import numpy
-from twisted.internet import reactor
 
 from twistedActor import TCPDevice, log, DevCmd, CommandQueue, expandCommand
 

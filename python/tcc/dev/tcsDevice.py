@@ -12,6 +12,8 @@ from RO.StringUtil import strFromException, degFromDMSStr
 from twistedActor import TCPDevice, DevCmd, CommandQueue, log, expandCommand
 
 from tcc.utils.ffs import get_ffs_altitude, telescope_alt_limit
+
+from twisted.internet import reactor
 #TODO: Combine offset wait command and rotation offset wait commands.
 # make queueDev command return a dev command rather than requiring one.
 # creat a command list where subsequent commands are not sent if the previous is not successful
@@ -19,7 +21,7 @@ from tcc.utils.ffs import get_ffs_altitude, telescope_alt_limit
 # maybe we don't want this behavior in the case of the rotator, because we always want it
 # to clamp!!!
 
-SEC_TIMEOUT = 1.0
+SEC_TIMEOUT = 2.0
 LCO_LATITUDE = -29.0146
 
 def tai():
@@ -876,6 +878,7 @@ class TCSDevice(TCPDevice):
         """
         # log.info("%s read %r, currCmdStr: %s" % (self, replyStr, self.currDevCmdStr))
         replyStr = replyStr.strip()
+        log.info("%s read %s" % (self,replyStr))
         if replyStr == "-1":
             # error
             errorStr = "handleReply failed for %s with -1"%self.currDevCmdStr
@@ -898,7 +901,7 @@ class TCSDevice(TCPDevice):
             # this was a command, a "0" is expected
             self.currExeDevCmd.setState(self.currExeDevCmd.Done)
         else:
-            log.info("unexpected reply" % replyStr)
+            log.info("%s unexpected reply: %s" % (self,replyStr))
             #self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Unexpected reply %s for %s"%(replyStr, self.currDevCmdStr))
 
 
@@ -911,9 +914,20 @@ class TCSDevice(TCPDevice):
         # append a cmdVerb for the command queue (other wise all get the same cmdVerb and cancel eachother)
         # could change the default behavior in CommandQueue?
         devCmd.cmdVerb = devCmd.cmdStr
+
+        def forceMPDone(mpDevCmd):
+            # mp command occasionally times out for some reason.  i don't want this to
+            # be a failure in the target command so just set it done rather than timeout
+            if not mpDevCmd.isDone:
+                log.info("Forcing MP done")
+                mpDevCmd.setState(mpDevCmd.Done,"forcing MP done")
+
         def queueFunc(devCmd):
             # all tcs commands return immediately so set a short timeout
-            devCmd.setTimeLimit(SEC_TIMEOUT)
+            if "MP" in devCmd.cmdStr:
+                reactor.callLater(2.0, forceMPDone, devCmd)
+            else:
+                devCmd.setTimeLimit(SEC_TIMEOUT)
             devCmd.setState(devCmd.Running)
             self.startDevCmd(devCmd.cmdStr)
         self.devCmdQueue.addCmd(devCmd, queueFunc)

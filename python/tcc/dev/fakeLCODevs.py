@@ -176,13 +176,13 @@ class FakeScaleCtrl(FakeDev):
     #         self.userSock.writeLine(line)
 
     def sendStatusAndOK(self):
-        # global munge
-        # munge = munge*-1
-        # if munge == 1:
-        #
-        # else:
-        #     pos = "MUNGED"
-        pos = "%.7f"%self.position
+        global munge
+        munge = munge*-1
+        if munge == 1:
+            pos = "%.7f"%self.position
+        else:
+            pos = "MUNGED"
+
         statusLines = [
             "THREAD_RING_AXIS:",
             "__ACTUAL_POSITION %s"%pos,
