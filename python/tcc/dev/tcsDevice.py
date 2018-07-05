@@ -789,7 +789,14 @@ class TCSDevice(TCPDevice):
         enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
 
-        self.waitOffsetCmd.setTimeLimit(MAX_OFFSET_WAIT)
+
+        def forceOffsetDone(waitOffsetCmd):
+            if not waitOffsetCmd.isDone:
+                userCmd.writeToUsers("w", "Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
+                waitOffsetCmd.setState(waitOffsetCmd.Done, "Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
+
+        reactor.callLater(MAX_OFFSET_WAIT, forceOffsetDone, waitOffsetCmd)
+
         userCmd.linkCommands(devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
