@@ -315,11 +315,6 @@ class M2Device(TCPDevice):
         log.info("%s.focus(userCmd=%s, focusValue=%.2f, offset=%s)" % (self, userCmd, focusValue, str(bool(offset))))
         # if this focus value is < 50 microns
         userCmd = expandCommand(userCmd)
-        if offset:
-            deltaFocus = focusValue
-        else:
-            deltaFocus = self.status.secFocus - focusValue
-
         # focusDir = 1 # use M2's natural coordinates
         # focusDir = -1 # use convention at APO
         return self.move(valueList=[focusValue], offset=offset, userCmd=userCmd)
@@ -361,6 +356,7 @@ class M2Device(TCPDevice):
         statusCmd = DevCmd("status")
         galilOverHead = 2 # galil take roughly 2 secs to boot up.
         extraOverHead = 2 #
+        self.status._moveTimeTotal = self.getTimeForMove()
         timeout = self.status._moveTimeTotal+galilOverHead+extraOverHead
         userCmd.setTimeLimit(timeout*3) # triple the time out time
         userCmd.linkCommands([moveCmd, statusCmd, self.waitMoveCmd])
@@ -369,7 +365,7 @@ class M2Device(TCPDevice):
         # status immediately to see moving state
         # determine total time for move
         # just use focus distance as proxy (ignore)
-        self.status._moveTimeTotal = self.getTimeForMove()
+
 
         return userCmd
 
