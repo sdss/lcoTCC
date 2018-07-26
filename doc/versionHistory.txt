@@ -1,5 +1,7 @@
 lcoTCC version history
 
+2018-07-26 1.2.0 Relax timeouts, fix rogue move to 20mm on scaling ring
+
 2017-12-18 1.0.0 Beginning of version history
 
 2017-12-18 1.1.0 Reomve Mitutoyo gauges as devices of the TCC.
