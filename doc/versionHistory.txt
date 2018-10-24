@@ -1,5 +1,7 @@
 lcoTCC version history
 
+2018-10-24 1.2.1 Change collimation offsets x=1300 y=0
+
 2018-07-26 1.2.0 Relax timeouts, fix rogue move to 20mm on scaling ring
 
 2017-12-18 1.0.0 Beginning of version history
