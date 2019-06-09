@@ -58,7 +58,7 @@ class CollimationModel(object):
         tiltX = -116.0
         tiltY = -490.0
         transX = 2100.0
-        transY = f700.0
+        transY = 700.0
 
 
         self.baseOrientation = numpy.asarray([tiltX, tiltY, transX, transY])
