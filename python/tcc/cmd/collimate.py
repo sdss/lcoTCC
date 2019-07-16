@@ -55,10 +55,16 @@ class CollimationModel(object):
 
         # 6/6/19 -- du Pont engineering after M1 recoat
         # in francesco's parlence: tip = rotation about x (star moves in y) = tiltX
-        tiltX = -116.0
-        tiltY = -490.0
-        transX = 2100.0
-        transY = 700.0
+        # tiltX = -116.0
+        # tiltY = -490.0
+        # transX = 2100.0
+        # transY = 700.0
+
+        # 7/16/19 -- paul trip to LCO
+        tiltX = -150.0
+        tiltY = -470.0
+        transX = 2188.0
+        transY = 1154.0
 
 
         self.baseOrientation = numpy.asarray([tiltX, tiltY, transX, transY])
