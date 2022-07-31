@@ -19,8 +19,6 @@ from ..cmd.collimate import CollimationModel
 
 # tcsHost = "localhost"
 # tcsPort = 0
-# scaleHost = "localhost"
-# scalePort = 1
 
 __all__ = ["TCCLCOActor"]
 
@@ -49,8 +47,6 @@ So lets say that a scale change +8.45e05 as reported by the guider requires a pl
 class TCCStatus(object):
     def __init__(self):
         self.tccKWs = [
-            "ScaleFac",
-            "ScaleFacRange",
             "SecFocus",
             "ffSetCurrent", # FFS KWS
             "ffSetVoltage",
@@ -62,21 +58,11 @@ class TCCStatus(object):
             "secState",
             "SecFocus",
             "Galil",
-            "ScaleZeroPos", #Measscale Dev
-            "MitutoyoRawPos", # removed!
-            "ScaleEncHomed",
-            "ThreadRingMotorPos", #Threadring Dev
-            "ThreadRingEncPos",
-            "ThreadRingSpeed",
-            "ThreadRingMaxSpeed",
-            "DesThreadRingPos",
-            "ScaleZeroPos",
             "instrumentNum",
             "CartLocked",
             "CartLoaded",
             "ApogeeGang",
             "ThreadringState",
-            "ScaleRingFaults",
             "axisCmdState",
             "axePos",
             "tccPos",
@@ -139,37 +125,23 @@ class TCCStatus(object):
 class TCCLCOActor(BaseActor):
     """!TCC actor for the LCO telescope
     """
-    # SCALE_PER_MM = 8.45e-05 * -1# Scaling ring convention (higher abs values )
-    SCALE_PER_MM = 8.45e-05 # more MM per scale
-    SCALE_RATIO = 1/7. #Sec dist = SCALE_RATIO * scaling ring dist
-    # MAX_SF = 1.0008 # max scale factor from tcc25m/inst/default.dat
-    MAX_SF = 1.02
-    MIN_SF = 1./MAX_SF  # min scale factor
+
     def __init__(self,
         userPort,
         tcsDev,
-        scaleDev,
         m2Dev,
-        # measScaleDev,
-        # ffDev,
         name = "tcc",
     ):
         """Construct a TCCActor
 
         @param[in] userPort  port on which to listen for users
         @param[in] tcsDev a TCSDevice instance
-        @param[in] scaleDev  a ScaleDevice instance
         @param[in] m2Dev a M2Device instance
-        @param[in] measScaleDev a MeasScaleDevice instance
-        @param[in] ffDev a ffDevice instance
         @param[in] name  actor name; used for logging
         """
         devices = {
             "tcsDev": tcsDev,
-            "scaleDev": scaleDev,
             "secDev": m2Dev,
-            # "measScaleDev": measScaleDev,
-            # "ffDev": ffDev,
         }
 
         self.status = TCCStatus()
@@ -187,30 +159,6 @@ class TCCLCOActor(BaseActor):
         self.collimateStatusTimer.start(5, self.collimateStatus) #give things a chance to boot up
 
         BaseActor.__init__(self, userPort=userPort, name=name, version=__version__)
-
-    @property
-    def currentScaleFactor(self):
-        return self.mm2scale(self.scaleDev.motorPos)
-
-    def scale2mm(self, scaleValue):
-        # scale=1 device is at zero point
-        return -1 * (scaleValue - 1.0) / self.SCALE_PER_MM + self.scaleDev.scaleZeroPos
-
-    def mm2scale(self, mm):
-        return -1 * (mm - self.scaleDev.scaleZeroPos) * self.SCALE_PER_MM + 1.0
-
-    def scaleMult2mm(self, multiplier):
-        return self.scale2mm(self.currentScaleFactor*multiplier)
-
-    def scaleMult2mmStable(self, multiplier):
-        # this may be more numerically stable,
-        # according to unittests self.scaleMult2mm
-        # works just fine, and it is simpler
-        m = multiplier
-        z = self.scaleDev.scaleZeroPos
-        p = self.scaleDev.motorPos
-        alpha = self.SCALE_PER_MM
-        return m*(p-z)+(1.0/alpha)*(m-1.0)+z
 
     def parseAndDispatchCmd(self, cmd):
         """Dispatch the user command
@@ -318,4 +266,3 @@ class TCCLCOActor(BaseActor):
         if not self.collimateTimer.isActive and (self.tcsDev.isTracking or self.tcsDev.isSlewing):
             self.writeToUsers("w", "Text=Collimation is NOT active!!!")
         self.collimateStatusTimer.start(5, self.collimateStatus)
-

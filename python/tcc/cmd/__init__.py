@@ -7,12 +7,9 @@ but includes some high-level functions needed by those subroutines.
 from .target import *
 from .setFocus import *
 from .showFocus import *
-from .setScaleFactor import *
-from .showScaleFactor import *
 from .offset import *
 from .device import *
 from .sec import *
-from .threadRing import *
 from .showStatus import *
 from .showVersion import *
 from .collimate import *

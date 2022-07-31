@@ -23,21 +23,11 @@ def device(tccActor, userCmd):
     devNameList = [devCmd.keyword.lower() for devCmd in userCmd.parsedCmd.paramDict['device'].valueList]
     devDict = {
         "tcs": tccActor.tcsDev,
-        "scale": tccActor.scaleDev,
         "sec": tccActor.secDev,
         # "lamp": tccActor.ffDev,
-        # "measscale": tccActor.measScaleDev,
     }
     if "all" in devNameList:
         devNameList = devDict.keys()
-
-    # scale device explicitly get status from meas scale
-    # so if this is status and both those devs are present
-    # remove the meas scale
-    if cmdVerb == "status" and "measscale" in devNameList and "scale" in devNameList:
-        # print("removing measscale from devNameList")
-        devNameList = list(set(devNameList) - set(["measscale"]))
-        # print("devNameList", devNameList)
 
     # was a time limit specified?
     if userCmd.parsedCmd.qualDict['timelimit'].boolValue:
