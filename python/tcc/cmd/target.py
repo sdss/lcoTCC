@@ -8,6 +8,7 @@ __all__ = ["target"]
 # use track ra, dec icrs coords
 # must we provide an equinox?
 
+
 def target(tccActor, userCmd):
     """!Implement the target command, passing coords through to LCO TCS
 
@@ -40,11 +41,11 @@ def target(tccActor, userCmd):
     # if do screen, turn on the FF lamp
     # else turn it off
     tcsCmd = expandCommand()
-    ffCmd = expandCommand()
-    userCmd.linkCommands([tcsCmd, ffCmd])
-    tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, tcsCmd)
+    # ffCmd = expandCommand()
+    # userCmd.linkCommands([tcsCmd, ffCmd])
+    tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, userCmd)
 
-    if doScreen:
-        tccActor.secDev.lampOn(ffCmd)
-    else:
-        tccActor.secDev.lampOff(ffCmd)
+    # if doScreen:
+    #     tccActor.secDev.lampOn(ffCmd)
+    # else:
+    #     tccActor.secDev.lampOff(ffCmd)

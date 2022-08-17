@@ -290,8 +290,8 @@ TCCLCOCmdList = (
             parseDefs.ValueParam(
                 name="offsets",
                 castVals=float,
-                numValueRange=[5,5], # must specify all 5 values
-                help = "specify offsets ra(deg), dec(deg), rot(deg), focus(um), scale(%)",
+                numValueRange=[4,4], # must specify all 5 values
+                help = "specify offsets ra(deg), dec(deg), rot(deg), focus(um)",
             ),
         ],
     ),
