@@ -16,8 +16,7 @@ def guideoffset(tccActor, userCmd):
         # ra dec offset wanted
         cmdList.append(tccActor.tcsDev.slewOffset(offRA, offDec))
     if offRot:
-        pass
-        #cmdList.append(tccActor.tcsDev.rotOffset(offRot))
+        cmdList.append(tccActor.tcsDev.rotOffset(offRot))
     if offFocus:
         cmdList.append(tccActor.secDev.focus(offFocus, offset=True))
     if not cmdList:
