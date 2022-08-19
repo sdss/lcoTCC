@@ -979,8 +979,7 @@ class TCSDevice(TCPDevice):
                     self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
                 elif "CIR" in devCmdStr:
                     self.waitRotCmd.setState(self.waitRotCmd.Running)
-                print("FOR TCS::: %s"%devCmdStr)
-                #self.conn.writeLine(devCmdStr)
+                self.conn.writeLine(devCmdStr)
             else:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected to TCS")
         except Exception as e:
