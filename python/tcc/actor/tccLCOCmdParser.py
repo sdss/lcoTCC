@@ -111,17 +111,14 @@ TCCLCOCmdList = (
         paramList = [
             CoordPair(
                 name = 'coordPair',
-                extraHelp =  "Nonzero velocity specifies dEquatAng/dt, dPolarAng/dt; " \
-                    "to track along a great circle specify /ScanVelocity or, " \
-                    "equivalently, specify an arc offset with nonzero velocity.",
+                extraHelp =  "target ra and dec.",
                 ),
-            CoordSys(
-                name = 'coordSys',
-                help = "Coordinate system and date",
-                omit = ("Instrument", "GProbe", "GImage", "PtCorr", "Rotator"),
-            ),
         ],
         qualifierList = [
+            parseDefs.Qualifier(
+                "posAngle", numValueRange=[1,1], valType=float,
+                help = "Specify position angle of observation in degrees.",
+            ),
             parseDefs.Qualifier(
                 name = "ha",
                 help = "use hour angle rather than ra as target input.",

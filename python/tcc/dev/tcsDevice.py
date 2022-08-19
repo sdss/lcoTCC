@@ -674,11 +674,12 @@ class TCSDevice(TCPDevice):
 
         return
 
-    def target(self, ra, dec, doHA, doScreen, userCmd=None):
+    def target(self, ra, dec, posAngle, doHA, doScreen, userCmd=None):
         """Set coordinates for a slew.
 
         @param[in] ra: right ascension decimal degrees
         @param[in] dec: declination decimal degrees
+        @param[in] posAngle: desired position angle for observation in degrees
         @param[in] doHA: if True, use degrees in hour angle rather than ra.
         @param[in] doBlock: if True, do not set the userCmd done until the telescope is in place.
         @param[in] userCmd: a twistedActor BaseCommand.
@@ -687,6 +688,9 @@ class TCSDevice(TCPDevice):
         log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
         userCmd = expandCommand(userCmd)
         ffs_altitude = None
+        ipa_position = None
+        if posAngle is not None:
+            ipa_position = (90.064 - posAngle)%360
 
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
@@ -749,7 +753,15 @@ class TCSDevice(TCPDevice):
         if not self.waitSlewCmd.isDone:
             self.waitSlewCmd.setState(self.waitSlewCmd.Cancelled, "Superseded by new slew")
         self.waitSlewCmd = expandCommand()
-        userCmd.linkCommands(devCmdList + [self.waitSlewCmd])
+
+        # if rotation is wanted move the rotator
+        if ipa_position is not None:
+            rotCmd = self.rotOffset(ipa_position, absolute=True)
+        else:
+            rotCmd = expandCommand()
+            rotCmd.setState(rotCmd.Done)
+
+        userCmd.linkCommands(devCmdList + [self.waitSlewCmd, rotCmd])
 
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
@@ -967,7 +979,8 @@ class TCSDevice(TCPDevice):
                     self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
                 elif "CIR" in devCmdStr:
                     self.waitRotCmd.setState(self.waitRotCmd.Running)
-                self.conn.writeLine(devCmdStr)
+                print("FOR TCS::: %s"%devCmdStr)
+                #self.conn.writeLine(devCmdStr)
             else:
                 self.currExeDevCmd.setState(self.currExeDevCmd.Failed, "Not connected to TCS")
         except Exception as e:

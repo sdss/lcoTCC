@@ -16,9 +16,9 @@ def target(tccActor, userCmd):
     @param[in,out] userCmd  track command
     """
     parsedCmd = userCmd.parsedCmd
-    coordSysParam = parsedCmd.paramDict["coordsys"]
-    val = coordSysParam.valueList[0]
-    name = val.keyword
+    posAngle = None
+    if userCmd.parsedCmd.qualDict['posAngle'].boolValue:
+        posAngle = float(userCmd.parsedCmd.qualDict['posAngle'].valueList[0])
     doHA = userCmd.parsedCmd.qualDict['ha'].boolValue
     doScreen = userCmd.parsedCmd.qualDict['screen'].boolValue
     abort = userCmd.parsedCmd.qualDict['abort'].boolValue
@@ -30,10 +30,6 @@ def target(tccActor, userCmd):
         userCmd.setState(userCmd.Done)
         return
 
-    if not name == "icrs":
-        raise CommandError("%s coordSys not supported at LCO"%name)
-    if val.valueList:
-        raise CommandError("%s coordSys date input not supported at LCO"%str(val.valueList[0]))
     coordPair = parsedCmd.paramDict["coordpair"].valueList
     if len(coordPair) != 2:
         raise CommandError("Must specify coordPair of solely ra, dec")
@@ -43,7 +39,7 @@ def target(tccActor, userCmd):
     tcsCmd = expandCommand()
     # ffCmd = expandCommand()
     # userCmd.linkCommands([tcsCmd, ffCmd])
-    tccActor.tcsDev.target(float(ra), float(dec), doHA, doScreen, userCmd)
+    tccActor.tcsDev.target(float(ra), float(dec), posAngle, doHA, doScreen, userCmd)
 
     # if doScreen:
     #     tccActor.secDev.lampOn(ffCmd)
