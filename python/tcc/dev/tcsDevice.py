@@ -803,12 +803,14 @@ class TCSDevice(TCPDevice):
         self.status.updateTCCStatus(userCmd)
         return userCmd
 
-    def rotOffset(self, rot, userCmd=None, force=False):
+    def rotOffset(self, rot, userCmd=None, force=False, absolute=False):
         """Offset telescope rotator.  USE APGCIR cmd
         which holds current
 
         @param[in] rot: in decimal degrees
         @param[in] userCmd a twistedActor BaseCommand
+        @param[in] force not really sure what this does
+        @param[in] absolute if true command an absolute motion
         """
 
         userCmd = expandCommand(userCmd)
@@ -843,7 +845,15 @@ class TCSDevice(TCPDevice):
 
         # apgcir requires absolute position, calculate it
         # first get status
-        newPos = self.status.rotPos - rot
+        if absolute:
+            newPos = rot % 360
+        else:
+            newPos = self.status.rotPos - rot
+
+        # check that rotator command is within the duPont limits.  if it isn't, fail the command
+        if newPos < 90 or newPos > 270:
+            userCmd.setState(userCmd.Failed, "Rotator command out of limits")
+            return userCmd
         # rotStart = time.time()
         # def printRotSlewTime(aCmd):
         #     if aCmd.isDone:
