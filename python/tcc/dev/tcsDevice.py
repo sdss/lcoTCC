@@ -762,12 +762,13 @@ class TCSDevice(TCPDevice):
             self.tccStatus.updateKW("pleaseSlew", "F", userCmd)
         return userCmd
 
-    def slewOffset(self, ra, dec, userCmd=None):
+    def slewOffset(self, ra, dec, userCmd=None, waitForComplete=True):
         """Offset telescope in right ascension and declination.
 
         @param[in] ra: right ascension in decimal degrees
         @param[in] dec: declination in decimal degrees
         @param[in] userCmd a twistedActor BaseCommand
+        @param[in] waitForComplete if True wait until telescope settles before finishing command.
 
         @todo, consolidate similar code with self.target?
         """
@@ -785,6 +786,8 @@ class TCSDevice(TCPDevice):
         self.status.derrQueue.clear()
         waitOffsetCmd = expandCommand()
         self.waitOffsetCmd = waitOffsetCmd
+        if not waitForComplete:
+            self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
         enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg)
         enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
@@ -960,7 +963,7 @@ class TCSDevice(TCPDevice):
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmdStr))
-                if CMDOFF.upper() == devCmdStr:
+                if CMDOFF.upper() == devCmdStr and not self.waitOffsetCmd.Running:
                     self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
                 elif "CIR" in devCmdStr:
                     self.waitRotCmd.setState(self.waitRotCmd.Running)
