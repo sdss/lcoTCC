@@ -756,10 +756,10 @@ class TCSDevice(TCPDevice):
 
         # if rotation is wanted move the rotator
         if ipa_position is not None:
-            print("would send rot to", ipa_position)
-            # rotCmd = self.rotOffset(ipa_position, absolute=True)
-            rotCmd = expandCommand()
-            rotCmd.setState(rotCmd.Done)
+            # print("would send rot to", ipa_position)
+            rotCmd = self.rotOffset(ipa_position, absolute=True)
+            # rotCmd = expandCommand()
+            # rotCmd.setState(rotCmd.Done)
         else:
             rotCmd = expandCommand()
             rotCmd.setState(rotCmd.Done)
