@@ -116,7 +116,7 @@ TCCLCOCmdList = (
         ],
         qualifierList = [
             parseDefs.Qualifier(
-                "posAngle", numValueRange=[1,1], valType=float,
+                name="posAngle", numValueRange=[1,1], valType=float,
                 help = "Specify position angle of observation in degrees.",
             ),
             parseDefs.Qualifier(
