@@ -17,8 +17,8 @@ def target(tccActor, userCmd):
     """
     parsedCmd = userCmd.parsedCmd
     posAngle = None
-    if userCmd.parsedCmd.qualDict['posAngle'].boolValue:
-        posAngle = float(userCmd.parsedCmd.qualDict['posAngle'].valueList[0])
+    if userCmd.parsedCmd.qualDict['posangle'].boolValue:
+        posAngle = float(userCmd.parsedCmd.qualDict['posangle'].valueList[0])
     doHA = userCmd.parsedCmd.qualDict['ha'].boolValue
     doScreen = userCmd.parsedCmd.qualDict['screen'].boolValue
     abort = userCmd.parsedCmd.qualDict['abort'].boolValue
