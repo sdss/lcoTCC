@@ -892,7 +892,11 @@ class TCSDevice(TCPDevice):
         # self.waitOffsetCmd.setTimeLimit(rotTimeLimBuffer + 20)
         self.waitRotCmd.setTimeLimit(rotTimeLimBuffer + 20)
         self.status.setRotOffsetTarg(rot)
-        enterAPGCIR = DevCmd(cmdStr="APGCIR %.8f"%(newPos))
+        if absolute:
+            tcsCMD = "CIR"
+        else:
+            tcsCMD = "APGCIR"
+        enterAPGCIR = DevCmd(cmdStr="%s %.8f"%(tcsCMD, newPos))
         userCmd.linkCommands([enterAPGCIR, self.waitRotCmd])
         # begin the dominos game
         self.queueDevCmd(enterAPGCIR)
