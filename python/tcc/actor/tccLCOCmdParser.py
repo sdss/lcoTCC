@@ -291,6 +291,12 @@ TCCLCOCmdList = (
                 help = "specify offsets ra(deg), dec(deg), rot(deg), focus(um)",
             ),
         ],
+        qualifierList = [
+            parseDefs.Qualifier(
+                name="waitTime", numValueRange=[1,1], valType=float,
+                help = "maximum time to wait for command completion (ra/dec axes only).",
+            ),
+        ]
     ),
     parseDefs.Command(
         name = "help",

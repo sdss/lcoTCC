@@ -777,13 +777,15 @@ class TCSDevice(TCPDevice):
             self.tccStatus.updateKW("pleaseSlew", "F", userCmd)
         return userCmd
 
-    def slewOffset(self, ra, dec, userCmd=None, waitForComplete=True):
+    def slewOffset(self, ra, dec, userCmd=None, waitTime=None):
         """Offset telescope in right ascension and declination.
 
         @param[in] ra: right ascension in decimal degrees
         @param[in] dec: declination in decimal degrees
         @param[in] userCmd a twistedActor BaseCommand
-        @param[in] waitForComplete if True wait until telescope settles before finishing command.
+        @param[in] waitTime: number of seconds until command is marked complete.  If None, marked
+                                complete when the axes *seem* to have stabilized, but it's guesswork
+                                at best...
 
         @todo, consolidate similar code with self.target?
         """
@@ -801,8 +803,7 @@ class TCSDevice(TCPDevice):
         self.status.derrQueue.clear()
         waitOffsetCmd = expandCommand()
         self.waitOffsetCmd = waitOffsetCmd
-        if not waitForComplete:
-            self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
+
         enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg)
         enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
@@ -814,6 +815,9 @@ class TCSDevice(TCPDevice):
                 waitOffsetCmd.setState(waitOffsetCmd.Done, "Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
 
         reactor.callLater(MAX_OFFSET_WAIT, forceOffsetDone, waitOffsetCmd)
+
+        if waitTime is not None:
+            reactor.callLater(waitTime, forceOffsetDone, waitOffsetCmd)
 
         userCmd.linkCommands(devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
@@ -870,7 +874,7 @@ class TCSDevice(TCPDevice):
 
         # check that rotator command is within the duPont limits.  if it isn't, fail the command
         if newPos < 90 or newPos > 270:
-            userCmd.setState(userCmd.Failed, "Rotator command out of limits")
+            userCmd.setState(userCmd.Failed, "Rotator command: %.2f out of limits"%newPos)
             return userCmd
         # rotStart = time.time()
         # def printRotSlewTime(aCmd):
@@ -902,7 +906,6 @@ class TCSDevice(TCPDevice):
         self.queueDevCmd(enterAPGCIR)
         self.status.updateTCCStatus(userCmd)
         return userCmd
-
 
     def handleReply(self, replyStr):
         """Handle a line of output from the device. Called whenever the device outputs a new line of data.

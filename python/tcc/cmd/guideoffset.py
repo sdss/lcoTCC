@@ -11,10 +11,14 @@ def guideoffset(tccActor, userCmd):
     """
     parsedCmd = userCmd.parsedCmd
     offRA, offDec, offRot, offFocus = parsedCmd.paramDict["offsets"].valueList
+    if userCmd.parsedCmd.qualDict['waittime'].boolValue:
+        waitTime = float(userCmd.parsedCmd.qualDict['waittime'].valueList[0])
+    else:
+        waitTime=None
     cmdList = []
     if offRA or offDec:
         # ra dec offset wanted
-        cmdList.append(tccActor.tcsDev.slewOffset(offRA, offDec, waitForComplete=True))
+        cmdList.append(tccActor.tcsDev.slewOffset(offRA, offDec, waitTime=waitTime))
     if offRot:
         cmdList.append(tccActor.tcsDev.rotOffset(offRot))
     if offFocus:
