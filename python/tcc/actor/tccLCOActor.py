@@ -115,6 +115,8 @@ class TCCStatus(object):
             output = True
         if forceOutput:
             output = True
+            level = "d" if level is None else level
+
         if output:
             userCmd.writeToUsers(level, "%s=%s"%(kw, self.kwDict[kw.lower()]))
 
