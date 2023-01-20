@@ -269,6 +269,7 @@ class M2Device(TCPDevice):
         statusCmd = DevCmd("status")
         userCmd.linkCommands([statusCmd])
         self.queueDevCmd(statusCmd)
+        print("queued status command")
         return userCmd
 
     def processStatus(self, replyStr):
