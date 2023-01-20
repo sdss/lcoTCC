@@ -247,7 +247,6 @@ class M2Device(TCPDevice):
         return userCmd
 
     def continuousStatusLoop(self):
-        print("calling status loop m2")
         if self._statusTimer.isActive:
             return  # do nothing, status already running
         if not self.conn.isConnected:
@@ -269,7 +268,6 @@ class M2Device(TCPDevice):
         statusCmd = DevCmd("status")
         userCmd.linkCommands([statusCmd])
         self.queueDevCmd(statusCmd)
-        print("queued status command")
         return userCmd
 
     def processStatus(self, replyStr):
