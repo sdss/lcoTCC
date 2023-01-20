@@ -247,6 +247,7 @@ class M2Device(TCPDevice):
         return userCmd
 
     def continuousStatusLoop(self):
+        print("calling status loop m2")
         if self._statusTimer.isActive:
             return  # do nothing, status already running
         if not self.conn.isConnected:
