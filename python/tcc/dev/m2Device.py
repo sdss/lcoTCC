@@ -281,7 +281,7 @@ class M2Device(TCPDevice):
         # so its probably ok
         statusDict = self.status.getStatusDict()
         if self.tccStatus is not None:
-            self.tccStatus.updateKWs(statusDict, self.currExeDevCmd)
+            self.tccStatus.updateKWs(statusDict, self.currExeDevCmd, forceOutput=True)
         if self.waitMoveCmd.isActive:
             if not self.isBusy:
                 # move is done

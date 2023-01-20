@@ -92,7 +92,7 @@ class TCCStatus(object):
         }
         self.updateKWs(timeDict, userCmd)
 
-    def updateKW(self, kw, valueStr, userCmd, level=None):
+    def updateKW(self, kw, valueStr, userCmd, level=None, forceOutput=False):
         #if no userCmd is associated
         # output the keyword as debug level
         # but only if it has changed since last
@@ -113,13 +113,15 @@ class TCCStatus(object):
             output = True
         elif level == "w":
             output = True
+        if forceOutput:
+            output = True
         if output:
             userCmd.writeToUsers(level, "%s=%s"%(kw, self.kwDict[kw.lower()]))
 
 
-    def updateKWs(self, keyValDict, userCmd):
+    def updateKWs(self, keyValDict, userCmd, forceOutput=False):
         for key, val in keyValDict.iteritems():
-            self.updateKW(key, val, userCmd)
+            self.updateKW(key, val, userCmd, forceOutput=forceOutput)
 
 
 class TCCLCOActor(BaseActor):
