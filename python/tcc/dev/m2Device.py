@@ -6,13 +6,15 @@ from RO.Comm.TwistedTimer import Timer
 from RO.StringUtil import strFromException
 
 from twistedActor import TCPDevice, DevCmd, CommandQueue, log, expandCommand
+from twisted.internet.task import LoopingCall
 
 __all__ = ["M2Device"]
 
 #TODO: fix move timeout, timeout should be set on device
 # commands, currently it is on the UserCmd
 
-PollTime = 0.5 #seconds, LCO says status is updated no more frequently that 5 times a second
+PollTime = 0.5 # polling frequency during a move, seconds, LCO says status is updated no more frequently that 5 times a second
+StatusCheckTime = 5 # query for status frequency automatically
 # PollTime = 1
 # Speed = 25.0 # microns per second for focus
 DefaultTimeout = 2 # seconds
@@ -41,7 +43,6 @@ class Status(object):
         self.lamps = None
         self.galil = None
         self._moveTimeTotal = 0.
-
 
     @property
     def moveTimeRemaining(self):
@@ -193,6 +194,10 @@ class M2Device(TCPDevice):
             cmdInfo = (),
         )
 
+        # begin automatically asking for status
+        loop = LoopingCall(self.continuousStatusLoop)
+        loop.start(StatusCheckTime)
+
     @property
     def isBusy(self):
         return self.status.state == Moving
@@ -240,6 +245,13 @@ class M2Device(TCPDevice):
         for cmd in devCmds:
             self.queueDevCmd(cmd)
         return userCmd
+
+    def continuousStatusLoop(self):
+        if self._statusTimer.isActive:
+            return  # do nothing, status already running
+        if not self.conn.isConnected:
+            return  # do nothing, not connected to M2
+        self.getStatus()
 
     def getStatus(self, userCmd=None):
         """Return current telescope status. Continuously poll.
