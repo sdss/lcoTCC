@@ -189,7 +189,7 @@ def castRawPos(lcoReply):
 def castScreenPos(lcoReply):
     try:
         items = lcoReply.split()
-        screenPos = items[6].strip()
+        screenPos = items[7].strip()
         return float(screenPos)
     except:
         print("error parsing lco screen pos: ", screenPos)
