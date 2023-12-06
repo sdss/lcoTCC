@@ -186,8 +186,10 @@ def castRawPos(lcoReply):
     deg = encCounts2Deg(encCounts)
     return deg
 
+
 def castScreenPos(lcoReply):
     try:
+        print("cast screen pos", lcoReply)
         items = lcoReply.split()
         screenPos = items[7].strip()
         return float(screenPos)
