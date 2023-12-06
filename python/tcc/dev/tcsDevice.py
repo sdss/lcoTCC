@@ -873,7 +873,7 @@ class TCSDevice(TCPDevice):
             newPos = self.status.rotPos - rot
 
         # check that rotator command is within the duPont limits.  if it isn't, fail the command
-        if newPos < 90 or newPos > 270:
+        if newPos < 60 or newPos > 300:
             userCmd.setState(userCmd.Failed, "Rotator command: %.2f out of limits"%newPos)
             return userCmd
         # rotStart = time.time()
