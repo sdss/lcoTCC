@@ -189,7 +189,6 @@ def castRawPos(lcoReply):
 
 def castScreenPos(lcoReply):
     try:
-        print("cast screen pos", lcoReply)
         items = lcoReply.split()
         screenPos = items[7].strip()
         return float(screenPos)
@@ -295,6 +294,8 @@ class Status(object):
 
     def screenPos(self):
         sp = self.statusFieldDict["lplc"].value
+        print("statusFieldDict", self.statusFieldDict)
+        print("sp", sp)
         return "%.2f"%sp
 
     def axisErr(self):
