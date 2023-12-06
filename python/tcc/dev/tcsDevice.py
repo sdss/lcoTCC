@@ -288,7 +288,12 @@ class Status(object):
             "tccTemps": self.tccTemps(),
             "airmass": self.airmass(),
             "axisErr": self.axisErr(),
+            "screenPos": self.screenPos()
         }
+
+    def screenPos(self):
+        sp = self.statusFieldDict["lplc"].value
+        return "%.2f"%sp
 
     def axisErr(self):
         rerr = self.statusFieldDict["rerr"].value
