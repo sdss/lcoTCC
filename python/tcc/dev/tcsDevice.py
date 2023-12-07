@@ -935,12 +935,12 @@ class TCSDevice(TCPDevice):
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
 
-        if (self.statusFieldDict['mrp'].value is None or
-                self.statusFieldDict['mrp'].value['fflamp'] < 0):
+        if (self.status.statusFieldDict['mrp'].value is None or
+                self.status.statusFieldDict['mrp'].value['fflamp'] < 0):
             userCmd.setState(userCmd.Failed, "No MRP status")
             return userCmd
 
-        current = self.statusFieldDict['mrp'].value['fflamp']
+        current = self.status.statusFieldDict['mrp'].value['fflamp']
         if (current == 0 and on is False) or (current == 1 and on is True):
             userCmd.setState(userCmd.Done, "FF lamp already in desired state")
             return userCmd
