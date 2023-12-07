@@ -295,7 +295,7 @@ class Status(object):
 
     def screenPos(self):
         sp = self.statusFieldDict["lplc"].value
-        return "%.2f"%sp
+        return "%.2f"%sp if sp is not None else -999
 
     def axisErr(self):
         rerr = self.statusFieldDict["rerr"].value
