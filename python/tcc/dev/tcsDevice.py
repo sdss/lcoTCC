@@ -496,6 +496,8 @@ class Status(object):
 
     @property
     def isClamped(self):
+        if not self.statusFieldDict["mrp"].value:
+            return None
         return self.statusFieldDict["mrp"].value['clamp']
 
     @property
