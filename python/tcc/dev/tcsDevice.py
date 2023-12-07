@@ -289,7 +289,7 @@ class Status(object):
             "tccTemps": self.tccTemps(),
             "airmass": self.airmass(),
             "axisErr": self.axisErr(),
-            "ffLamps": self.ffLamp(),
+            "ffLamp": self.ffLamp(),
             "screenPos": self.screenPos()
         }
 
