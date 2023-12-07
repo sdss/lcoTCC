@@ -10,6 +10,7 @@ from .showFocus import *
 from .offset import *
 from .device import *
 from .sec import *
+from .ff import *
 from .showStatus import *
 from .showVersion import *
 from .collimate import *
