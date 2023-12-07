@@ -186,10 +186,11 @@ def castRawPos(lcoReply):
     deg = encCounts2Deg(encCounts)
     return deg
 
+
 def castScreenPos(lcoReply):
     try:
         items = lcoReply.split()
-        screenPos = items[6].strip()
+        screenPos = items[7].strip()
         return float(screenPos)
     except:
         print("error parsing lco screen pos: ", screenPos)
@@ -288,8 +289,13 @@ class Status(object):
             "tccTemps": self.tccTemps(),
             "airmass": self.airmass(),
             "axisErr": self.axisErr(),
-            "ffLamps": self.ffLamp()
+            "ffLamps": self.ffLamp(),
+            "screenPos": self.screenPos()
         }
+
+    def screenPos(self):
+        sp = self.statusFieldDict["lplc"].value
+        return "%.2f"%sp
 
     def axisErr(self):
         rerr = self.statusFieldDict["rerr"].value
