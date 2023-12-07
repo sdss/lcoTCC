@@ -1,6 +1,7 @@
 from __future__ import division, absolute_import
 
 import collections
+from os import wait
 import time
 import numpy
 
@@ -947,13 +948,25 @@ class TCSDevice(TCPDevice):
 
         waitFFLampCmd = expandCommand()
         def finishFFLampTimer():
+            kwDict = self.status.getTCCKWDict()
+            ffLamp = kwDict['ffLamp']
+            if ffLamp < 0 or bool(ffLamp) is not on:
+                waitFFLampCmd.setState(waitFFLampCmd.Failed, "FF lamp did not change state")
+                return
+
+            userCmd.writeToUsers('i', 'ffLamp=%s' % ffLamp)
             waitFFLampCmd.setState(waitFFLampCmd.Done)
 
         toggleFF = DevCmd(cmdStr="FFLAMPS")
-        userCmd.linkCommands([toggleFF, waitFFLampCmd])
+        getMRP = DevCmd(cmdStr="mrp")
+        userCmd.linkCommands([toggleFF, getMRP, waitFFLampCmd])
 
         self.queueDevCmd(toggleFF)
-        reactor.callLater(3, finishFFLampTimer)
+        self.queueDevCmd(getMRP)
+
+        # Give some time for the MRP command to update the ffLamp status before checking
+        # that the lamp changed states and finish the command.
+        reactor.callLater(1, finishFFLampTimer)
         return userCmd
 
     def handleReply(self, replyStr):
