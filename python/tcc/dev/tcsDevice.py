@@ -945,11 +945,15 @@ class TCSDevice(TCPDevice):
             userCmd.setState(userCmd.Done, "FF lamp already in desired state")
             return userCmd
 
+        waitFFLampCmd = expandCommand()
+        def finishFFLampTimer():
+            waitFFLampCmd.setState(waitFFLampCmd.Done)
+
         toggleFF = DevCmd(cmdStr="FFLAMPS")
-        userCmd.linkCommands([toggleFF])
+        userCmd.linkCommands([toggleFF, waitFFLampCmd])
 
         self.queueDevCmd(toggleFF)
-        reactor.callLater(3, self.status.updateTCCStatus, userCmd)
+        reactor.callLater(3, finishFFLampTimer)
         return userCmd
 
     def handleReply(self, replyStr):
