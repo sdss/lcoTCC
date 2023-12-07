@@ -123,13 +123,13 @@ def castHoursToDeg(tcsHourStr):
 def castPos(tcsPosStr):
     return [numpy.degrees(float(x)) for x in tcsPosStr.split()]
 
-def castClamp(lcoReply):
+def castMRP(lcoReply):
     """MRP command output:
     "%d %d %d %d %d", status.irclamped, status.mirrorexposed, status.mirrorcoveropen, status.mirrorcoverclosed, status.oilpump
     MRP
     1 0 0 1 3
     """
-    return bool(int(lcoReply.split()[0]))
+    return {'clamp': bool(int(lcoReply.split()[0])), 'fflamp': bool(int(lcoReply.split()[7]))}
 
 class AxisState(object):
     def __init__(self, name, isStopped, isActive, isMoving, isTracking=False):
@@ -236,7 +236,7 @@ StatusFieldList = [
                 # StatusField("had", float), # I think degrees, only for input?
                 StatusField("epoch", float),
                 StatusField("zd", float),
-                StatusField("mrp", castClamp),
+                StatusField("mrp", castMRP),
                 StatusField("axisstatus", castAxis), #unhack this!
                 StatusField("temps", castTemps),
                 StatusField("ttruss", float),
@@ -288,6 +288,7 @@ class Status(object):
             "tccTemps": self.tccTemps(),
             "airmass": self.airmass(),
             "axisErr": self.axisErr(),
+            "ffLamps": self.ffLamp()
         }
 
     def axisErr(self):
@@ -391,6 +392,11 @@ class Status(object):
     def utc_tai(self):
         return "UTC_TAI=%0.0f"%(-36.0,) # this value is usually gotten from coordConv/earthpred, I think, which we don't have implemented...
 
+    def ffLamp(self):
+        """Returns the status on/off of the FF lamp."""
+        mrp = self.statusFieldDict["mrp"].value
+        return int(mrp['fflamp']) if (mrp is not None and 'fflamp' in mrp) else -1
+
     # def secFocus(self):
     #     secFocus = self.statusFieldDict["focus"].value
     #     secFocus = "NaN" if secFocus is None else "%.4f"%secFocus
@@ -484,7 +490,7 @@ class Status(object):
 
     @property
     def isClamped(self):
-        return self.statusFieldDict["mrp"].value
+        return self.statusFieldDict["mrp"].value['clamp']
 
     @property
     def rotMoving(self):
