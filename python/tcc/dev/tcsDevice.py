@@ -949,7 +949,7 @@ class TCSDevice(TCPDevice):
         userCmd.linkCommands([toggleFF])
 
         self.queueDevCmd(toggleFF)
-        self.status.updateTCCStatus(userCmd)
+        reactor.callLater(1, self.status.updateTCCStatus, userCmd)
         return userCmd
 
     def handleReply(self, replyStr):
