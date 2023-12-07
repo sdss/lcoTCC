@@ -1,6 +1,7 @@
 from __future__ import division, absolute_import
 
 import collections
+from os import wait
 import time
 import numpy
 
@@ -123,13 +124,13 @@ def castHoursToDeg(tcsHourStr):
 def castPos(tcsPosStr):
     return [numpy.degrees(float(x)) for x in tcsPosStr.split()]
 
-def castClamp(lcoReply):
+def castMRP(lcoReply):
     """MRP command output:
     "%d %d %d %d %d", status.irclamped, status.mirrorexposed, status.mirrorcoveropen, status.mirrorcoverclosed, status.oilpump
     MRP
     1 0 0 1 3
     """
-    return bool(int(lcoReply.split()[0]))
+    return {'clamp': bool(int(lcoReply.split()[0])), 'fflamp': bool(int(lcoReply.split()[7]))}
 
 class AxisState(object):
     def __init__(self, name, isStopped, isActive, isMoving, isTracking=False):
@@ -186,10 +187,11 @@ def castRawPos(lcoReply):
     deg = encCounts2Deg(encCounts)
     return deg
 
+
 def castScreenPos(lcoReply):
     try:
         items = lcoReply.split()
-        screenPos = items[6].strip()
+        screenPos = items[7].strip()
         return float(screenPos)
     except:
         print("error parsing lco screen pos: ", screenPos)
@@ -236,7 +238,7 @@ StatusFieldList = [
                 # StatusField("had", float), # I think degrees, only for input?
                 StatusField("epoch", float),
                 StatusField("zd", float),
-                StatusField("mrp", castClamp),
+                StatusField("mrp", castMRP),
                 StatusField("axisstatus", castAxis), #unhack this!
                 StatusField("temps", castTemps),
                 StatusField("ttruss", float),
@@ -288,7 +290,13 @@ class Status(object):
             "tccTemps": self.tccTemps(),
             "airmass": self.airmass(),
             "axisErr": self.axisErr(),
+            "ffLamp": self.ffLamp(),
+            "screenPos": self.screenPos()
         }
+
+    def screenPos(self):
+        sp = self.statusFieldDict["lplc"].value
+        return "%.2f"%sp if sp is not None else -999
 
     def axisErr(self):
         rerr = self.statusFieldDict["rerr"].value
@@ -391,6 +399,11 @@ class Status(object):
     def utc_tai(self):
         return "UTC_TAI=%0.0f"%(-36.0,) # this value is usually gotten from coordConv/earthpred, I think, which we don't have implemented...
 
+    def ffLamp(self):
+        """Returns the status on/off of the FF lamp."""
+        mrp = self.statusFieldDict["mrp"].value
+        return int(mrp['fflamp']) if (mrp is not None and 'fflamp' in mrp) else -1
+
     # def secFocus(self):
     #     secFocus = self.statusFieldDict["focus"].value
     #     secFocus = "NaN" if secFocus is None else "%.4f"%secFocus
@@ -484,7 +497,9 @@ class Status(object):
 
     @property
     def isClamped(self):
-        return self.statusFieldDict["mrp"].value
+        if not self.statusFieldDict["mrp"].value:
+            return None
+        return self.statusFieldDict["mrp"].value['clamp']
 
     @property
     def rotMoving(self):
@@ -905,6 +920,53 @@ class TCSDevice(TCPDevice):
         # begin the dominos game
         self.queueDevCmd(enterAPGCIR)
         self.status.updateTCCStatus(userCmd)
+        return userCmd
+
+    def handleFFLamp(self, on, userCmd=None):
+        """Turns on/off the FF lamp. The FFLAMP command is a toggle.
+
+        @param[in] on turn lamps on or off
+        @param[in] userCmd a twistedActor BaseCommand
+
+        """
+
+        userCmd = expandCommand(userCmd)
+
+        if not self.conn.isConnected:
+            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+            return userCmd
+
+        if (self.status.statusFieldDict['mrp'].value is None or
+                self.status.statusFieldDict['mrp'].value['fflamp'] < 0):
+            userCmd.setState(userCmd.Failed, "No MRP status")
+            return userCmd
+
+        current = self.status.statusFieldDict['mrp'].value['fflamp']
+        if (current == 0 and on is False) or (current == 1 and on is True):
+            userCmd.setState(userCmd.Done, "FF lamp already in desired state")
+            return userCmd
+
+        waitFFLampCmd = expandCommand()
+        def finishFFLampTimer():
+            kwDict = self.status.getTCCKWDict()
+            ffLamp = kwDict['ffLamp']
+            if ffLamp < 0 or bool(ffLamp) is not on:
+                waitFFLampCmd.setState(waitFFLampCmd.Failed, "FF lamp did not change state")
+                return
+
+            userCmd.writeToUsers('i', 'ffLamp=%s' % ffLamp)
+            waitFFLampCmd.setState(waitFFLampCmd.Done)
+
+        toggleFF = DevCmd(cmdStr="FFLAMPS")
+        getMRP = DevCmd(cmdStr="mrp")
+        userCmd.linkCommands([toggleFF, getMRP, waitFFLampCmd])
+
+        self.queueDevCmd(toggleFF)
+        self.queueDevCmd(getMRP)
+
+        # Give some time for the MRP command to update the ffLamp status before checking
+        # that the lamp changed states and finish the command.
+        reactor.callLater(1, finishFFLampTimer)
         return userCmd
 
     def handleReply(self, replyStr):

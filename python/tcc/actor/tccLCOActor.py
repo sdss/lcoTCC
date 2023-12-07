@@ -76,6 +76,8 @@ class TCCStatus(object):
             "TAI",
             "UTC_TAI",
             "axisErr",
+            "screenPos",
+            "ffLamp"
         ]
         self.kwDict = {}
         for kw in self.tccKWs:

@@ -5,7 +5,7 @@ from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
 from ..cmd import setFocus, showFocus, showStatus, \
                    showVersion, offset, device, ping, sec, target, \
-                   collimate, guiderot, help, guideoffset, lamp, showTime
+                   collimate, guiderot, help, guideoffset, lamp, showTime, ff
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -304,10 +304,26 @@ TCCLCOCmdList = (
         callFunc = help,
         minParAmt = 0,
     ),
+    # parseDefs.Command(
+    #     name = "lamp",
+    #     help = "turn ff lamp on or off.",
+    #     callFunc = lamp,
+    #     minParAmt = 1,
+    #     paramList = [
+    #         parseDefs.KeywordParam(
+    #             name = 'action',
+    #             keywordDefList = [
+    #                 parseDefs.Keyword(name = "on", help = "turn lamp on"),
+    #                 parseDefs.Keyword(name = "off", help = "turn lamp off"),
+    #                 parseDefs.Keyword(name = "status", help = "get lamp status"),
+    #             ],
+    #         )
+    #     ],
+    # ),
     parseDefs.Command(
-        name = "lamp",
+        name = "ff",
         help = "turn ff lamp on or off.",
-        callFunc = lamp,
+        callFunc = ff,
         minParAmt = 1,
         paramList = [
             parseDefs.KeywordParam(
