@@ -921,6 +921,37 @@ class TCSDevice(TCPDevice):
         self.status.updateTCCStatus(userCmd)
         return userCmd
 
+    def handleFFLamp(self, on, userCmd=None):
+        """Turns on/off the FF lamp. The FFLAMP command is a toggle.
+
+        @param[in] on turn lamps on or off
+        @param[in] userCmd a twistedActor BaseCommand
+
+        """
+
+        userCmd = expandCommand(userCmd)
+
+        if not self.conn.isConnected:
+            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+            return userCmd
+
+        if (self.statusFieldDict['mrp'].value is None or
+                self.statusFieldDict['mrp'].value['fflamp'] < 0):
+            userCmd.setState(userCmd.Failed, "No MRP status")
+            return userCmd
+
+        current = self.statusFieldDict['mrp'].value['fflamp']
+        if (current == 0 and on is False) or (current == 1 and on is True):
+            userCmd.setState(userCmd.Done, "FF lamp already in desired state")
+            return userCmd
+
+        toggleFF = DevCmd(cmdStr="FFLAMPS")
+        userCmd.linkCommands([toggleFF])
+
+        self.queueDevCmd(toggleFF)
+        self.status.updateTCCStatus(userCmd)
+        return userCmd
+
     def handleReply(self, replyStr):
         """Handle a line of output from the device. Called whenever the device outputs a new line of data.
 

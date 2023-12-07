@@ -12,8 +12,8 @@ def ff(tccActor, userCmd):
     params = userCmd.parsedCmd.paramDict
     action = params["action"].valueList[0].keyword
     if action == "off":
-        tccActor.tcsDev.ffOff(userCmd)
+        tccActor.tcsDev.handleFFLamp(False, userCmd)
     elif action == "on":
-        tccActor.tcsDev.ffOn(userCmd)
+        tccActor.tcsDev.handleFFLamp(True, userCmd)
     else:
         tccActor.tcsDev.getStatus(userCmd)
