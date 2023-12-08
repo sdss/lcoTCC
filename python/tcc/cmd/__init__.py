@@ -7,12 +7,10 @@ but includes some high-level functions needed by those subroutines.
 from .target import *
 from .setFocus import *
 from .showFocus import *
-from .setScaleFactor import *
-from .showScaleFactor import *
 from .offset import *
 from .device import *
 from .sec import *
-from .threadRing import *
+from .ff import *
 from .showStatus import *
 from .showVersion import *
 from .collimate import *
@@ -22,3 +20,4 @@ from .help import *
 from .guideoffset import *
 from .lamp import *
 from .showTime import *
+from .ping import *

@@ -3,9 +3,9 @@ from __future__ import division, absolute_import
 """
 from ..parse.cmdParse import CmdParser
 from ..parse import parseDefs
-from ..cmd import setFocus, showFocus, setScaleFactor, showScaleFactor, showStatus, \
-                   showVersion, offset, device, ping, threadRing, sec, target, \
-                   collimate, guiderot, help, guideoffset, lamp, showTime
+from ..cmd import setFocus, showFocus, showStatus, \
+                   showVersion, offset, device, ping, sec, target, \
+                   collimate, guiderot, help, guideoffset, lamp, showTime, ff
 
 __all__ = ["TCCLCOCmdParser"]
 
@@ -111,17 +111,14 @@ TCCLCOCmdList = (
         paramList = [
             CoordPair(
                 name = 'coordPair',
-                extraHelp =  "Nonzero velocity specifies dEquatAng/dt, dPolarAng/dt; " \
-                    "to track along a great circle specify /ScanVelocity or, " \
-                    "equivalently, specify an arc offset with nonzero velocity.",
+                extraHelp =  "target ra and dec.",
                 ),
-            CoordSys(
-                name = 'coordSys',
-                help = "Coordinate system and date",
-                omit = ("Instrument", "GProbe", "GImage", "PtCorr", "Rotator"),
-            ),
         ],
         qualifierList = [
+            parseDefs.Qualifier(
+                name="posAngle", numValueRange=[1,1], valType=float,
+                help = "Specify position angle of observation in degrees.",
+            ),
             parseDefs.Qualifier(
                 name = "ha",
                 help = "use hour angle rather than ra as target input.",
@@ -160,21 +157,6 @@ TCCLCOCmdList = (
                     "secondary mirror (microns), if a new value is specified. " \
                     "Then updates collimation (if tracking or slewing).",
             ),
-            parseDefs.SubCommand(
-                parseDefs.Keyword(
-                    name="scaleFactor",
-                    castVals = float,
-                    numValueRange = [0,1],
-                ),
-                qualifierList = [
-                    parseDefs.Qualifier(
-                        "multiplicative",
-                        help = "If specified then new scale factor = old scale factor * value.",
-                    )
-                ],
-                callFunc = setScaleFactor,
-                help = "Set the desired scale factor.",
-            ),
         ],
     ),
 
@@ -185,11 +167,6 @@ TCCLCOCmdList = (
                 parseDefs.Keyword(name="focus"),
                 callFunc = showFocus,
                 help = "Show focus value",
-            ),
-            parseDefs.SubCommand(
-                parseDefs.Keyword(name="scaleFactor"),
-                callFunc = showScaleFactor,
-                help = "Show the scale factor.",
             ),
             parseDefs.SubCommand(
                 parseDefs.Keyword(name="status"),
@@ -217,7 +194,7 @@ TCCLCOCmdList = (
     parseDefs.Command(
         name = "device",
         minParAmt = 1,
-        help = "Command the tcs and/or scale controllers",
+        help = "Command the tcs controller",
         callFunc = device,
         paramList = [
             parseDefs.KeywordParam(
@@ -234,63 +211,12 @@ TCCLCOCmdList = (
             parseDefs.KeywordParam(
                 name = 'device',
                 keywordDefList = [parseDefs.Keyword(name = item) for item in [
-                    "tcs", "scale", "sec", "lamp", "measscale"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
+                    "tcs", "sec", "lamp"]] + [parseDefs.Keyword(name = "all", passMeByDefault=True)],
                 numParamRange = [0, None],
                 help = "Which controller? If omitted then all devices.",
             ),
         ],
         qualifierList = [TimeLimit],
-    ),
-
-    parseDefs.CommandWrapper(
-        name = "threadring",
-        subCmdList = [
-            parseDefs.SubCommand(
-                parseDefs.Keyword(name="move"),
-                minParAmt = 1, # must specify a position to move to
-                paramList = [parseDefs.ValueParam("movevalue", numValueRange=[1,1], castVals=float)],
-                callFunc = threadRing,
-                qualifierList = [
-                    parseDefs.Qualifier(
-                        name = "incremental",
-                        help = "move as offset rather than abs move.",
-                    ),
-                    parseDefs.Qualifier(
-                        name = "secondary",
-                        help = "move secondary mirror to maintain current focus.",
-                    ),
-                ],
-                help = "directly move the scaling ring",
-            ),
-            parseDefs.SubCommand(
-                parseDefs.Keyword(name="speed"),
-                minParAmt = 1, # must specify a position to move to
-                paramList = [parseDefs.ValueParam("speedvalue", numValueRange=[1,1], castVals=float)],
-                callFunc = threadRing,
-                qualifierList = [
-                    parseDefs.Qualifier(
-                        name = "multiplicative",
-                        help = "adjust speed fractionally.",
-                    ),
-                ],
-                help = "directly move the scaling ring in mm",
-            ),
-            parseDefs.SubCommand(
-                parseDefs.Keyword(name="stop"),
-                callFunc = threadRing,
-                help = "stop the scaling ring",
-            ),
-            parseDefs.SubCommand(
-                parseDefs.Keyword(name="status"),
-                callFunc = threadRing,
-                help = "get threadring status",
-            ),
-            parseDefs.SubCommand(
-                parseDefs.Keyword(name="home"),
-                callFunc = threadRing,
-                help = "set mitutoyo into counting state and reset encoder values",
-            ),
-        ],
     ),
 
     parseDefs.CommandWrapper(
@@ -361,10 +287,16 @@ TCCLCOCmdList = (
             parseDefs.ValueParam(
                 name="offsets",
                 castVals=float,
-                numValueRange=[5,5], # must specify all 5 values
-                help = "specify offsets ra(deg), dec(deg), rot(deg), focus(um), scale(%)",
+                numValueRange=[4,4], # must specify all 5 values
+                help = "specify offsets ra(deg), dec(deg), rot(deg), focus(um)",
             ),
         ],
+        qualifierList = [
+            parseDefs.Qualifier(
+                name="waitTime", numValueRange=[1,1], valType=float,
+                help = "maximum time to wait for command completion (ra/dec axes only).",
+            ),
+        ]
     ),
     parseDefs.Command(
         name = "help",
@@ -372,10 +304,26 @@ TCCLCOCmdList = (
         callFunc = help,
         minParAmt = 0,
     ),
+    # parseDefs.Command(
+    #     name = "lamp",
+    #     help = "turn ff lamp on or off.",
+    #     callFunc = lamp,
+    #     minParAmt = 1,
+    #     paramList = [
+    #         parseDefs.KeywordParam(
+    #             name = 'action',
+    #             keywordDefList = [
+    #                 parseDefs.Keyword(name = "on", help = "turn lamp on"),
+    #                 parseDefs.Keyword(name = "off", help = "turn lamp off"),
+    #                 parseDefs.Keyword(name = "status", help = "get lamp status"),
+    #             ],
+    #         )
+    #     ],
+    # ),
     parseDefs.Command(
-        name = "lamp",
+        name = "ff",
         help = "turn ff lamp on or off.",
-        callFunc = lamp,
+        callFunc = ff,
         minParAmt = 1,
         paramList = [
             parseDefs.KeywordParam(
@@ -398,7 +346,6 @@ class TCCLCOCmdParser(CmdParser):
 
         ONLY SUPPORTED COMMANDS ARE:
         set focus=focusVal
-        set scaleFactor=scaleVale
         offset arc ra, dec
 
         """

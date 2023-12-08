@@ -1,6 +1,7 @@
 from __future__ import division, absolute_import
 
 import collections
+from os import wait
 import time
 import numpy
 
@@ -123,13 +124,13 @@ def castHoursToDeg(tcsHourStr):
 def castPos(tcsPosStr):
     return [numpy.degrees(float(x)) for x in tcsPosStr.split()]
 
-def castClamp(lcoReply):
+def castMRP(lcoReply):
     """MRP command output:
     "%d %d %d %d %d", status.irclamped, status.mirrorexposed, status.mirrorcoveropen, status.mirrorcoverclosed, status.oilpump
     MRP
     1 0 0 1 3
     """
-    return bool(int(lcoReply.split()[0]))
+    return {'clamp': bool(int(lcoReply.split()[0])), 'fflamp': bool(int(lcoReply.split()[7]))}
 
 class AxisState(object):
     def __init__(self, name, isStopped, isActive, isMoving, isTracking=False):
@@ -186,10 +187,11 @@ def castRawPos(lcoReply):
     deg = encCounts2Deg(encCounts)
     return deg
 
+
 def castScreenPos(lcoReply):
     try:
         items = lcoReply.split()
-        screenPos = items[6].strip()
+        screenPos = items[7].strip()
         return float(screenPos)
     except:
         print("error parsing lco screen pos: ", screenPos)
@@ -236,7 +238,7 @@ StatusFieldList = [
                 # StatusField("had", float), # I think degrees, only for input?
                 StatusField("epoch", float),
                 StatusField("zd", float),
-                StatusField("mrp", castClamp),
+                StatusField("mrp", castMRP),
                 StatusField("axisstatus", castAxis), #unhack this!
                 StatusField("temps", castTemps),
                 StatusField("ttruss", float),
@@ -288,7 +290,13 @@ class Status(object):
             "tccTemps": self.tccTemps(),
             "airmass": self.airmass(),
             "axisErr": self.axisErr(),
+            "ffLamp": self.ffLamp(),
+            "screenPos": self.screenPos()
         }
+
+    def screenPos(self):
+        sp = self.statusFieldDict["lplc"].value
+        return "%.2f"%sp if sp is not None else -999
 
     def axisErr(self):
         rerr = self.statusFieldDict["rerr"].value
@@ -391,6 +399,11 @@ class Status(object):
     def utc_tai(self):
         return "UTC_TAI=%0.0f"%(-36.0,) # this value is usually gotten from coordConv/earthpred, I think, which we don't have implemented...
 
+    def ffLamp(self):
+        """Returns the status on/off of the FF lamp."""
+        mrp = self.statusFieldDict["mrp"].value
+        return int(mrp['fflamp']) if (mrp is not None and 'fflamp' in mrp) else -1
+
     # def secFocus(self):
     #     secFocus = self.statusFieldDict["focus"].value
     #     secFocus = "NaN" if secFocus is None else "%.4f"%secFocus
@@ -484,7 +497,9 @@ class Status(object):
 
     @property
     def isClamped(self):
-        return self.statusFieldDict["mrp"].value
+        if not self.statusFieldDict["mrp"].value:
+            return None
+        return self.statusFieldDict["mrp"].value['clamp']
 
     @property
     def rotMoving(self):
@@ -674,11 +689,12 @@ class TCSDevice(TCPDevice):
 
         return
 
-    def target(self, ra, dec, doHA, doScreen, userCmd=None):
+    def target(self, ra, dec, posAngle, doHA, doScreen, userCmd=None):
         """Set coordinates for a slew.
 
         @param[in] ra: right ascension decimal degrees
         @param[in] dec: declination decimal degrees
+        @param[in] posAngle: desired position angle for observation in degrees
         @param[in] doHA: if True, use degrees in hour angle rather than ra.
         @param[in] doBlock: if True, do not set the userCmd done until the telescope is in place.
         @param[in] userCmd: a twistedActor BaseCommand.
@@ -687,6 +703,9 @@ class TCSDevice(TCPDevice):
         log.info("%s.slew(userCmd=%s, ra=%.2f, dec=%.2f)" % (self, userCmd, ra, dec))
         userCmd = expandCommand(userCmd)
         ffs_altitude = None
+        ipa_position = None
+        if posAngle is not None:
+            ipa_position = (90.064 - posAngle)%360
 
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
@@ -749,7 +768,18 @@ class TCSDevice(TCPDevice):
         if not self.waitSlewCmd.isDone:
             self.waitSlewCmd.setState(self.waitSlewCmd.Cancelled, "Superseded by new slew")
         self.waitSlewCmd = expandCommand()
-        userCmd.linkCommands(devCmdList + [self.waitSlewCmd])
+
+        # if rotation is wanted move the rotator
+        if ipa_position is not None:
+            # print("would send rot to", ipa_position)
+            rotCmd = self.rotOffset(ipa_position, absolute=True)
+            # rotCmd = expandCommand()
+            # rotCmd.setState(rotCmd.Done)
+        else:
+            rotCmd = expandCommand()
+            rotCmd.setState(rotCmd.Done)
+
+        userCmd.linkCommands(devCmdList + [self.waitSlewCmd, rotCmd])
 
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
@@ -762,12 +792,15 @@ class TCSDevice(TCPDevice):
             self.tccStatus.updateKW("pleaseSlew", "F", userCmd)
         return userCmd
 
-    def slewOffset(self, ra, dec, userCmd=None):
+    def slewOffset(self, ra, dec, userCmd=None, waitTime=None):
         """Offset telescope in right ascension and declination.
 
         @param[in] ra: right ascension in decimal degrees
         @param[in] dec: declination in decimal degrees
         @param[in] userCmd a twistedActor BaseCommand
+        @param[in] waitTime: number of seconds until command is marked complete.  If None, marked
+                                complete when the axes *seem* to have stabilized, but it's guesswork
+                                at best...
 
         @todo, consolidate similar code with self.target?
         """
@@ -785,6 +818,7 @@ class TCSDevice(TCPDevice):
         self.status.derrQueue.clear()
         waitOffsetCmd = expandCommand()
         self.waitOffsetCmd = waitOffsetCmd
+
         enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg)
         enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
@@ -797,18 +831,23 @@ class TCSDevice(TCPDevice):
 
         reactor.callLater(MAX_OFFSET_WAIT, forceOffsetDone, waitOffsetCmd)
 
+        if waitTime is not None:
+            reactor.callLater(waitTime, forceOffsetDone, waitOffsetCmd)
+
         userCmd.linkCommands(devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
         self.status.updateTCCStatus(userCmd)
         return userCmd
 
-    def rotOffset(self, rot, userCmd=None, force=False):
+    def rotOffset(self, rot, userCmd=None, force=False, absolute=False):
         """Offset telescope rotator.  USE APGCIR cmd
         which holds current
 
         @param[in] rot: in decimal degrees
         @param[in] userCmd a twistedActor BaseCommand
+        @param[in] force not really sure what this does
+        @param[in] absolute if true command an absolute motion
         """
 
         userCmd = expandCommand(userCmd)
@@ -843,7 +882,15 @@ class TCSDevice(TCPDevice):
 
         # apgcir requires absolute position, calculate it
         # first get status
-        newPos = self.status.rotPos - rot
+        if absolute:
+            newPos = rot % 360
+        else:
+            newPos = self.status.rotPos - rot
+
+        # check that rotator command is within the duPont limits.  if it isn't, fail the command
+        if newPos < 60 or newPos > 300:
+            userCmd.setState(userCmd.Failed, "Rotator command: %.2f out of limits"%newPos)
+            return userCmd
         # rotStart = time.time()
         # def printRotSlewTime(aCmd):
         #     if aCmd.isDone:
@@ -864,13 +911,63 @@ class TCSDevice(TCPDevice):
         # self.waitOffsetCmd.setTimeLimit(rotTimeLimBuffer + 20)
         self.waitRotCmd.setTimeLimit(rotTimeLimBuffer + 20)
         self.status.setRotOffsetTarg(rot)
-        enterAPGCIR = DevCmd(cmdStr="APGCIR %.8f"%(newPos))
+        if absolute:
+            tcsCMD = "CIR"
+        else:
+            tcsCMD = "APGCIR"
+        enterAPGCIR = DevCmd(cmdStr="%s %.8f"%(tcsCMD, newPos))
         userCmd.linkCommands([enterAPGCIR, self.waitRotCmd])
         # begin the dominos game
         self.queueDevCmd(enterAPGCIR)
         self.status.updateTCCStatus(userCmd)
         return userCmd
 
+    def handleFFLamp(self, on, userCmd=None):
+        """Turns on/off the FF lamp. The FFLAMP command is a toggle.
+
+        @param[in] on turn lamps on or off
+        @param[in] userCmd a twistedActor BaseCommand
+
+        """
+
+        userCmd = expandCommand(userCmd)
+
+        if not self.conn.isConnected:
+            userCmd.setState(userCmd.Failed, "Not Connected to TCS")
+            return userCmd
+
+        if (self.status.statusFieldDict['mrp'].value is None or
+                self.status.statusFieldDict['mrp'].value['fflamp'] < 0):
+            userCmd.setState(userCmd.Failed, "No MRP status")
+            return userCmd
+
+        current = self.status.statusFieldDict['mrp'].value['fflamp']
+        if (current == 0 and on is False) or (current == 1 and on is True):
+            userCmd.setState(userCmd.Done, "FF lamp already in desired state")
+            return userCmd
+
+        waitFFLampCmd = expandCommand()
+        def finishFFLampTimer():
+            kwDict = self.status.getTCCKWDict()
+            ffLamp = kwDict['ffLamp']
+            if ffLamp < 0 or bool(ffLamp) is not on:
+                waitFFLampCmd.setState(waitFFLampCmd.Failed, "FF lamp did not change state")
+                return
+
+            userCmd.writeToUsers('i', 'ffLamp=%s' % ffLamp)
+            waitFFLampCmd.setState(waitFFLampCmd.Done)
+
+        toggleFF = DevCmd(cmdStr="FFLAMPS")
+        getMRP = DevCmd(cmdStr="mrp")
+        userCmd.linkCommands([toggleFF, getMRP, waitFFLampCmd])
+
+        self.queueDevCmd(toggleFF)
+        self.queueDevCmd(getMRP)
+
+        # Give some time for the MRP command to update the ffLamp status before checking
+        # that the lamp changed states and finish the command.
+        reactor.callLater(1, finishFFLampTimer)
+        return userCmd
 
     def handleReply(self, replyStr):
         """Handle a line of output from the device. Called whenever the device outputs a new line of data.
@@ -950,7 +1047,7 @@ class TCSDevice(TCPDevice):
         try:
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmdStr))
-                if CMDOFF.upper() == devCmdStr:
+                if CMDOFF.upper() == devCmdStr and not self.waitOffsetCmd.Running:
                     self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
                 elif "CIR" in devCmdStr:
                     self.waitRotCmd.setState(self.waitRotCmd.Running)

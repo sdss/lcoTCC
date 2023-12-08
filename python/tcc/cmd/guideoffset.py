@@ -10,19 +10,20 @@ def guideoffset(tccActor, userCmd):
     """adjust collimation parameters
     """
     parsedCmd = userCmd.parsedCmd
-    offRA, offDec, offRot, offFocus, multScale = parsedCmd.paramDict["offsets"].valueList
+    offRA, offDec, offRot, offFocus = parsedCmd.paramDict["offsets"].valueList
+    if userCmd.parsedCmd.qualDict['waittime'].boolValue:
+        waitTime = float(userCmd.parsedCmd.qualDict['waittime'].valueList[0])
+    else:
+        waitTime=None
+    if offRot and waitTime is not None:
+        userCmd.writeToUsers("w", "text=waittime is ignored for rotator corrections")
+        waitTime=None
     cmdList = []
     if offRA or offDec:
         # ra dec offset wanted
-        cmdList.append(tccActor.tcsDev.slewOffset(offRA, offDec))
+        cmdList.append(tccActor.tcsDev.slewOffset(offRA, offDec, waitTime=waitTime))
     if offRot:
         cmdList.append(tccActor.tcsDev.rotOffset(offRot))
-    if multScale != 1:
-        # move scale, and update the focus offset
-        absPosMM = tccActor.scaleMult2mm(multScale)
-        extraFocusOffset = (absPosMM - tccActor.scaleDev.motorPos) * UM_PER_MM * tccActor.SCALE_RATIO * -1
-        offFocus += extraFocusOffset
-        cmdList.append(tccActor.scaleDev.move(absPosMM))
     if offFocus:
         cmdList.append(tccActor.secDev.focus(offFocus, offset=True))
     if not cmdList:
