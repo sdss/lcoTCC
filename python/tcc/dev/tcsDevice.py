@@ -955,9 +955,10 @@ class TCSDevice(TCPDevice):
 
             if ffLamp == "?" or (ffLamp == "F" and on) or (ffLamp == "T" and not on):
                 waitFFLampCmd.setState(waitFFLampCmd.Failed, "FF lamp did not change state")
+                self.tccStatus.updateKW("ffLamp", "?", userCmd)
                 return
 
-            userCmd.writeToUsers('i', 'ffLamp=%s' % ffLamp)
+            self.tccStatus.updateKW("ffLamp", ffLamp, userCmd)
             waitFFLampCmd.setState(waitFFLampCmd.Done)
 
         toggleFF = DevCmd(cmdStr="FFLAMPS")
