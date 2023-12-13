@@ -402,7 +402,9 @@ class Status(object):
     def ffLamp(self):
         """Returns the status on/off of the FF lamp."""
         mrp = self.statusFieldDict["mrp"].value
-        return bool(mrp['fflamp']) if (mrp is not None and 'fflamp' in mrp) else "?"
+        if mrp is None or 'fflamp' not in mrp:
+            return '?'
+        return "T" if mrp['fflamp'] else "F"
 
     # def secFocus(self):
     #     secFocus = self.statusFieldDict["focus"].value
@@ -950,7 +952,8 @@ class TCSDevice(TCPDevice):
         def finishFFLampTimer():
             kwDict = self.status.getTCCKWDict()
             ffLamp = kwDict['ffLamp']
-            if ffLamp == "?" or bool(ffLamp) is not on:
+
+            if ffLamp == "?" or (ffLamp == "F" and on) or (ffLamp == "T" and not on):
                 waitFFLampCmd.setState(waitFFLampCmd.Failed, "FF lamp did not change state")
                 return
 
