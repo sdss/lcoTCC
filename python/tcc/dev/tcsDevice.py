@@ -402,7 +402,7 @@ class Status(object):
     def ffLamp(self):
         """Returns the status on/off of the FF lamp."""
         mrp = self.statusFieldDict["mrp"].value
-        return int(mrp['fflamp']) if (mrp is not None and 'fflamp' in mrp) else -1
+        return bool(mrp['fflamp']) if (mrp is not None and 'fflamp' in mrp) else "?"
 
     # def secFocus(self):
     #     secFocus = self.statusFieldDict["focus"].value
@@ -937,12 +937,12 @@ class TCSDevice(TCPDevice):
             return userCmd
 
         if (self.status.statusFieldDict['mrp'].value is None or
-                self.status.statusFieldDict['mrp'].value['fflamp'] < 0):
+                self.status.statusFieldDict['mrp'].value['fflamp'] == "?"):
             userCmd.setState(userCmd.Failed, "No MRP status")
             return userCmd
 
         current = self.status.statusFieldDict['mrp'].value['fflamp']
-        if (current == 0 and on is False) or (current == 1 and on is True):
+        if (current is False and on is False) or (current is True and on is True):
             userCmd.setState(userCmd.Done, "FF lamp already in desired state")
             return userCmd
 
@@ -950,7 +950,7 @@ class TCSDevice(TCPDevice):
         def finishFFLampTimer():
             kwDict = self.status.getTCCKWDict()
             ffLamp = kwDict['ffLamp']
-            if ffLamp < 0 or bool(ffLamp) is not on:
+            if ffLamp == "?" or bool(ffLamp) is not on:
                 waitFFLampCmd.setState(waitFFLampCmd.Failed, "FF lamp did not change state")
                 return
 
