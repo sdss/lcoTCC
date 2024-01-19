@@ -735,8 +735,8 @@ class TCSDevice(TCPDevice):
 
                 # If the telescope is below telescope_alt_limit, the FFS cannot go any lower.
 
-                ffs_altitude += 0.1
-                alt = telescope_alt_limit + 0.1
+                # ffs_altitude += 0.1
+                alt = telescope_alt_limit # + 0.1
 
                 (ha, dec), atPole = haDecFromAzAlt([az, alt], LCO_LATITUDE)
 
