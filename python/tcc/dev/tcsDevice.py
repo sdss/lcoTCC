@@ -762,9 +762,7 @@ class TCSDevice(TCPDevice):
 
         if ffs_altitude is not None:
             # add the screen position to the device command list
-            devCmdList += [DevCmd(cmdStr='SCREEN %.2f' % ffs_altitude)]
-        else:
-            devCmdList += [DevCmd(cmdStr='SCREEN AUTO')]
+            devCmdList += [DevCmd(cmdStr='INPS %.2f' % ffs_altitude)]
         # set userCmd done only when each device command finishes
         # AND the pending slew is also done.
         # when the last dev cmd is done (the slew), set axis cmd statue to slewing
