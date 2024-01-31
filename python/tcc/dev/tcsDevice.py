@@ -948,29 +948,29 @@ class TCSDevice(TCPDevice):
             userCmd.setState(userCmd.Done, "FF lamp already in desired state")
             return userCmd
 
-        waitFFLampCmd = expandCommand()
-        def finishFFLampTimer():
-            kwDict = self.status.getTCCKWDict()
-            ffLamp = kwDict['ffLamp']
+        # waitFFLampCmd = expandCommand()
+        # def finishFFLampTimer():
+        #     kwDict = self.status.getTCCKWDict()
+        #     ffLamp = kwDict['ffLamp']
 
-            if ffLamp == "?" or (ffLamp == "F" and on) or (ffLamp == "T" and not on):
-                waitFFLampCmd.setState(waitFFLampCmd.Failed, "FF lamp did not change state")
-                self.tccStatus.updateKW("ffLamp", "?", userCmd)
-                return
+        #     if ffLamp == "?" or (ffLamp == "F" and on) or (ffLamp == "T" and not on):
+        #         waitFFLampCmd.setState(waitFFLampCmd.Failed, "FF lamp did not change state")
+        #         self.tccStatus.updateKW("ffLamp", "?", userCmd)
+        #         return
 
-            self.tccStatus.updateKW("ffLamp", ffLamp, userCmd)
-            waitFFLampCmd.setState(waitFFLampCmd.Done)
+        #     self.tccStatus.updateKW("ffLamp", ffLamp, userCmd)
+        #     waitFFLampCmd.setState(waitFFLampCmd.Done)
 
         toggleFF = DevCmd(cmdStr="FFLAMPS")
         getMRP = DevCmd(cmdStr="mrp")
-        userCmd.linkCommands([toggleFF, getMRP, waitFFLampCmd])
+        userCmd.linkCommands([toggleFF]) #, getMRP, waitFFLampCmd])
 
         self.queueDevCmd(toggleFF)
         self.queueDevCmd(getMRP)
 
         # Give some time for the MRP command to update the ffLamp status before checking
         # that the lamp changed states and finish the command.
-        reactor.callLater(1, finishFFLampTimer)
+        # reactor.callLater(1, finishFFLampTimer)
         return userCmd
 
     def handleReply(self, replyStr):
