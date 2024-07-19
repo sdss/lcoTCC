@@ -658,6 +658,12 @@ class TCSDevice(TCPDevice):
             self.status.derrQueue.append(self.status.statusFieldDict["derr"].value)
             self.status.wsPosQueue.append(self.status.statusFieldDict["lplc"].value)
 
+            log.info("XXX ra error arcsec: %.2f"%self.status.statusFieldDict["rerr"].value)
+            log.info("XXX dec error arcsec: %.2f"%self.status.statusFieldDict["derr"].value)
+            log.info("XXX rotator pos: %.4f"%self.status.rotPos)
+            log.info("XXX ws pos: %.2f"%self.status.statusFieldDict["lplc"].value)
+            log.info("XXX rotator clamped: %s"%str(self.status.isClamped))
+
             if self.waitOffsetCmd.isActive and self.status.axesOnTarget:
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
@@ -668,13 +674,19 @@ class TCSDevice(TCPDevice):
                     self.status.statusFieldDict["state"].value in [Tracking, Halted] and
                     not self.status.wsMoving):
                 self.waitSlewCmd.setState(self.waitSlewCmd.Done)
+                log.info("XXX slew done")
 
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
                 # print("set rot command done", self.rotDelay, self.status.isClamped, self.status.rotMoving)
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
+                log.info("XXX rot done")
+
 
         self.status.updateTCCStatus(cmd)
         self._statusTimer.start(self.pollTime, self.getStatus)
+
+        # output a few pieces of status to the log continuously
+
 
     def abort_slews(self, userCmd=None):
         """Aborts any slew running."""
@@ -829,6 +841,7 @@ class TCSDevice(TCPDevice):
         def forceOffsetDone(waitOffsetCmd):
             if not waitOffsetCmd.isDone:
                 userCmd.writeToUsers("w", "Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
+                log.info("Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
                 waitOffsetCmd.setState(waitOffsetCmd.Done, "Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
 
         reactor.callLater(MAX_OFFSET_WAIT, forceOffsetDone, waitOffsetCmd)
@@ -853,6 +866,7 @@ class TCSDevice(TCPDevice):
         """
 
         userCmd = expandCommand(userCmd)
+        log.info("%s.rotOffset(userCmd=%s, rot=%.6f, force=%s, absolute=%s)" % (self, userCmd, rot, str(force), str(absolute)))
         if not self.conn.isConnected:
             userCmd.setState(userCmd.Failed, "Not Connected to TCS")
             return userCmd
