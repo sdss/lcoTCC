@@ -194,7 +194,7 @@ def castScreenPos(lcoReply):
         screenPos = items[7].strip()
         return float(screenPos)
     except:
-        print("error parsing lco screen pos: ", screenPos)
+        # print("error parsing lco screen pos: ", screenPos)
         return 0
 
 
@@ -415,10 +415,10 @@ class Status(object):
     def wsMoving(self):
         """ return true if ws is moving"""
         if len(self.wsPosQueue) < self.errBufferLen and numpy.all(self.wsPosQueue):
-            print("ws moving")
+            # print("ws moving")
             return True
         else:
-            print("ws stationary")
+            # print("ws stationary")
             return False
 
     def onTarget(self, errorBuffer):
@@ -658,12 +658,6 @@ class TCSDevice(TCPDevice):
             self.status.derrQueue.append(self.status.statusFieldDict["derr"].value)
             self.status.wsPosQueue.append(self.status.statusFieldDict["lplc"].value)
 
-            log.info("XXX ra error arcsec: %.2f"%self.status.statusFieldDict["rerr"].value)
-            log.info("XXX dec error arcsec: %.2f"%self.status.statusFieldDict["derr"].value)
-            log.info("XXX rotator pos: %.4f"%self.status.rotPos)
-            log.info("XXX ws pos: %.2f"%self.status.statusFieldDict["lplc"].value)
-            log.info("XXX rotator clamped: %s"%str(self.status.isClamped))
-
             if self.waitOffsetCmd.isActive and self.status.axesOnTarget:
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
@@ -674,12 +668,10 @@ class TCSDevice(TCPDevice):
                     self.status.statusFieldDict["state"].value in [Tracking, Halted] and
                     not self.status.wsMoving):
                 self.waitSlewCmd.setState(self.waitSlewCmd.Done)
-                log.info("XXX slew done")
 
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
                 # print("set rot command done", self.rotDelay, self.status.isClamped, self.status.rotMoving)
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
-                log.info("XXX rot done")
 
 
         self.status.updateTCCStatus(cmd)
@@ -892,7 +884,7 @@ class TCSDevice(TCPDevice):
             else:
                 tnow = time.time()
                 infoStr = "time since last guide rot update: %.2f"%(tnow-self.lastGuideRotApplied)
-                print(infoStr)
+                # print(infoStr)
                 log.info(infoStr)
                 self.lastGuideRotApplied = tnow
 
@@ -917,10 +909,10 @@ class TCSDevice(TCPDevice):
         # calculate time limit for rot move:
         rotTimeLimBuffer = 2 # check for clamp after 4 seconds
         self.rotDelay = True
-        print("setting rot delay true")
+        # print("setting rot delay true")
         def setRotBufferOff():
-            print("setting rot delay false")
-            print("rot buffer Off (clamped?)", self.status.isClamped)
+            # print("setting rot delay false")
+            # print("rot buffer Off (clamped?)", self.status.isClamped)
             self.rotDelay = False
         self.waitRotTimer.start(rotTimeLimBuffer, setRotBufferOff)
         #### should this be waitRotCmd ?!!?
