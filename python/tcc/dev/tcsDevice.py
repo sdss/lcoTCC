@@ -672,6 +672,7 @@ class TCSDevice(TCPDevice):
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
                 # print("set rot command done", self.rotDelay, self.status.isClamped, self.status.rotMoving)
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
+                self.waitRotCmd.writeToUsers("w", "rotator move complete")
 
 
         self.status.updateTCCStatus(cmd)
@@ -829,17 +830,16 @@ class TCSDevice(TCPDevice):
         enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
 
+        if waitTime is None or waitTime > MAX_OFFSET_WAIT:
+            waitTime = MAX_OFFSET_WAIT
 
         def forceOffsetDone(waitOffsetCmd):
             if not waitOffsetCmd.isDone:
-                userCmd.writeToUsers("w", "Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
-                log.info("Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
-                waitOffsetCmd.setState(waitOffsetCmd.Done, "Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
+                userCmd.writeToUsers("w", "Forcing offset done after %.2f seconds"%waitTime)
+                log.info("Forcing offset done after %.2f seconds"%waitTime)
+                waitOffsetCmd.setState(waitOffsetCmd.Done, "Forcing offset done after %.2f seconds"%waitTime)
 
-        reactor.callLater(MAX_OFFSET_WAIT, forceOffsetDone, waitOffsetCmd)
-
-        if waitTime is not None:
-            reactor.callLater(waitTime, forceOffsetDone, waitOffsetCmd)
+        reactor.callLater(waitTime, forceOffsetDone, waitOffsetCmd)
 
         userCmd.linkCommands(devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
