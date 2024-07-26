@@ -670,10 +670,10 @@ class TCSDevice(TCPDevice):
                 self.waitSlewCmd.setState(self.waitSlewCmd.Done)
 
             if self.waitRotCmd.isActive and not self.rotDelay and self.status.isClamped: #not self.status.rotMoving: #and self.status.rotOnTarget :
-                # print("set rot command done", self.rotDelay, self.status.isClamped, self.status.rotMoving)
+                print("set rot command done", self.rotDelay, self.status.isClamped, self.status.rotMoving)
                 self.waitRotCmd.setState(self.waitRotCmd.Done)
                 self.waitRotCmd.writeToUsers("w", "rotator move complete")
-                print("rotator move complete")
+                # print("rotator move complete")
 
 
         self.status.updateTCCStatus(cmd)
