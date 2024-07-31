@@ -25,6 +25,8 @@ def guideoffset(tccActor, userCmd):
     #     waitTime=None
 
     cmdList = []
+    if offRot:
+        cmdList.append(tccActor.tcsDev.rotOffset(offRot))
     if offRA or offDec:
         # ra dec offset wanted
         # calculate correct time to wait for an ra/dec offset
@@ -33,6 +35,9 @@ def guideoffset(tccActor, userCmd):
         waitTime = 0
 
         # convert to absolute arcsecs from degrees
+        # based on offset testing using felipe's
+        # galil telemetry to measure offset times
+        # as a function of offset size...
         absOffDec = numpy.abs(offDec) * 3600
         absOffRA = numpy.abs(offRA) * 3600
 
@@ -50,8 +55,6 @@ def guideoffset(tccActor, userCmd):
                 waitTime = _wt
 
         cmdList.append(tccActor.tcsDev.slewOffset(offRA, offDec, waitTime=waitTime))
-    if offRot:
-        cmdList.append(tccActor.tcsDev.rotOffset(offRot))
     if offFocus:
         cmdList.append(tccActor.secDev.focus(offFocus, offset=True))
     if not cmdList:
