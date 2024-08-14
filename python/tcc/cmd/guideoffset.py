@@ -15,15 +15,13 @@ def guideoffset(tccActor, userCmd):
         waitTime = float(userCmd.parsedCmd.qualDict['waittime'].valueList[0])
     else:
         waitTime=None
-    if offRot and waitTime is not None:
-        userCmd.writeToUsers("w", "text=waittime is ignored for rotator corrections")
-        waitTime=None
+
     cmdList = []
+    if offRot:
+        cmdList.append(tccActor.tcsDev.rotOffset(offRot))
     if offRA or offDec:
         # ra dec offset wanted
         cmdList.append(tccActor.tcsDev.slewOffset(offRA, offDec, waitTime=waitTime))
-    if offRot:
-        cmdList.append(tccActor.tcsDev.rotOffset(offRot))
     if offFocus:
         cmdList.append(tccActor.secDev.focus(offFocus, offset=True))
     if not cmdList:
