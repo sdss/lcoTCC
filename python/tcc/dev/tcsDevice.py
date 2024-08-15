@@ -928,7 +928,7 @@ class TCSDevice(TCPDevice):
         self.waitRotCmd.setTimeLimit(rotTimeLimBuffer + 20)
         self.status.setRotOffsetTarg(rot)
 
-        if numpy.abs(newPos = self.status.rotPos) < 0.25:
+        if numpy.abs(newPos - self.status.rotPos) < 0.25:
             tcsCMD = "APGCIR"
         else:
             tcsCMD = "CIR"
