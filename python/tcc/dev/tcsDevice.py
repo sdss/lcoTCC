@@ -205,9 +205,6 @@ def castCflags(lcoReply):
     print("telescope offsetting", haDecOffsetting)
     return haDecOffsetting
 
-def castState(lcoReply):
-    print("tcs state", lcoReply)
-    return int(lcoReply.strip())
 
 
 class StatusField(object):
@@ -258,7 +255,6 @@ StatusFieldList = [
                 StatusField("airmass", float),
                 StatusField("lplc", castScreenPos),
                 StatusField("cflags", castCflags),
-                StatusField("state", castState)
             ]
 
 class Status(object):
@@ -609,7 +605,7 @@ class TCSDevice(TCPDevice):
             # if clamp is not on, then we are moving the rotator
             return True
         else:
-            return False
+            return self.statusFieldDict["state"].value == Slewing
 
     @property
     def pollTime(self):
