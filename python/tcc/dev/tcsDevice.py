@@ -605,7 +605,7 @@ class TCSDevice(TCPDevice):
             # if clamp is not on, then we are moving the rotator
             return True
         else:
-            return self.statusFieldDict["state"].value == Slewing
+            return self.status.statusFieldDict["state"].value == Slewing
 
     @property
     def pollTime(self):
