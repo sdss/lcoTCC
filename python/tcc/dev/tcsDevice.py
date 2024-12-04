@@ -380,7 +380,7 @@ class Status(object):
     def axisCmdState(self):
         """Format the AxisCmdState keyword
         """
-        return "%s"%(", ".join(self.axisStatus))
+        return "%s"%(", ".join([str(x) for x in self.axisStatus]))
 
 
     def objNetPos(self):
