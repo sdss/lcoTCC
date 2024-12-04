@@ -202,7 +202,7 @@ def castCflags(lcoReply):
     items = lcoReply.strip().split()
     haDecOffsetting = 1 in [int(x) for x in items] #
     # return true if offsetting
-    print("telescope offsetting", haDecOffsetting)
+    # print("telescope offsetting", haDecOffsetting)
     return haDecOffsetting
 
 
@@ -909,7 +909,7 @@ class TCSDevice(TCPDevice):
             else:
                 tnow = time.time()
                 infoStr = "time since last guide rot update: %.2f"%(tnow-self.lastGuideRotApplied)
-                print(infoStr)
+                # print(infoStr)
                 log.info(infoStr)
                 self.lastGuideRotApplied = tnow
 
