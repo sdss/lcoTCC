@@ -855,7 +855,13 @@ class TCSDevice(TCPDevice):
                 log.info("Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
                 waitOffsetCmd.setState(waitOffsetCmd.Done, "Forcing offset done after %.2f seconds"%MAX_OFFSET_WAIT)
 
+
+        def setOffsetRunning(waitOffsetCmd):
+            if not waitOffsetCmd.isRunning:
+                waitOffsetCmd.setState(waitOffsetCmd.Running)
+
         reactor.callLater(MAX_OFFSET_WAIT, forceOffsetDone, waitOffsetCmd)
+        reactor.callLater(1, setOffsetRunning, waitOffsetCmd)
 
         if waitTime is not None:
             reactor.callLater(waitTime, forceOffsetDone, waitOffsetCmd)
@@ -863,7 +869,6 @@ class TCSDevice(TCPDevice):
         userCmd.linkCommands(devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
-        self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
         self.status.updateTCCStatus(userCmd)
         return userCmd
 
