@@ -674,7 +674,7 @@ class TCSDevice(TCPDevice):
             log.info("XXX ws pos: %.2f"%self.status.statusFieldDict["lplc"].value)
             log.info("XXX rotator clamped: %s"%str(self.status.isClamped))
 
-            if self.waitOffsetCmd.isActive and self.status.axesOnTarget:
+            if self.waitOffsetCmd.isActive and self.status.statusFieldDict["cflags"].value == False:
                 self.waitOffsetCmd.setState(self.waitOffsetCmd.Done)
 
             if not self.waitSlewCmd.isDone and self.status.statusFieldDict["state"].value==Slewing:
