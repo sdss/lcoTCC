@@ -197,6 +197,18 @@ def castScreenPos(lcoReply):
         print("error parsing lco screen pos: ", screenPos)
         return 0
 
+def castCflags(lcoReply):
+    # return true if telescope is offsetting
+    items = lcoReply.strip().split()
+    haDecOffsetting = 1 in [int(x) for x in items] #
+    # return true if offsetting
+    print("telescope offsetting", haDecOffsetting)
+    return haDecOffsetting
+
+def castState(lcoReply):
+    print("tcs state", lcoReply)
+    return int(lcoReply.strip())
+
 
 class StatusField(object):
     def __init__(self, cmdVerb, castFunc):
@@ -244,7 +256,9 @@ StatusFieldList = [
                 StatusField("ttruss", float),
                 StatusField("rawpos", castRawPos),
                 StatusField("airmass", float),
-                StatusField("lplc", castScreenPos)
+                StatusField("lplc", castScreenPos),
+                StatusField("cflags", castCflags),
+                StatusField("state", castState)
             ]
 
 class Status(object):
