@@ -843,6 +843,7 @@ class TCSDevice(TCPDevice):
         waitOffsetCmd = expandCommand()
         self.waitOffsetCmd = waitOffsetCmd
 
+
         enterRa = "OFRA %.8f"%(ra*ArcSecPerDeg)
         enterDec = "OFDC %.8f"%(dec*ArcSecPerDeg) #lcohack
         devCmdList = [DevCmd(cmdStr=cmdStr) for cmdStr in [enterRa, enterDec, CMDOFF]]
@@ -862,6 +863,7 @@ class TCSDevice(TCPDevice):
         userCmd.linkCommands(devCmdList + [self.waitOffsetCmd])
         for devCmd in devCmdList:
             self.queueDevCmd(devCmd)
+        self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
         self.status.updateTCCStatus(userCmd)
         return userCmd
 
