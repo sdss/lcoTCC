@@ -857,7 +857,7 @@ class TCSDevice(TCPDevice):
 
 
         def setOffsetRunning(waitOffsetCmd):
-            if not waitOffsetCmd.isRunning:
+            if not waitOffsetCmd.isActive:
                 waitOffsetCmd.setState(waitOffsetCmd.Running)
 
         reactor.callLater(MAX_OFFSET_WAIT, forceOffsetDone, waitOffsetCmd)
