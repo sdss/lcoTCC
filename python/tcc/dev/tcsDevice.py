@@ -1083,6 +1083,7 @@ class TCSDevice(TCPDevice):
             if self.conn.isConnected:
                 log.info("%s writing %r" % (self, devCmdStr))
                 if CMDOFF.upper() == devCmdStr and not self.waitOffsetCmd.Running:
+                    print("setting waitOffset command to running")
                     self.waitOffsetCmd.setState(self.waitOffsetCmd.Running)
                 elif "CIR" in devCmdStr:
                     self.waitRotCmd.setState(self.waitRotCmd.Running)
